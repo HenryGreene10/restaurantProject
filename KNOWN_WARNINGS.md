@@ -26,6 +26,12 @@
 8) Phone Number as Identity
 - Customers authenticate via phone + OTP; email is optional for marketing.
 
+9) Charge the First Restaurant
+- Even at a discount. Free users provide lower‑quality feedback and delay validation.
+
+10) Sequential Order Numbers
+- Use an atomic per‑tenant sequence (e.g., `RestaurantOrderSequence`) — never “count existing orders”.
+
 ## Non‑Functional Requirements (Binding)
 - Order placement to kitchen screen: under 2 seconds E2E.
 - Kitchen screen: resilient to Wi‑Fi drops with optimistic UI and auto‑reconnect.

@@ -8,3 +8,7 @@ Before moving past the first vertical slice, provide a realistic seed script tha
 - Push subscriptions where feasible for demo (plus safe fallbacks).
 
 Seeds must be idempotent and clearly tagged as demo data.
+
+## Canonical Seed Tenants
+- joes-pizza — order sequence starts at 1003
+- sunrise-cafe — order sequence starts at 2003
