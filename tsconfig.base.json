@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2021",
+    "lib": ["ES2021", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "baseUrl": ".",
+    "paths": {
+      "@repo/db": ["packages/db/src"],
+      "@repo/brand-config": ["packages/brand-config/src"],
+      "@repo/auth": ["packages/auth/src"],
+      "@repo/ai": ["packages/ai-assistant/src"],
+      "@repo/notify": ["packages/notifications/src"],
+      "@repo/payments": ["packages/payments/src"],
+      "@repo/ui": ["packages/ui-common/src"]
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "name": "local-restaurant-platform",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Multi-tenant white-label restaurant ordering platform (monorepo)",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm -w apps/api run dev",
+    "build": "npm -ws run build --if-present",
+    "lint": "echo add linter later",
+    "format": "echo add formatter later",
+    "typecheck": "npm -ws run typecheck --if-present"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

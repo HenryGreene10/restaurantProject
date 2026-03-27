@@ -1,0 +1,203 @@
+// Prisma schema for multi-tenant restaurant platform
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum OrderStatus {
+  RECEIVED
+  IN_PREPARATION
+  READY
+  OUT_FOR_DELIVERY
+  COMPLETED
+  CANCELLED
+}
+
+enum OrderType {
+  PICKUP
+  DELIVERY
+}
+
+model Restaurant {
+  id               String        @id @default(uuid())
+  slug             String        @unique
+  name             String
+  timezone         String        @default("America/New_York")
+  stripeAccountId  String?       @unique
+  subscriptionId   String?
+  brandTheme       BrandTheme?
+  domains          Domain[]
+  admins           AdminUser[]
+  customers        Customer[]
+  categories       MenuCategory[]
+  items            MenuItem[]
+  orders           Order[]
+  promotions       Promotion[]
+  loyaltyAccounts  LoyaltyAccount[]
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+}
+
+model Domain {
+  id           String     @id @default(uuid())
+  hostname     String     @unique
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  restaurantId String
+  createdAt    DateTime   @default(now())
+}
+
+model BrandTheme {
+  id           String     @id @default(uuid())
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  restaurantId String     @unique
+  // JSON config with colors, logo, fonts, etc.
+  config       Json
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+
+model AdminUser {
+  id           String     @id @default(uuid())
+  email        String
+  passwordHash String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  restaurantId String
+  createdAt    DateTime   @default(now())
+  @@unique([restaurantId, email])
+}
+
+model Customer {
+  id           String     @id @default(uuid())
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  restaurantId String
+  phone        String?
+  email        String?
+  name         String?
+  totalSpend   Int        @default(0)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  orders       Order[]
+  loyalty      LoyaltyAccount?
+  @@index([restaurantId, phone])
+  @@index([restaurantId, email])
+}
+
+model MenuCategory {
+  id           String     @id @default(uuid())
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  restaurantId String
+  name         String
+  position     Int        @default(0)
+  items        MenuItem[]
+}
+
+model MenuItem {
+  id           String        @id @default(uuid())
+  restaurant   Restaurant    @relation(fields: [restaurantId], references: [id])
+  restaurantId String
+  category     MenuCategory? @relation(fields: [categoryId], references: [id])
+  categoryId   String?
+  name         String
+  description  String?
+  photoUrl     String?
+  basePrice    Int           // cents
+  availability String        @default("available") // available | sold_out | hidden | scheduled
+  variants     MenuVariant[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model MenuVariant {
+  id           String   @id @default(uuid())
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  restaurantId String
+  item         MenuItem @relation(fields: [itemId], references: [id])
+  itemId       String
+  name         String
+  priceDelta   Int      @default(0) // cents
+}
+
+model Order {
+  id           String       @id @default(uuid())
+  restaurant   Restaurant   @relation(fields: [restaurantId], references: [id])
+  restaurantId String
+  customer     Customer?    @relation(fields: [customerId], references: [id])
+  customerId   String?
+  status       OrderStatus  @default(RECEIVED)
+  type         OrderType    @default(PICKUP)
+  subtotal     Int
+  tax          Int          @default(0)
+  total        Int
+  notes        String?
+  paymentRef   String?
+  pickupTime   DateTime?
+  deliveryAddr Json?
+  items        OrderItem[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  @@index([restaurantId, createdAt])
+}
+
+model OrderItem {
+  id           String   @id @default(uuid())
+  order        Order    @relation(fields: [orderId], references: [id])
+  orderId      String
+  restaurantId String
+  itemId       String
+  name         String
+  variant      String?
+  modifiers    Json?
+  quantity     Int       @default(1)
+  price        Int       // line price in cents
+}
+
+model Promotion {
+  id           String     @id @default(uuid())
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  restaurantId String
+  code         String
+  description  String?
+  discountType String   // percent | amount
+  value        Int      // either percent points or cents
+  active       Boolean  @default(true)
+  startsAt     DateTime?
+  endsAt       DateTime?
+  redemptions  PromotionRedemption[]
+  @@unique([restaurantId, code])
+}
+
+model PromotionRedemption {
+  id           String     @id @default(uuid())
+  promotion    Promotion  @relation(fields: [promotionId], references: [id])
+  promotionId  String
+  restaurantId String
+  customerId   String?
+  orderId      String?
+  createdAt    DateTime   @default(now())
+}
+
+model LoyaltyAccount {
+  id           String     @id @default(uuid())
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id])
+  restaurantId String
+  customer     Customer   @relation(fields: [customerId], references: [id])
+  customerId   String     @unique
+  points       Int        @default(0)
+  createdAt    DateTime   @default(now())
+  events       LoyaltyEvent[]
+}
+
+model LoyaltyEvent {
+  id           String         @id @default(uuid())
+  account      LoyaltyAccount @relation(fields: [accountId], references: [id])
+  accountId    String
+  restaurantId String
+  type         String
+  delta        Int
+  createdAt    DateTime @default(now())
+}
