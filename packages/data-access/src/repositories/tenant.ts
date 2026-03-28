@@ -127,6 +127,24 @@ export function createTenantDataAccess(scope: TenantScope) {
           }
         })
       })
+    },
+
+    async listActiveKitchenOrders(): Promise<CreatedOrder[]> {
+      return withTenantConnection(scope.restaurantId, async (prisma) => {
+        return prisma.order.findMany({
+          where: scoped.scopeWhere({
+            status: {
+              in: ["RECEIVED", "IN_PREPARATION", "READY"]
+            }
+          }),
+          include: {
+            items: true
+          },
+          orderBy: {
+            createdAt: "desc"
+          }
+        })
+      })
     }
   }
 
