@@ -13,7 +13,11 @@ export async function verifyPassword(pw: string, hash: string): Promise<boolean>
 const TokenPayload = z.object({ sub: z.string(), restaurantId: z.string(), role: z.enum(['admin', 'staff']) })
 export type TokenPayload = z.infer<typeof TokenPayload>
 
-export function signToken(payload: TokenPayload, secret: string, ttl = '7d'): string {
+export function signToken(
+  payload: TokenPayload,
+  secret: string,
+  ttl: jwt.SignOptions['expiresIn'] = '7d'
+): string {
   return jwt.sign(payload, secret, { expiresIn: ttl })
 }
 

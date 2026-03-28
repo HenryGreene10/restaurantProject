@@ -34,7 +34,7 @@ export function createTenantScope(restaurantId: string): TenantScope {
 
 export function scopeWhere<TWhere extends object>(
   scope: TenantScope,
-  where: WithoutRestaurantId<TWhere> = {} as WithoutRestaurantId<TWhere>
+  where: WithoutRestaurantId<TWhere>
 ): TenantScoped<TWhere> {
   return {
     ...where,

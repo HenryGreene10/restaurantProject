@@ -9,10 +9,25 @@ export function createPlatformDataAccess() {
   const prisma = getInternalPrismaClient()
 
   return {
+    async findTenantBySlug(slug: string): Promise<ResolvedTenant | null> {
+      const restaurant = await prisma.restaurant.findUnique({
+        where: { slug: slug.toLowerCase() }
+      })
+
+      if (!restaurant) {
+        return null
+      }
+
+      return {
+        id: restaurant.id,
+        slug: restaurant.slug
+      }
+    },
+
     async findTenantByHost(host: string): Promise<ResolvedTenant | null> {
       const hostname = host.split(":")[0].toLowerCase()
 
-      const domain = await prisma.domain.findUnique({
+      const domain = await prisma.restaurantDomain.findUnique({
         where: { hostname }
       })
 
@@ -34,18 +49,7 @@ export function createPlatformDataAccess() {
         return null
       }
 
-      const restaurant = await prisma.restaurant.findUnique({
-        where: { slug: hostParts[0] }
-      })
-
-      if (!restaurant) {
-        return null
-      }
-
-      return {
-        id: restaurant.id,
-        slug: restaurant.slug
-      }
+      return this.findTenantBySlug(hostParts[0])
     }
   }
 }
