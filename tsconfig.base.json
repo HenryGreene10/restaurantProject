@@ -14,6 +14,7 @@
       "@repo/db": ["packages/db/src"],
       "@repo/brand-config": ["packages/brand-config/src"],
       "@repo/auth": ["packages/auth/src"],
+      "@repo/data-access": ["packages/data-access/src"],
       "@repo/ai": ["packages/ai-assistant/src"],
       "@repo/notify": ["packages/notifications/src"],
       "@repo/payments": ["packages/payments/src"],
