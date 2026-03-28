@@ -4,8 +4,17 @@ const EnvSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default('development'),
   PORT: z.string().default('4000'),
   DATABASE_URL: z.string(),
-  JWT_SECRET: z.string(),
+  JWT_SECRET: z.string().optional(),
+  JWT_ACCESS_SECRET: z.string(),
+  JWT_REFRESH_SECRET: z.string(),
+  JWT_ISSUER: z.string().default('restaurant-platform'),
+  JWT_AUDIENCE: z.string().default('restaurant-platform-customers'),
+  CUSTOMER_ACCESS_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().default(900),
+  CUSTOMER_REFRESH_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().default(2592000),
   BASE_DOMAIN: z.string(),
+  TWILIO_ACCOUNT_SID: z.string(),
+  TWILIO_AUTH_TOKEN: z.string(),
+  TWILIO_VERIFY_SERVICE_SID: z.string(),
 })
 
 type Env = z.infer<typeof EnvSchema>

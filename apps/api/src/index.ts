@@ -9,6 +9,7 @@ import { registerMenuRoutes } from './routes/menu'
 import { registerOrderRoutes } from './routes/orders'
 import { registerAssistantRoutes } from './routes/assistant'
 import { registerKitchenRoutes } from './routes/kitchen'
+import { registerCustomerAuthRoutes } from './routes/customer-auth'
 
 const app = express()
 app.use(cors())
@@ -17,6 +18,7 @@ app.use(morgan('dev'))
 
 registerHealthRoutes(app)
 app.use(tenantMiddleware) // everything below here is tenant-scoped
+registerCustomerAuthRoutes(app)
 registerMenuRoutes(app)
 registerOrderRoutes(app)
 registerAssistantRoutes(app)
