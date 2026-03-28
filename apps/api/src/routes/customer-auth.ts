@@ -5,6 +5,7 @@ import {
   verifyCustomerOtp,
   verifyCustomerRefreshToken
 } from '@repo/auth'
+import { createTenantDataAccess, createTenantScope } from '@repo/data-access'
 import { z } from 'zod'
 import { env } from '../config/env'
 import type { TenantRequest } from '../middleware/tenant'
@@ -103,7 +104,15 @@ export function registerCustomerAuthRoutes(r: Router) {
         return res.status(401).json({ error: 'Verification code was not approved' })
       }
 
+      const tenantDataAccess = createTenantDataAccess(
+        createTenantScope(req.tenant.id)
+      )
+      const customer = await tenantDataAccess.customers.upsertByPhone({
+        phone: parsed.data.phone
+      })
+
       const tokens = issueCustomerTokens(customerTokenConfig(), {
+        customerId: customer.id,
         restaurantId: req.tenant.id,
         phone: parsed.data.phone
       })
@@ -136,7 +145,18 @@ export function registerCustomerAuthRoutes(r: Router) {
         return res.status(403).json({ error: 'Refresh token tenant mismatch' })
       }
 
+      const tenantDataAccess = createTenantDataAccess(
+        createTenantScope(req.tenant.id)
+      )
+      const customer = await tenantDataAccess.customers.findById(
+        payload.customerId
+      )
+      if (!customer || customer.phone !== payload.phone) {
+        return res.status(401).json({ error: 'Customer session is no longer valid' })
+      }
+
       const tokens = issueCustomerTokens(customerTokenConfig(), {
+        customerId: customer.id,
         restaurantId: payload.restaurantId,
         phone: payload.phone
       })

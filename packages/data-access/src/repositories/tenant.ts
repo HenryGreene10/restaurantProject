@@ -1,5 +1,6 @@
 import type {
   BrandTheme,
+  Customer,
   MenuCategory,
   MenuItem,
   MenuVariant,
@@ -36,6 +37,12 @@ type CreateOrderInput = {
 }
 
 type CreatedOrder = Order & { items: OrderItem[] }
+
+type UpsertCustomerByPhoneInput = {
+  phone: string
+  email?: string | null
+  name?: string | null
+}
 
 export function createTenantDataAccess(scope: TenantScope) {
   const scoped = bindTenantScope(scope)
@@ -80,6 +87,56 @@ export function createTenantDataAccess(scope: TenantScope) {
       return withTenantConnection(scope.restaurantId, async (prisma) => {
         return prisma.menuCategory.create({
           data: scoped.scopeCreate(data)
+        })
+      })
+    }
+  }
+
+  const customers = {
+    async findById(customerId: string): Promise<Customer | null> {
+      return withTenantConnection(scope.restaurantId, async (prisma) => {
+        return prisma.customer.findFirst({
+          where: scoped.scopeWhere({
+            id: customerId
+          })
+        })
+      })
+    },
+
+    async findByPhone(phone: string): Promise<Customer | null> {
+      return withTenantConnection(scope.restaurantId, async (prisma) => {
+        return prisma.customer.findFirst({
+          where: scoped.scopeWhere({
+            phone
+          })
+        })
+      })
+    },
+
+    async upsertByPhone(input: UpsertCustomerByPhoneInput): Promise<Customer> {
+      return withTenantConnection(scope.restaurantId, async (prisma) => {
+        const existingCustomer = await prisma.customer.findFirst({
+          where: scoped.scopeWhere({
+            phone: input.phone
+          })
+        })
+
+        if (existingCustomer) {
+          return prisma.customer.update({
+            where: { id: existingCustomer.id },
+            data: {
+              email: input.email ?? existingCustomer.email,
+              name: input.name ?? existingCustomer.name
+            }
+          })
+        }
+
+        return prisma.customer.create({
+          data: scoped.scopeCreate({
+            phone: input.phone,
+            email: input.email ?? null,
+            name: input.name ?? null
+          })
         })
       })
     }
@@ -150,6 +207,7 @@ export function createTenantDataAccess(scope: TenantScope) {
 
   return {
     scope,
+    customers,
     menu,
     orders
   }

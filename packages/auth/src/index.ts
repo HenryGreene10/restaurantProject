@@ -26,6 +26,7 @@ export function verifyToken(token: string, secret: string): TokenPayload {
 
 const CustomerAccessTokenPayload = z.object({
   sub: z.string(),
+  customerId: z.string(),
   restaurantId: z.string(),
   phone: z.string(),
   type: z.literal('customer-access')
@@ -33,6 +34,7 @@ const CustomerAccessTokenPayload = z.object({
 
 const CustomerRefreshTokenPayload = z.object({
   sub: z.string(),
+  customerId: z.string(),
   restaurantId: z.string(),
   phone: z.string(),
   type: z.literal('customer-refresh')
@@ -126,6 +128,7 @@ type CustomerTokenConfig = {
 }
 
 type CustomerIdentity = {
+  customerId: string
   restaurantId: string
   phone: string
 }
@@ -134,11 +137,12 @@ export function issueCustomerTokens(
   config: CustomerTokenConfig,
   identity: CustomerIdentity
 ): { accessToken: string; refreshToken: string } {
-  const sub = `${identity.restaurantId}:${identity.phone}`
+  const sub = identity.customerId
 
   const accessToken = jwt.sign(
     {
       sub,
+      customerId: identity.customerId,
       restaurantId: identity.restaurantId,
       phone: identity.phone,
       type: 'customer-access'
@@ -154,6 +158,7 @@ export function issueCustomerTokens(
   const refreshToken = jwt.sign(
     {
       sub,
+      customerId: identity.customerId,
       restaurantId: identity.restaurantId,
       phone: identity.phone,
       type: 'customer-refresh'
