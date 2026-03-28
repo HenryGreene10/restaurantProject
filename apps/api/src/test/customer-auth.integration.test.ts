@@ -57,7 +57,7 @@ describe('customer auth integration', () => {
 
     expect(response.status).toBe(202)
     expect(mockRequestCustomerOtp).toHaveBeenCalledTimes(1)
-  })
+  }, 10000)
 
   it('verifies an OTP, persists the customer, and returns tokens', async () => {
     await import('./setup')

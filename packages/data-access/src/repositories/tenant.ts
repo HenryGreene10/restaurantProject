@@ -911,6 +911,26 @@ export function createTenantDataAccess(scope: TenantScope) {
   }
 
   const orders = {
+    async findById(orderId: string) {
+      return withTenantConnection(scope.restaurantId, async (prisma) => {
+        return prisma.order.findFirst({
+          where: scoped.scopeWhere({ id: orderId }),
+          include: {
+            restaurant: true,
+            customer: true,
+            items: {
+              include: {
+                modifierSelections: true,
+              },
+            },
+            statusEvents: {
+              orderBy: [{ createdAt: "asc" }],
+            },
+          },
+        })
+      })
+    },
+
     async createOrder(input: CreateOrderInput) {
       return withTenantConnection(scope.restaurantId, async (prisma) => {
         const customer = input.customerId
@@ -1039,6 +1059,10 @@ export function createTenantDataAccess(scope: TenantScope) {
       return withTenantConnection(scope.restaurantId, async (prisma) => {
         const existing = await prisma.order.findFirst({
           where: scoped.scopeWhere({ id: orderId }),
+          include: {
+            restaurant: true,
+            customer: true,
+          },
         })
 
         if (!existing) {
@@ -1072,7 +1096,9 @@ export function createTenantDataAccess(scope: TenantScope) {
               payload: {
                 orderId,
                 orderNumber: existing.orderNumber,
-                customerPhone: existing.customerPhoneSnapshot,
+                restaurantName: existing.restaurant.name,
+                customerPhone:
+                  existing.customerPhoneSnapshot ?? existing.customer?.phone ?? null,
               },
             }),
           })

@@ -1,13 +1,46 @@
-export type SMS = { to: string; body: string }
-
-export async function sendSMS(sms: SMS): Promise<void> {
-  // Stub: integrate Twilio here using env creds
-  console.log('sendSMS', sms)
+export type SmsConfig = {
+  accountSid: string
+  authToken: string
+  messagingServiceSid: string
 }
 
-export type PushMessage = { endpoint: string; title: string; body: string }
+export type SMS = { to: string; body: string }
 
-export async function sendPush(msg: PushMessage): Promise<void> {
-  // Stub: use web-push library with VAPID keys
-  console.log('sendPush', msg)
+function twilioAuthHeader(config: SmsConfig) {
+  const credentials = Buffer.from(
+    `${config.accountSid}:${config.authToken}`,
+    'utf8'
+  ).toString('base64')
+
+  return `Basic ${credentials}`
+}
+
+export async function sendSMS(config: SmsConfig, sms: SMS): Promise<void> {
+  const response = await fetch(
+    `https://api.twilio.com/2010-04-01/Accounts/${config.accountSid}/Messages.json`,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: twilioAuthHeader(config),
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams({
+        To: sms.to,
+        Body: sms.body,
+        MessagingServiceSid: config.messagingServiceSid,
+      }),
+    }
+  )
+
+  if (!response.ok) {
+    const payload = (await response.json()) as { message?: string }
+    throw new Error(payload.message ?? 'Twilio Messaging request failed')
+  }
+}
+
+export function formatOrderReadySms(input: {
+  orderNumber: number
+  restaurantName: string
+}) {
+  return `Your order #${input.orderNumber} from ${input.restaurantName} is ready for pickup!`
 }
