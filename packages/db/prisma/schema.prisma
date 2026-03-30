@@ -88,6 +88,7 @@ enum NotificationJobStatus {
   PROCESSING
   SENT
   FAILED
+  PERMANENTLY_FAILED
 }
 
 model Restaurant {

@@ -55,6 +55,25 @@ describe('menu integration', () => {
     expect(response.body.categories).toHaveLength(1)
   })
 
+  it('serves the documented /menu route with x-tenant-slug', async () => {
+    await import('./setup')
+    const { createApp } = await import('../app')
+
+    mockGetPublicMenu.mockResolvedValue({
+      menu: { id: 'menu_1', name: 'Main Menu' },
+      categories: [{ id: 'cat_1', name: 'Pizza', items: [] }],
+      brandConfig: { restaurantId: 'rest_1', config: { appTitle: 'Joe\'s Pizza' } }
+    })
+
+    const response = await request(createApp())
+      .get('/menu')
+      .set('x-tenant-slug', 'joes-pizza')
+
+    expect(response.status).toBe(200)
+    expect(mockFindTenantBySlug).toHaveBeenCalledWith('joes-pizza')
+    expect(mockGetPublicMenu).toHaveBeenCalledTimes(1)
+  })
+
   it('resolves tenant from x-tenant-slug when present', async () => {
     await import('./setup')
     const { createApp } = await import('../app')

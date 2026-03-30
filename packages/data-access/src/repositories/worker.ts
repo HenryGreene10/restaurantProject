@@ -19,7 +19,8 @@ export function createWorkerDataAccess() {
           WITH claimed AS (
             SELECT id
             FROM "NotificationJob"
-            WHERE status = 'PENDING'
+            WHERE status IN ('PENDING', 'FAILED')
+              AND "retryCount" < 3
               AND "availableAt" <= NOW()
             ORDER BY "createdAt" ASC
             LIMIT ${limit}
@@ -67,14 +68,23 @@ export function createWorkerDataAccess() {
     },
 
     async markNotificationFailed(jobId: string, errorMessage: string) {
+      const existingJob = await prisma.notificationJob.findUnique({
+        where: { id: jobId },
+        select: { retryCount: true },
+      })
+
+      if (!existingJob) {
+        return
+      }
+
+      const nextRetryCount = existingJob.retryCount + 1
+
       await prisma.notificationJob.update({
         where: { id: jobId },
         data: {
-          status: "FAILED",
+          status: nextRetryCount >= 3 ? "PERMANENTLY_FAILED" : "FAILED",
           errorMessage,
-          retryCount: {
-            increment: 1,
-          },
+          retryCount: nextRetryCount,
         },
       })
     },

@@ -109,4 +109,46 @@ describe('notification worker', () => {
     expect(markNotificationSent).not.toHaveBeenCalled()
     expect(markNotificationFailed).toHaveBeenCalledWith('job_2', 'Twilio is down')
   })
+
+  it('marks jobs permanently failed after the third attempt', async () => {
+    const { processNotificationBatch } = await import('./notification-worker')
+
+    mockSendSMS.mockRejectedValue(new Error('Invalid destination'))
+
+    const claimNotificationJobs = vi.fn().mockResolvedValue([
+      {
+        id: 'job_3',
+        type: 'ORDER_READY',
+        payload: {
+          customerPhone: '+15555550125',
+          orderNumber: 1005,
+        },
+        restaurant: { name: 'Joe\'s Pizza' },
+        order: { orderNumber: 1005, customerPhoneSnapshot: '+15555550125' },
+        customer: null,
+        retryCount: 2,
+      },
+    ])
+    const markNotificationSent = vi.fn().mockResolvedValue(undefined)
+    const markNotificationFailed = vi.fn().mockResolvedValue(undefined)
+
+    await processNotificationBatch(
+      {
+        dataAccess: {
+          claimNotificationJobs,
+          markNotificationSent,
+          markNotificationFailed,
+        },
+        smsConfig: {
+          accountSid: 'AC_test',
+          authToken: 'token',
+          messagingServiceSid: 'MG_test',
+        },
+      },
+      10
+    )
+
+    expect(markNotificationSent).not.toHaveBeenCalled()
+    expect(markNotificationFailed).toHaveBeenCalledWith('job_3', 'Invalid destination')
+  })
 })
