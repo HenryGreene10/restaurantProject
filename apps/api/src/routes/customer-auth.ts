@@ -7,8 +7,8 @@ import {
 } from '@repo/auth'
 import { createTenantDataAccess, createTenantScope } from '@repo/data-access'
 import { z } from 'zod'
-import { env } from '../config/env'
-import type { TenantRequest } from '../middleware/tenant'
+import { env } from '../config/env.js'
+import type { TenantRequest } from '../middleware/tenant.js'
 
 const RequestOtpSchema = z.object({
   phone: z.string().min(8)

@@ -1,5 +1,5 @@
 import { Prisma } from "@prisma/client"
-import { getInternalPrismaClient } from "../prisma"
+import { getInternalPrismaClient } from "../prisma.js"
 
 type ClaimedNotificationJobRow = {
   id: string

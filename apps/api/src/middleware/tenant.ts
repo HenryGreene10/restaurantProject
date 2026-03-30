@@ -1,5 +1,5 @@
 import type { Request, Response, NextFunction } from 'express'
-import { tenantFromHost, tenantFromSlug } from '../lib/tenant'
+import { tenantFromHost, tenantFromSlug } from '../lib/tenant.js'
 
 export interface TenantRequest extends Request {
   tenant?: { id: string; slug: string }

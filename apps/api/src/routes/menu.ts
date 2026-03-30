@@ -1,6 +1,6 @@
 import type { Router } from 'express'
 import { createTenantDataAccess, createTenantScope } from '@repo/data-access'
-import type { TenantRequest } from '../middleware/tenant'
+import type { TenantRequest } from '../middleware/tenant.js'
 
 export function registerMenuRoutes(r: Router) {
   r.get('/v1/menu', async (req: TenantRequest, res) => {

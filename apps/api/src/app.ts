@@ -1,14 +1,14 @@
 import express from 'express'
 import morgan from 'morgan'
 import cors from 'cors'
-import { tenantMiddleware } from './middleware/tenant'
-import { registerHealthRoutes } from './routes/health'
-import { registerMenuRoutes } from './routes/menu'
-import { registerAdminMenuRoutes } from './routes/admin-menu'
-import { registerOrderRoutes } from './routes/orders'
-import { registerAssistantRoutes } from './routes/assistant'
-import { registerKitchenRoutes } from './routes/kitchen'
-import { registerCustomerAuthRoutes } from './routes/customer-auth'
+import { tenantMiddleware } from './middleware/tenant.js'
+import { registerHealthRoutes } from './routes/health.js'
+import { registerMenuRoutes } from './routes/menu.js'
+import { registerAdminMenuRoutes } from './routes/admin-menu.js'
+import { registerOrderRoutes } from './routes/orders.js'
+import { registerAssistantRoutes } from './routes/assistant.js'
+import { registerKitchenRoutes } from './routes/kitchen.js'
+import { registerCustomerAuthRoutes } from './routes/customer-auth.js'
 
 export function createApp() {
   const app = express()

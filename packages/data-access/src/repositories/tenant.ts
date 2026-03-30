@@ -7,12 +7,12 @@ import {
   OrderStatus,
   Prisma,
 } from "@prisma/client"
-import { withTenantConnection } from "../prisma"
+import { withTenantConnection } from "../prisma.js"
 import {
   bindTenantScope,
   type TenantScope,
   type WithoutRestaurantId,
-} from "../scope"
+} from "../scope.js"
 
 type UpsertCustomerByPhoneInput = {
   phone: string

@@ -1,7 +1,7 @@
 import type { Router } from 'express'
-import type { TenantRequest } from '../middleware/tenant'
+import type { TenantRequest } from '../middleware/tenant.js'
 import { createTenantDataAccess, createTenantScope } from '@repo/data-access'
-import { transitionOrderStatus } from '../services/order-status'
+import { transitionOrderStatus } from '../services/order-status.js'
 
 type OrderStatus =
   | 'PENDING'

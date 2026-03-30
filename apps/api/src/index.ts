@@ -1,6 +1,6 @@
 import 'dotenv/config'
-import { env } from './config/env'
-import { createApp } from './app'
+import { env } from './config/env.js'
+import { createApp } from './app.js'
 
 const port = Number(env().PORT)
 const app = createApp()

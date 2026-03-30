@@ -1,7 +1,7 @@
 import 'dotenv/config'
 import { createWorkerDataAccess } from '@repo/data-access'
-import { env } from './env'
-import { processNotificationBatch } from './notification-worker'
+import { env } from './env.js'
+import { processNotificationBatch } from './notification-worker.js'
 
 async function main() {
   const config = env()

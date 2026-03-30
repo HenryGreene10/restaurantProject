@@ -1,6 +1,6 @@
 import type { Response, Router } from 'express'
 import { createTenantDataAccess, createTenantScope } from '@repo/data-access'
-import type { TenantRequest } from '../middleware/tenant'
+import type { TenantRequest } from '../middleware/tenant.js'
 
 type CatalogVisibility = 'AVAILABLE' | 'SOLD_OUT' | 'HIDDEN' | 'SCHEDULED'
 type ModifierSelectionType = 'SINGLE' | 'MULTIPLE'

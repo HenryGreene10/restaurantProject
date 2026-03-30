@@ -5,13 +5,13 @@ export {
   scopeDelete,
   scopeUpdate,
   scopeWhere
-} from "./scope"
-export { createPlatformDataAccess } from "./repositories/platform"
-export { createTenantDataAccess } from "./repositories/tenant"
-export { createWorkerDataAccess } from "./repositories/worker"
+} from "./scope.js"
+export { createPlatformDataAccess } from "./repositories/platform.js"
+export { createTenantDataAccess } from "./repositories/tenant.js"
+export { createWorkerDataAccess } from "./repositories/worker.js"
 export type {
   TenantScope,
   TenantScoped,
   TenantScopedMutation,
   WithoutRestaurantId
-} from "./scope"
+} from "./scope.js"

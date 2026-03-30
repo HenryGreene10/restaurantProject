@@ -1,4 +1,4 @@
-import { getInternalPrismaClient } from "../prisma"
+import { getInternalPrismaClient } from "../prisma.js"
 
 export type ResolvedTenant = {
   id: string
