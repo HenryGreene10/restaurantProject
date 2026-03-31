@@ -22,7 +22,7 @@ type UpsertCustomerByPhoneInput = {
 
 type CreateOrderItemInput = {
   itemId?: string | null
-  name: string
+  name?: string
   variantName?: string | null
   quantity?: number
   unitPriceCents?: number
@@ -121,6 +121,10 @@ type ItemModifierGroupUpdateInput = Partial<Omit<ItemModifierGroupCreateInput, "
 
 function notFound(entityName: string): Error {
   return new Error(`${entityName} not found for tenant`)
+}
+
+function badRequest(message: string): Error {
+  return new Error(message)
 }
 
 async function ensureDefaultMenu(
@@ -933,15 +937,50 @@ export function createTenantDataAccess(scope: TenantScope) {
 
     async createOrder(input: CreateOrderInput) {
       return withTenantConnection(scope.restaurantId, async (prisma) => {
-        const customer = input.customerId
-          ? await prisma.customer.findFirst({
-              where: scoped.scopeWhere({ id: input.customerId }),
-            })
-          : null
+        let customer: Customer | null = null
 
-        const normalizedItems = input.items.map((item) => {
+        if (input.customerId) {
+          customer = await prisma.customer.findFirst({
+            where: scoped.scopeWhere({ id: input.customerId }),
+          })
+
+          if (!customer) {
+            throw badRequest("Customer not found for tenant")
+          }
+        } else if (input.customerPhoneSnapshot) {
+          customer =
+            (await prisma.customer.findFirst({
+              where: scoped.scopeWhere({ phone: input.customerPhoneSnapshot }),
+            })) ??
+            (await prisma.customer.create({
+              data: scoped.scopeCreate({
+                phone: input.customerPhoneSnapshot,
+                name: input.customerNameSnapshot ?? null,
+              }),
+            }))
+
+          if (!customer) {
+            throw badRequest("Customer lookup or creation failed")
+          }
+        } else {
+          throw badRequest("Customer phone is required to create an order")
+        }
+
+        const normalizedItems = await Promise.all(input.items.map(async (item) => {
+          if (!item.itemId) {
+            throw badRequest("Order items must include a valid itemId")
+          }
+
+          const menuItem = await prisma.menuItem.findFirst({
+            where: scoped.scopeWhere({ id: item.itemId }),
+          })
+
+          if (!menuItem) {
+            throw badRequest(`Menu item ${item.itemId} not found for tenant`)
+          }
+
           const quantity = item.quantity ?? 1
-          const unitPriceCents = item.unitPriceCents ?? 0
+          const unitPriceCents = item.unitPriceCents ?? menuItem.basePriceCents
           const modifierTotal = (item.modifiers ?? []).reduce(
             (sum, modifier) => sum + (modifier.priceDeltaCents ?? 0),
             0,
@@ -949,11 +988,13 @@ export function createTenantDataAccess(scope: TenantScope) {
 
           return {
             ...item,
+            itemId: menuItem.id,
+            name: menuItem.name,
             quantity,
             unitPriceCents,
             linePriceCents: (unitPriceCents + modifierTotal) * quantity,
           }
-        })
+        }))
 
         const subtotalCents = normalizedItems.reduce(
           (sum, item) => sum + item.linePriceCents,
@@ -970,7 +1011,7 @@ export function createTenantDataAccess(scope: TenantScope) {
         const createdOrder = await prisma.order.create({
           data: {
             ...scoped.scopeCreate({
-              customerId: input.customerId ?? null,
+              customerId: customer.id,
               orderNumber,
               status: "PENDING",
               paymentStatus: "PENDING",
@@ -983,9 +1024,9 @@ export function createTenantDataAccess(scope: TenantScope) {
               pickupTime: input.pickupTime ?? null,
               deliveryAddressSnapshot,
               customerNameSnapshot:
-                input.customerNameSnapshot ?? customer?.name ?? null,
+                input.customerNameSnapshot ?? customer.name ?? null,
               customerPhoneSnapshot:
-                input.customerPhoneSnapshot ?? customer?.phone ?? null,
+                input.customerPhoneSnapshot ?? customer.phone ?? null,
             }),
             items: {
               create: normalizedItems.map((item) => ({

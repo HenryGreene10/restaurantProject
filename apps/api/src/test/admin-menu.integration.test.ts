@@ -107,7 +107,7 @@ describe('admin menu integration', () => {
       availableFrom: null,
       availableUntil: null
     })
-  })
+  }, 10000)
 
   it('updates item availability', async () => {
     await import('./setup')

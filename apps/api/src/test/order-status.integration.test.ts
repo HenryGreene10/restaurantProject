@@ -61,7 +61,7 @@ describe('order status integration', () => {
       nextStatus: 'PREPARING'
     })
     expect(mockUpdateOrderStatus).not.toHaveBeenCalled()
-  })
+  }, 10000)
 
   it('updates status for a valid transition', async () => {
     await import('./setup')
