@@ -5,6 +5,12 @@ import { processNotificationBatch } from './notification-worker.js'
 
 async function main() {
   const config = env()
+
+  if (!config.WORKER_ENABLED) {
+    console.log('Worker disabled. Set WORKER_ENABLED=true to process notification jobs.')
+    return
+  }
+
   const dataAccess = createWorkerDataAccess()
 
   const runOnce = async () => {

@@ -499,7 +499,7 @@ async function seedRestaurant(definition, restaurantIndex) {
     const subtotalCents = item.basePriceCents * quantity
     const taxCents = Math.round(subtotalCents * 0.08875)
     const totalCents = subtotalCents + taxCents
-    const statusCycle = ["COMPLETED", "READY", "PREPARING", "CONFIRMED", "CANCELLED"]
+    const statusCycle = ["PREPARING", "CONFIRMED", "PENDING", "CANCELLED"]
     const status = statusCycle[index % statusCycle.length]
     const orderNumber = definition.orderNumberStart + index
     const createdAt = seededDate(Math.floor(index / 8), index % 12)
@@ -563,24 +563,6 @@ async function seedRestaurant(definition, restaurantIndex) {
       }
     })
 
-    if (status === "READY" || status === "COMPLETED") {
-      await prisma.notificationJob.create({
-        data: {
-          restaurantId: restaurant.id,
-          orderId: order.id,
-          customerId: customer.id,
-          type: "ORDER_READY",
-          status: status === "READY" ? "PENDING" : "SENT",
-          payload: {
-            phone: customer.phone,
-            message: `Your order #${orderNumber} from ${definition.name} is ready for pickup!`
-          },
-          retryCount: 0,
-          sentAt: status === "COMPLETED" ? createdAt : null,
-          availableAt: createdAt
-        }
-      })
-    }
   }
 
   return restaurant
