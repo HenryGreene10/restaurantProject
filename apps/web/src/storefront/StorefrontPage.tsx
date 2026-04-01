@@ -1,10 +1,13 @@
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { Flame, MapPin, ShieldCheck, Sparkles, Timer } from "lucide-react"
 
 import { Button } from "../components/Button"
 import { fetchTenantMenu } from "../lib/menu"
 import type { MenuCategory, MenuItem } from "../lib/menu"
+import { CartSummary } from "./CartSummary"
+import { ItemCustomizationDrawer } from "./ItemCustomizationDrawer"
+import { useCartStore } from "./cartStore"
 import { useTheme } from "../theme/ThemeProvider"
 import { useThemePlaygroundStore } from "../theme/store"
 
@@ -34,6 +37,14 @@ function visibleCategories(categories: MenuCategory[]) {
 export function StorefrontPage() {
   const { theme, isLoading: isThemeLoading, errorMessage: themeError } = useTheme()
   const { tenantSlug, source } = useThemePlaygroundStore()
+  const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null)
+  const [cartOpen, setCartOpen] = useState(false)
+  const cartItems = useCartStore((state) => state.items)
+  const addItem = useCartStore((state) => state.addItem)
+  const removeItem = useCartStore((state) => state.removeItem)
+  const incrementQuantity = useCartStore((state) => state.incrementQuantity)
+  const decrementQuantity = useCartStore((state) => state.decrementQuantity)
+  const clearCart = useCartStore((state) => state.clear)
   const menuQuery = useQuery({
     queryKey: ["tenant-menu", tenantSlug],
     queryFn: () => fetchTenantMenu(tenantSlug),
@@ -169,7 +180,13 @@ export function StorefrontPage() {
 
             <div className={`grid gap-4 ${menuCardColumns}`}>
               {featuredItems.map((item) => (
-                <MenuItemCard key={`featured-${item.id}`} item={item} themeMode={theme.menuCardLayout} featured />
+                <MenuItemCard
+                  key={`featured-${item.id}`}
+                  item={item}
+                  themeMode={theme.menuCardLayout}
+                  featured
+                  onCustomize={() => setSelectedItem(item)}
+                />
               ))}
             </div>
           </section>
@@ -191,6 +208,7 @@ export function StorefrontPage() {
                     key={entry.id}
                     item={entry.item}
                     themeMode={theme.menuCardLayout}
+                    onCustomize={() => setSelectedItem(entry.item)}
                   />
                 ))}
               </div>
@@ -210,6 +228,24 @@ export function StorefrontPage() {
           </div>
         ) : null}
       </div>
+
+      <ItemCustomizationDrawer
+        item={selectedItem}
+        open={!!selectedItem}
+        onClose={() => setSelectedItem(null)}
+        onAddToCart={(payload) => addItem(payload)}
+      />
+
+      <CartSummary
+        items={cartItems}
+        open={cartOpen}
+        onOpen={() => setCartOpen(true)}
+        onClose={() => setCartOpen(false)}
+        onIncrement={incrementQuantity}
+        onDecrement={decrementQuantity}
+        onRemove={removeItem}
+        onClear={clearCart}
+      />
     </main>
   )
 }
@@ -218,10 +254,12 @@ function MenuItemCard({
   item,
   themeMode,
   featured = false,
+  onCustomize,
 }: {
   item: MenuItem
   themeMode: "classic" | "compact" | "photo-first"
   featured?: boolean
+  onCustomize: () => void
 }) {
   const isPhotoFirst = themeMode === "photo-first"
   const isCompact = themeMode === "compact"
@@ -290,7 +328,13 @@ function MenuItemCard({
         </div>
 
         <div className="mt-5 flex flex-wrap items-center gap-3">
-          <Button className="text-sm">Customize</Button>
+          <Button
+            className="text-sm"
+            disabled={item.visibility === "SOLD_OUT"}
+            onClick={onCustomize}
+          >
+            {item.visibility === "SOLD_OUT" ? "Sold out" : "Customize"}
+          </Button>
           {item.variants.length > 1 ? (
             <div className="text-sm text-brand-muted">
               {item.variants.map((variant) => variant.name).join(" · ")}
