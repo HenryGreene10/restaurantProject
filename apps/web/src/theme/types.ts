@@ -26,6 +26,7 @@ export type BrandTheme = {
     radius: string
     shadow: string
   }
+  heroLayout: "immersive" | "minimal"
   menuCardLayout: "classic" | "compact" | "photo-first"
   showCategoryChips: boolean
   showFeaturedBadges: boolean
@@ -33,12 +34,3 @@ export type BrandTheme = {
 }
 
 export type ThemeSource = "api" | "joesPizza" | "cleanMinimal"
-
-export type BrandConfigApiResponse = {
-  brandConfig?: {
-    config?: Record<string, unknown>
-  } | null
-  brand?: {
-    config?: Record<string, unknown>
-  } | Record<string, unknown> | null
-}

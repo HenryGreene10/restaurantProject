@@ -1,5 +1,5 @@
-import { ThemePlaygroundPage } from "../playground/ThemePlaygroundPage"
+import { StorefrontPage } from "../storefront/StorefrontPage"
 
 export function App() {
-  return <ThemePlaygroundPage />
+  return <StorefrontPage />
 }

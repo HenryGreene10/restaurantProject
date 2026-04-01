@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 
-import { fetchBrandConfig } from "./api"
+import { fetchTenantMenu } from "../lib/menu"
 import { applyThemeVariables } from "./cssVariables"
 import { normalizeApiTheme } from "./normalize"
 import { themePresets } from "./presets"
@@ -20,8 +20,8 @@ const ThemeContext = createContext<ThemeContextValue | null>(null)
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const { source, tenantSlug } = useThemePlaygroundStore()
   const liveThemeQuery = useQuery({
-    queryKey: ["brand-config", tenantSlug],
-    queryFn: () => fetchBrandConfig(tenantSlug),
+    queryKey: ["tenant-menu", tenantSlug],
+    queryFn: () => fetchTenantMenu(tenantSlug),
     enabled: source === "api",
     staleTime: 60_000,
   })

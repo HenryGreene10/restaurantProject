@@ -1,5 +1,6 @@
 import { cleanMinimalTheme } from "./presets"
-import type { BrandConfigApiResponse, BrandTheme } from "./types"
+import type { MenuResponse } from "../lib/menu"
+import type { BrandTheme } from "./types"
 
 type LooseConfig = Record<string, unknown>
 
@@ -22,7 +23,7 @@ function pickString(config: LooseConfig | null, ...keys: string[]) {
   return undefined
 }
 
-export function normalizeApiTheme(data: BrandConfigApiResponse, tenantSlug: string): BrandTheme {
+export function normalizeApiTheme(data: MenuResponse, tenantSlug: string): BrandTheme {
   const nestedBrand = asRecord(data.brand)
   const config =
     asRecord(data.brandConfig?.config) ??
@@ -70,6 +71,10 @@ export function normalizeApiTheme(data: BrandConfigApiResponse, tenantSlug: stri
         cleanMinimalTheme.shape.radius,
       shadow: pickString(config, "shadow") ?? cleanMinimalTheme.shape.shadow,
     },
+    heroLayout:
+      config?.heroLayout === "immersive" || config?.heroLayout === "minimal"
+        ? config.heroLayout
+        : cleanMinimalTheme.heroLayout,
     menuCardLayout:
       config?.menuCardLayout === "compact" || config?.menuCardLayout === "photo-first"
         ? config.menuCardLayout
