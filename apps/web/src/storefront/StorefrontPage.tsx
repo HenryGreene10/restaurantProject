@@ -39,6 +39,12 @@ export function StorefrontPage() {
   const { tenantSlug, source } = useThemePlaygroundStore()
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null)
   const [cartOpen, setCartOpen] = useState(false)
+  const [submittingOrder, setSubmittingOrder] = useState(false)
+  const [orderSuccess, setOrderSuccess] = useState<{
+    orderId: string
+    orderNumber: number
+    status: string
+  } | null>(null)
   const cartItems = useCartStore((state) => state.items)
   const addItem = useCartStore((state) => state.addItem)
   const removeItem = useCartStore((state) => state.removeItem)
@@ -74,9 +80,76 @@ export function StorefrontPage() {
         ? "lg:grid-cols-2"
         : ""
 
+  async function submitPickupOrder(payload: {
+    customerName: string
+    customerPhone: string
+    orderNotes: string | null
+  }) {
+    setSubmittingOrder(true)
+
+    try {
+      const response = await fetch("/api/v1/orders", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-tenant-slug": tenantSlug,
+        },
+        body: JSON.stringify({
+          type: "PICKUP",
+          customerName: payload.customerName,
+          customerPhone: payload.customerPhone,
+          notes: payload.orderNotes,
+          items: cartItems.map((item) => ({
+            itemId: item.itemId,
+            variantName: item.variantName,
+            quantity: item.quantity,
+            unitPriceCents: item.unitPriceCents,
+            notes: item.notes,
+            modifiers: item.modifiers.map((modifier) => ({
+              groupName: modifier.groupName,
+              optionName: modifier.optionName,
+              priceDeltaCents: modifier.priceDeltaCents,
+            })),
+          })),
+        }),
+      })
+
+      const body = (await response.json().catch(() => null)) as
+        | { error?: string; id?: string; orderNumber?: number; status?: string }
+        | null
+
+      if (!response.ok) {
+        throw new Error(body?.error ?? `Failed to place order (${response.status})`)
+      }
+
+      clearCart()
+      setOrderSuccess({
+        orderId: body?.id ?? "unknown",
+        orderNumber: body?.orderNumber ?? 0,
+        status: body?.status ?? "PENDING",
+      })
+    } finally {
+      setSubmittingOrder(false)
+    }
+  }
+
   return (
     <main className="min-h-screen bg-brand-background text-brand-text">
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+        {orderSuccess ? (
+          <section className="mb-5 rounded-[28px] border border-emerald-200 bg-emerald-50 px-5 py-4 shadow-brand">
+            <div className="text-sm font-semibold uppercase tracking-[0.12em] text-emerald-700">
+              Order placed
+            </div>
+            <div className="mt-1 text-xl font-semibold text-emerald-950">
+              Pickup order #{orderSuccess.orderNumber || orderSuccess.orderId.slice(0, 6)} received.
+            </div>
+            <div className="mt-1 text-sm text-emerald-800">
+              Current status: {orderSuccess.status}. You can now move this into a full status page next.
+            </div>
+          </section>
+        ) : null}
+
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-brand border border-brand-border/70 bg-brand-surface/90 px-4 py-3 text-sm text-brand-muted shadow-brand">
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-4 w-4" />
@@ -239,12 +312,14 @@ export function StorefrontPage() {
       <CartSummary
         items={cartItems}
         open={cartOpen}
+        submitting={submittingOrder}
         onOpen={() => setCartOpen(true)}
         onClose={() => setCartOpen(false)}
         onIncrement={incrementQuantity}
         onDecrement={decrementQuantity}
         onRemove={removeItem}
         onClear={clearCart}
+        onCheckout={submitPickupOrder}
       />
     </main>
   )
