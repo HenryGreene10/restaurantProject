@@ -98,6 +98,28 @@ function formatPrice(priceCents: number) {
   }).format(priceCents / 100)
 }
 
+async function patchAdminJson<T>(
+  tenantSlug: string,
+  path: string,
+  body: unknown,
+) {
+  const response = await fetch(`/api${path}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      "x-tenant-slug": tenantSlug,
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null
+    throw new Error(payload?.error ?? `Request failed (${response.status})`)
+  }
+
+  return response.json() as Promise<T>
+}
+
 function previewStyle(theme: ThemeDraft): React.CSSProperties {
   const radius = `${theme.radius}px`
   return {
@@ -346,6 +368,7 @@ export const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
+  const [menuActionMessage, setMenuActionMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -355,6 +378,7 @@ export const App: React.FC = () => {
       setIsLoading(true)
       setError(null)
       setSaveMessage(null)
+      setMenuActionMessage(null)
 
       try {
         const menu = await fetchTenantMenu(tenantSlug)
@@ -390,6 +414,13 @@ export const App: React.FC = () => {
 
   const updateTheme = <K extends keyof ThemeDraft>(key: K, value: ThemeDraft[K]) => {
     setThemeDraft((current) => ({ ...current, [key]: value }))
+  }
+
+  const reloadMenu = async () => {
+    const refreshedMenu = await fetchTenantMenu(tenantSlug)
+    setMenuData(refreshedMenu)
+    setThemeDraft(buildDraft(refreshedMenu))
+    return refreshedMenu
   }
 
   const saveTheme = async () => {
@@ -428,14 +459,91 @@ export const App: React.FC = () => {
         throw new Error(payload?.error ?? `Failed to save theme (${response.status})`)
       }
 
-      const refreshedMenu = await fetchTenantMenu(tenantSlug)
-      setMenuData(refreshedMenu)
-      setThemeDraft(buildDraft(refreshedMenu))
+      await reloadMenu()
       setSaveMessage("Storefront settings saved.")
     } catch (nextError) {
       setSaveMessage(nextError instanceof Error ? nextError.message : "Failed to save theme")
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const reorderCategories = async (categoryId: string, direction: "up" | "down") => {
+    if (!menuData) return
+
+    const currentIndex = categories.findIndex((category) => category.id === categoryId)
+    const swapIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1
+    if (currentIndex < 0 || swapIndex < 0 || swapIndex >= categories.length) return
+
+    const reordered = [...categories]
+    ;[reordered[currentIndex], reordered[swapIndex]] = [reordered[swapIndex], reordered[currentIndex]]
+
+    try {
+      setMenuActionMessage("Saving category order…")
+      await Promise.all(
+        reordered.map((category, index) =>
+          patchAdminJson(tenantSlug, `/admin/menu/categories/${category.id}`, {
+            sortOrder: index,
+          }),
+        ),
+      )
+      await reloadMenu()
+      setMenuActionMessage("Category order saved.")
+    } catch (nextError) {
+      setMenuActionMessage(nextError instanceof Error ? nextError.message : "Failed to reorder categories")
+    }
+  }
+
+  const reorderCategoryItem = async (
+    categoryId: string,
+    itemId: string,
+    direction: "up" | "down",
+  ) => {
+    const category = categories.find((entry) => entry.id === categoryId)
+    if (!category) return
+
+    const itemIndex = category.categoryItems.findIndex((entry) => entry.item.id === itemId)
+    const swapIndex = direction === "up" ? itemIndex - 1 : itemIndex + 1
+    if (itemIndex < 0 || swapIndex < 0 || swapIndex >= category.categoryItems.length) return
+
+    const nextOrder = [...category.categoryItems.map((entry) => entry.item.id)]
+    ;[nextOrder[itemIndex], nextOrder[swapIndex]] = [nextOrder[swapIndex], nextOrder[itemIndex]]
+
+    try {
+      setMenuActionMessage("Saving item order…")
+      await patchAdminJson(tenantSlug, `/admin/menu/categories/${categoryId}/items/reorder`, {
+        itemIds: nextOrder,
+      })
+      await reloadMenu()
+      setMenuActionMessage("Item order saved.")
+    } catch (nextError) {
+      setMenuActionMessage(nextError instanceof Error ? nextError.message : "Failed to reorder items")
+    }
+  }
+
+  const updateItemPresentation = async (
+    itemId: string,
+    body: Record<string, unknown>,
+    successMessage: string,
+  ) => {
+    try {
+      setMenuActionMessage("Saving item settings…")
+      await patchAdminJson(tenantSlug, `/admin/menu/items/${itemId}`, body)
+      await reloadMenu()
+      setMenuActionMessage(successMessage)
+    } catch (nextError) {
+      setMenuActionMessage(nextError instanceof Error ? nextError.message : "Failed to update item")
+    }
+  }
+
+  const updateItemVisibility = async (itemId: string, visibility: string) => {
+    try {
+      setMenuActionMessage("Saving availability…")
+      await patchAdminJson(tenantSlug, `/admin/menu/items/${itemId}/availability`, { visibility })
+      await reloadMenu()
+      setMenuActionMessage("Availability updated.")
+    } catch (nextError) {
+      setMenuActionMessage(nextError instanceof Error ? nextError.message : "Failed to update availability")
     }
   }
 
@@ -673,6 +781,162 @@ export const App: React.FC = () => {
             </div>
           </SectionCard>
 
+          <SectionCard
+            title="Menu presentation controls"
+            subtitle="Reorder categories and items, control featured states, and manage storefront visibility."
+          >
+            <div style={{ display: "grid", gap: 16 }}>
+              <div
+                style={{
+                  fontSize: 14,
+                  color: menuActionMessage?.includes("Failed") || menuActionMessage?.includes("error")
+                    ? "#b42318"
+                    : "#5f6f88",
+                }}
+              >
+                {menuActionMessage ?? "All changes here immediately shape the customer-facing menu."}
+              </div>
+
+              {categories.map((category, categoryIndex) => (
+                <div
+                  key={category.id}
+                  style={{
+                    border: "1px solid #dbe5f0",
+                    borderRadius: 18,
+                    padding: 14,
+                    background: "#f9fbfe",
+                    display: "grid",
+                    gap: 12,
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      gap: 12,
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontWeight: 700 }}>{category.name}</div>
+                      <div style={{ fontSize: 13, color: "#5f6f88" }}>
+                        {category.categoryItems.length} items
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button
+                        type="button"
+                        onClick={() => reorderCategories(category.id, "up")}
+                        disabled={categoryIndex === 0}
+                        style={secondaryButtonStyle}
+                      >
+                        Move up
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => reorderCategories(category.id, "down")}
+                        disabled={categoryIndex === categories.length - 1}
+                        style={secondaryButtonStyle}
+                      >
+                        Move down
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style={{ display: "grid", gap: 10 }}>
+                    {category.categoryItems.map((entry, itemIndex) => (
+                      <div
+                        key={entry.id}
+                        style={{
+                          border: "1px solid #dde6f1",
+                          borderRadius: 14,
+                          padding: 12,
+                          background: "#ffffff",
+                          display: "grid",
+                          gap: 10,
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            alignItems: "start",
+                            gap: 12,
+                          }}
+                        >
+                          <div>
+                            <div style={{ fontWeight: 700 }}>{entry.item.name}</div>
+                            <div style={{ fontSize: 13, color: "#5f6f88" }}>
+                              {formatPrice(entry.item.variants[0]?.priceCents ?? entry.item.basePriceCents)}
+                              {" · "}
+                              {entry.item.isFeatured ? "Featured" : "Standard"}
+                              {" · "}
+                              {entry.item.visibility}
+                            </div>
+                          </div>
+
+                          <div style={{ display: "flex", gap: 8 }}>
+                            <button
+                              type="button"
+                              onClick={() => reorderCategoryItem(category.id, entry.item.id, "up")}
+                              disabled={itemIndex === 0}
+                              style={secondaryButtonStyle}
+                            >
+                              ↑
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => reorderCategoryItem(category.id, entry.item.id, "down")}
+                              disabled={itemIndex === category.categoryItems.length - 1}
+                              style={secondaryButtonStyle}
+                            >
+                              ↓
+                            </button>
+                          </div>
+                        </div>
+
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                          <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 14 }}>
+                            <input
+                              type="checkbox"
+                              checked={entry.item.isFeatured}
+                              onChange={(event) =>
+                                void updateItemPresentation(
+                                  entry.item.id,
+                                  { isFeatured: event.target.checked },
+                                  "Featured state updated.",
+                                )
+                              }
+                            />
+                            Featured item
+                          </label>
+
+                          <label style={{ display: "grid", gap: 6 }}>
+                            <span style={{ fontSize: 13, color: "#5f6f88", fontWeight: 600 }}>
+                              Visibility
+                            </span>
+                            <select
+                              value={entry.item.visibility}
+                              onChange={(event) =>
+                                void updateItemVisibility(entry.item.id, event.target.value)
+                              }
+                              style={inputStyle}
+                            >
+                              <option value="AVAILABLE">Available</option>
+                              <option value="SOLD_OUT">Sold out</option>
+                              <option value="HIDDEN">Hidden</option>
+                              <option value="SCHEDULED">Scheduled</option>
+                            </select>
+                          </label>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </SectionCard>
+
           <AssistantPanel />
         </div>
 
@@ -757,4 +1021,13 @@ const inputStyle: React.CSSProperties = {
   padding: "12px 14px",
   background: "#f9fbfe",
   color: "#172033",
+}
+
+const secondaryButtonStyle: React.CSSProperties = {
+  border: "1px solid #d7e1ec",
+  borderRadius: 12,
+  padding: "8px 12px",
+  background: "#ffffff",
+  color: "#172033",
+  cursor: "pointer",
 }

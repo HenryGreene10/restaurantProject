@@ -121,6 +121,10 @@ type ItemModifierGroupUpdateInput = Partial<Omit<ItemModifierGroupCreateInput, "
 }
 
 type UpdateBrandConfigInput = WithoutRestaurantId<BrandConfig>
+type ReorderCategoryItemsInput = {
+  categoryId: string
+  itemIds: string[]
+}
 
 function notFound(entityName: string): Error {
   return new Error(`${entityName} not found for tenant`)
@@ -387,6 +391,66 @@ export function createTenantDataAccess(scope: TenantScope) {
 
     async setCategoryVisibility(categoryId: string, visibility: CatalogVisibility) {
       return this.updateCategory(categoryId, { visibility })
+    },
+
+    async reorderCategoryItems(data: ReorderCategoryItemsInput) {
+      return withTenantConnection(scope.restaurantId, async (prisma) => {
+        await requireTenantRecord(
+          () =>
+            prisma.menuCategory.findFirst({
+              where: scoped.scopeWhere({ id: data.categoryId }),
+            }),
+          "MenuCategory",
+        )
+
+        const existingLinks = await prisma.menuCategoryItem.findMany({
+          where: scoped.scopeWhere({
+            categoryId: data.categoryId,
+          }),
+          orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+        })
+
+        const existingItemIds = new Set(existingLinks.map((link) => link.itemId))
+
+        if (
+          data.itemIds.length !== existingLinks.length ||
+          data.itemIds.some((itemId) => !existingItemIds.has(itemId))
+        ) {
+          throw badRequest("Item reorder payload must match the category's current items")
+        }
+
+        await Promise.all(
+          data.itemIds.map((itemId, index) =>
+            prisma.menuCategoryItem.updateMany({
+              where: scoped.scopeWhere({
+                categoryId: data.categoryId,
+                itemId,
+              }),
+              data: {
+                sortOrder: index,
+              },
+            }),
+          ),
+        )
+
+        return prisma.menuCategory.findFirst({
+          where: scoped.scopeWhere({ id: data.categoryId }),
+          include: {
+            categoryItems: {
+              orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+              include: {
+                item: {
+                  include: {
+                    variants: {
+                      orderBy: [{ isDefault: "desc" }, { priceCents: "asc" }],
+                    },
+                  },
+                },
+              },
+            },
+          },
+        })
+      })
     },
 
     async listItems() {

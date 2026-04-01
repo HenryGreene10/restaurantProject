@@ -136,6 +136,27 @@ export function registerAdminMenuRoutes(r: Router) {
     }
   })
 
+  r.patch('/admin/menu/categories/:categoryId/items/reorder', async (req: TenantRequest, res) => {
+    try {
+      const tenantDataAccess = tenantDataAccessFor(req)
+      const categoryId = routeParam(req, 'categoryId')
+      const itemIds = Array.isArray(req.body?.itemIds) ? req.body.itemIds.map(String) : null
+
+      if (!itemIds || itemIds.length === 0) {
+        return res.status(400).json({ error: 'itemIds must be a non-empty array' })
+      }
+
+      const category = await tenantDataAccess.menu.reorderCategoryItems({
+        categoryId,
+        itemIds,
+      })
+
+      return res.json(category)
+    } catch (error) {
+      handleRouteError(res, error)
+    }
+  })
+
   r.delete('/admin/menu/categories/:categoryId', async (req: TenantRequest, res) => {
     try {
       const tenantDataAccess = tenantDataAccessFor(req)

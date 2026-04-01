@@ -29,6 +29,7 @@ export type MenuItem = {
   name: string
   description: string | null
   basePriceCents: number
+  visibility: "AVAILABLE" | "SOLD_OUT" | "HIDDEN" | "SCHEDULED"
   tags: string[]
   prepTimeMinutes: number | null
   isFeatured: boolean

@@ -30,6 +30,7 @@ const mockUpdateItemModifierGroup = vi.fn()
 const mockDeleteItemModifierGroup = vi.fn()
 const mockGetBrandConfig = vi.fn()
 const mockUpdateBrandConfig = vi.fn()
+const mockReorderCategoryItems = vi.fn()
 
 vi.mock('@repo/data-access', () => ({
   createTenantScope: (restaurantId: string) => ({ restaurantId }),
@@ -49,6 +50,7 @@ vi.mock('@repo/data-access', () => ({
       createCategory: mockCreateCategory,
       updateCategory: mockUpdateCategory,
       setCategoryVisibility: mockSetCategoryVisibility,
+      reorderCategoryItems: mockReorderCategoryItems,
       deleteCategory: mockDeleteCategory,
       listItems: mockListItems,
       createItem: mockCreateItem,
@@ -231,6 +233,30 @@ describe('admin menu integration', () => {
       buttonStyle: undefined,
       heroLayout: undefined,
       showFeaturedBadges: undefined
+    })
+  })
+
+  it('reorders items within a category', async () => {
+    await import('./setup')
+    const { createApp } = await import('../app')
+
+    mockReorderCategoryItems.mockResolvedValue({
+      id: 'cat_1',
+      categoryItems: [
+        { itemId: 'item_2', sortOrder: 0 },
+        { itemId: 'item_1', sortOrder: 1 }
+      ]
+    })
+
+    const response = await request(createApp())
+      .patch('/admin/menu/categories/cat_1/items/reorder')
+      .set('x-tenant-slug', 'demo')
+      .send({ itemIds: ['item_2', 'item_1'] })
+
+    expect(response.status).toBe(200)
+    expect(mockReorderCategoryItems).toHaveBeenCalledWith({
+      categoryId: 'cat_1',
+      itemIds: ['item_2', 'item_1']
     })
   })
 })
