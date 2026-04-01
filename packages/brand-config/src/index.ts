@@ -1,11 +1,22 @@
 export type BrandConfig = {
   primaryColor?: string
   onPrimary?: string
+  accentColor?: string
+  backgroundColor?: string
+  surfaceColor?: string
+  textColor?: string
+  mutedColor?: string
+  borderColor?: string
   logoUrl?: string
   fontFamily?: string
+  headingFont?: string
   appTitle?: string
+  tagline?: string
   heroImageUrl?: string
   buttonStyle?: 'rounded' | 'square'
+  heroLayout?: 'immersive' | 'minimal'
+  radius?: number
+  showFeaturedBadges?: boolean
 }
 
 export const defaultBrand: BrandConfig = {

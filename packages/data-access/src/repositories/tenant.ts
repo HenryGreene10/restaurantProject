@@ -7,6 +7,7 @@ import {
   OrderStatus,
   Prisma,
 } from "@prisma/client"
+import type { BrandConfig } from "@repo/brand-config"
 import { withTenantConnection } from "../prisma.js"
 import {
   bindTenantScope,
@@ -119,6 +120,8 @@ type ItemModifierGroupUpdateInput = Partial<Omit<ItemModifierGroupCreateInput, "
   groupId?: string
 }
 
+type UpdateBrandConfigInput = WithoutRestaurantId<BrandConfig>
+
 function notFound(entityName: string): Error {
   return new Error(`${entityName} not found for tenant`)
 }
@@ -183,6 +186,49 @@ async function nextOrderNumber(
 
 export function createTenantDataAccess(scope: TenantScope) {
   const scoped = bindTenantScope(scope)
+
+  const brand = {
+    async getConfig() {
+      return withTenantConnection(scope.restaurantId, async (prisma) => {
+        return prisma.brandConfig.findUnique({
+          where: {
+            restaurantId: scope.restaurantId,
+          },
+        })
+      })
+    },
+
+    async updateConfig(input: UpdateBrandConfigInput) {
+      return withTenantConnection(scope.restaurantId, async (prisma) => {
+        const existing = await prisma.brandConfig.findUnique({
+          where: {
+            restaurantId: scope.restaurantId,
+          },
+        })
+
+        const previousConfig =
+          existing?.config && typeof existing.config === "object" && !Array.isArray(existing.config)
+            ? (existing.config as Record<string, unknown>)
+            : {}
+
+        return prisma.brandConfig.upsert({
+          where: {
+            restaurantId: scope.restaurantId,
+          },
+          update: {
+            config: {
+              ...previousConfig,
+              ...input,
+            },
+          },
+          create: {
+            restaurantId: scope.restaurantId,
+            config: input,
+          },
+        })
+      })
+    },
+  }
 
   const menu = {
     async getPublicMenu() {
@@ -1159,6 +1205,7 @@ export function createTenantDataAccess(scope: TenantScope) {
   }
 
   return {
+    brand,
     scope,
     customers,
     menu,

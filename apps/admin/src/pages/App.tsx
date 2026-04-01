@@ -344,6 +344,8 @@ export const App: React.FC = () => {
   const [menuData, setMenuData] = useState<MenuResponse | null>(null)
   const [themeDraft, setThemeDraft] = useState<ThemeDraft>(defaultThemeDraft)
   const [isLoading, setIsLoading] = useState(true)
+  const [isSaving, setIsSaving] = useState(false)
+  const [saveMessage, setSaveMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -352,6 +354,7 @@ export const App: React.FC = () => {
     async function load() {
       setIsLoading(true)
       setError(null)
+      setSaveMessage(null)
 
       try {
         const menu = await fetchTenantMenu(tenantSlug)
@@ -387,6 +390,53 @@ export const App: React.FC = () => {
 
   const updateTheme = <K extends keyof ThemeDraft>(key: K, value: ThemeDraft[K]) => {
     setThemeDraft((current) => ({ ...current, [key]: value }))
+  }
+
+  const saveTheme = async () => {
+    setIsSaving(true)
+    setSaveMessage(null)
+
+    try {
+      const response = await fetch("/api/admin/brand-config", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "x-tenant-slug": tenantSlug,
+        },
+        body: JSON.stringify({
+          appTitle: themeDraft.appTitle,
+          tagline: themeDraft.tagline,
+          primaryColor: themeDraft.primaryColor,
+          accentColor: themeDraft.accentColor,
+          backgroundColor: themeDraft.backgroundColor,
+          surfaceColor: themeDraft.surfaceColor,
+          textColor: themeDraft.textColor,
+          mutedColor: themeDraft.mutedColor,
+          borderColor: themeDraft.borderColor,
+          onPrimary: themeDraft.onPrimary,
+          fontFamily: themeDraft.bodyFont,
+          headingFont: themeDraft.headingFont,
+          radius: themeDraft.radius,
+          buttonStyle: themeDraft.buttonStyle,
+          heroLayout: themeDraft.heroLayout,
+          showFeaturedBadges: themeDraft.showFeaturedBadges,
+        }),
+      })
+
+      if (!response.ok) {
+        const payload = (await response.json().catch(() => null)) as { error?: string } | null
+        throw new Error(payload?.error ?? `Failed to save theme (${response.status})`)
+      }
+
+      const refreshedMenu = await fetchTenantMenu(tenantSlug)
+      setMenuData(refreshedMenu)
+      setThemeDraft(buildDraft(refreshedMenu))
+      setSaveMessage("Storefront settings saved.")
+    } catch (nextError) {
+      setSaveMessage(nextError instanceof Error ? nextError.message : "Failed to save theme")
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   return (
@@ -591,6 +641,35 @@ export const App: React.FC = () => {
                 />
                 Show featured item badges in the storefront preview
               </label>
+
+              <div style={{ display: "flex", gap: 12, alignItems: "center", paddingTop: 6 }}>
+                <button
+                  type="button"
+                  onClick={saveTheme}
+                  disabled={isSaving || isLoading}
+                  style={{
+                    border: "none",
+                    borderRadius: 14,
+                    padding: "12px 18px",
+                    background: isSaving ? "#9aa8bc" : themeDraft.primaryColor,
+                    color: themeDraft.onPrimary,
+                    fontWeight: 700,
+                    cursor: isSaving ? "wait" : "pointer",
+                  }}
+                >
+                  {isSaving ? "Saving…" : "Save storefront settings"}
+                </button>
+                {saveMessage ? (
+                  <span
+                    style={{
+                      fontSize: 14,
+                      color: saveMessage.includes("saved") ? "#0f766e" : "#b42318",
+                    }}
+                  >
+                    {saveMessage}
+                  </span>
+                ) : null}
+              </div>
             </div>
           </SectionCard>
 

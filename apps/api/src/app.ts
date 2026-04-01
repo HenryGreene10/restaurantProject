@@ -4,6 +4,7 @@ import cors from 'cors'
 import { tenantMiddleware } from './middleware/tenant.js'
 import { registerHealthRoutes } from './routes/health.js'
 import { registerMenuRoutes } from './routes/menu.js'
+import { registerAdminBrandRoutes } from './routes/admin-brand.js'
 import { registerAdminMenuRoutes } from './routes/admin-menu.js'
 import { registerOrderRoutes } from './routes/orders.js'
 import { registerAssistantRoutes } from './routes/assistant.js'
@@ -21,6 +22,7 @@ export function createApp() {
   app.use(tenantMiddleware)
   registerCustomerAuthRoutes(app)
   registerMenuRoutes(app)
+  registerAdminBrandRoutes(app)
   registerAdminMenuRoutes(app)
   registerOrderRoutes(app)
   registerAssistantRoutes(app)

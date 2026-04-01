@@ -28,6 +28,8 @@ const mockListItemModifierGroups = vi.fn()
 const mockAttachModifierGroup = vi.fn()
 const mockUpdateItemModifierGroup = vi.fn()
 const mockDeleteItemModifierGroup = vi.fn()
+const mockGetBrandConfig = vi.fn()
+const mockUpdateBrandConfig = vi.fn()
 
 vi.mock('@repo/data-access', () => ({
   createTenantScope: (restaurantId: string) => ({ restaurantId }),
@@ -36,6 +38,10 @@ vi.mock('@repo/data-access', () => ({
     findTenantBySlug: mockFindTenantBySlug
   }),
   createTenantDataAccess: () => ({
+    brand: {
+      getConfig: mockGetBrandConfig,
+      updateConfig: mockUpdateBrandConfig
+    },
     menu: {
       getPublicMenu: vi.fn(),
       listFeaturedItems: vi.fn(),
@@ -181,6 +187,50 @@ describe('admin menu integration', () => {
       minSelections: 1,
       maxSelections: 2,
       allowOptionQuantity: false
+    })
+  })
+
+  it('updates tenant brand config', async () => {
+    await import('./setup')
+    const { createApp } = await import('../app')
+
+    mockUpdateBrandConfig.mockResolvedValue({
+      id: 'brand_1',
+      restaurantId: 'rest_1',
+      config: {
+        appTitle: "Joe's Pizza",
+        primaryColor: '#b42318',
+        radius: 24
+      }
+    })
+
+    const response = await request(createApp())
+      .patch('/admin/brand-config')
+      .set('x-tenant-slug', 'demo')
+      .send({
+        appTitle: "Joe's Pizza",
+        primaryColor: '#b42318',
+        radius: 24
+      })
+
+    expect(response.status).toBe(200)
+    expect(mockUpdateBrandConfig).toHaveBeenCalledWith({
+      appTitle: "Joe's Pizza",
+      tagline: undefined,
+      primaryColor: '#b42318',
+      accentColor: undefined,
+      backgroundColor: undefined,
+      surfaceColor: undefined,
+      textColor: undefined,
+      mutedColor: undefined,
+      borderColor: undefined,
+      onPrimary: undefined,
+      fontFamily: undefined,
+      headingFont: undefined,
+      radius: 24,
+      buttonStyle: undefined,
+      heroLayout: undefined,
+      showFeaturedBadges: undefined
     })
   })
 })
