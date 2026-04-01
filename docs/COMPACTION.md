@@ -104,17 +104,36 @@ Purpose:
 - Customer storefront / PWA direction
 
 Current state:
-- Theme system foundation exists and runs
-- Reads live brand config from `/api/menu`
+- Real customer storefront exists now, not just a theme playground
+- Reads live tenant menu + brand config from `/api/menu`
 - Injects CSS variables at `document.documentElement`
-- Has two presets:
-  - Joe's Pizza warm-casual
-  - clean minimal
-- Playground now supports richer config fields:
-  - hero headline/subheadline/badge
+- Renders:
+  - hero content from saved admin config
   - promo banner
-  - menu card layout
-  - category chip visibility
+  - category chips
+  - featured section
+  - real categories/items
+  - menu card layouts from saved config
+- Hidden categories/items are filtered out of the storefront
+- Customer interaction layer now exists:
+  - item customization drawer
+  - variant selection
+  - modifier selection
+  - quantity
+  - item notes
+  - Zustand cart state
+  - sticky cart summary
+  - cart drawer
+  - pickup-only checkout step
+  - delivery shown as "coming soon"
+  - real `POST /v1/orders` submission
+  - success banner after order placement
+
+Limitations:
+- no OTP auth integrated into checkout yet
+- no persistent cart across refresh yet
+- no dedicated order-status page yet
+- no payment UI yet
 
 Current URL when running:
 - `http://127.0.0.1:5173/`
@@ -162,23 +181,26 @@ This is the intentional UI sequence now:
 This is a frontend reprioritization only. It does not change the backend-first foundation work already completed.
 
 ## What Is Not Done Yet
-- True customer-facing menu pages in `apps/web` beyond the theme/storefront playground
-- Cart state and checkout UI in `apps/web`
 - Hero image upload flow (current admin uses URL input only)
-- Drag-and-drop composition controls (current admin uses explicit controls and up/down buttons)
+- Drag-and-drop composition controls (current admin still uses explicit controls and up/down buttons)
 - Promo section stacking / richer page-builder behavior
+- OTP-gated customer session flow inside storefront checkout
+- Dedicated order confirmation / order status page
+- Cart persistence across refresh
+- Payment UI / Stripe checkout integration for the storefront
 - Stripe onboarding UI
 - Kitchen UI refinement
 - Loyalty and marketing UI
 - AI assistant actual action execution beyond current stub behavior in admin
 
 ## Current Recommended Next Step
-Move from form-based customization into visual composition controls and a real customer menu page.
+Move from pickup-only order placement into a resilient customer checkout and status flow.
 
 Recommended next implementation:
-- Build the real customer menu page in `apps/web`
-- Render actual categories/items using saved brand config
-- Add cart state with Zustand
+- Add customer OTP flow into checkout
+- Add dedicated order confirmation / order status page
+- Poll live order status
+- Persist cart/customer draft across refresh
 - Replace simple up/down ordering with drag-and-drop in admin
 - Replace hero image URL input with upload flow
 - Add promo/section blocks as configurable storefront sections
@@ -192,11 +214,15 @@ Recommended next implementation:
 - Some older API integration tests are timing out around the hardcoded 10s boundary in this environment. Those are environment-speed failures, not new logic failures in the latest storefront changes.
 
 ## Key Recent Commits
+- `7ab18f5` `docs: add project compaction handoff`
 - `1ead849` `feat(web): add theme foundation playground`
 - `fadbe26` `feat(admin): add storefront customization preview`
 - `0c0b77b` `feat(brand): persist storefront customization settings`
 - `f0ee2a2` `feat(admin): add menu presentation customization controls`
 - `1cb1f6c` `feat(storefront): add deeper hero and layout customization`
+- `67eeba9` `feat(web): turn theme preview into real storefront`
+- `41b19f8` `feat(web): add item customization and cart flow`
+- `bff25a0` `feat(web): add pickup-only checkout flow`
 
 ## Run Commands
 API:
@@ -221,5 +247,4 @@ npm -w apps/web run dev -- --host 127.0.0.1
 
 ## URLs
 - Admin: `http://127.0.0.1:5174/`
-- Customer storefront playground: `http://127.0.0.1:5173/`
-
+- Customer storefront: `http://127.0.0.1:5173/`
