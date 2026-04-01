@@ -21,7 +21,8 @@ See `docs/architecture/SCHEMA_PROPOSAL.md` and review before code.
 2) Auth foundations: admin email/password; customer phone + Twilio Verify OTP → JWT.
 3) Core API routes (no UI): tenant resolution, menu CRUD, customer CRUD, order status stub, payments webhook stub.
 4) Stripe Connect Standard onboarding + Stripe Billing wiring.
-5) Admin dashboard skeleton + kitchen screen polling once API is verified.
-6) PWA later, after admin/kitchen stabilize.
+5) Admin dashboard skeleton, then prioritize customer-facing menu customization controls and live preview once API is verified.
+6) Customer storefront pages on top of the shared theme system, with admin-controlled appearance settings reflected in preview and live views.
+7) Kitchen screen remains operationally standardized for now and follows after admin customization flows.
 
 Gate: Vertical Slice DoD must pass before proceeding.
