@@ -2,6 +2,11 @@ export type BrandTheme = {
   name: string
   appTitle: string
   description: string
+  heroHeadline: string
+  heroSubheadline: string
+  heroBadgeText: string
+  promoBannerText: string
+  heroImageUrl: string
   tenantSlug?: string
   palette: {
     background: string
@@ -21,6 +26,9 @@ export type BrandTheme = {
     radius: string
     shadow: string
   }
+  menuCardLayout: "classic" | "compact" | "photo-first"
+  showCategoryChips: boolean
+  showFeaturedBadges: boolean
   heroGradient: string
 }
 

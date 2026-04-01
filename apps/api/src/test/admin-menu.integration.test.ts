@@ -219,6 +219,10 @@ describe('admin menu integration', () => {
     expect(mockUpdateBrandConfig).toHaveBeenCalledWith({
       appTitle: "Joe's Pizza",
       tagline: undefined,
+      heroHeadline: undefined,
+      heroSubheadline: undefined,
+      heroBadgeText: undefined,
+      promoBannerText: undefined,
       primaryColor: '#b42318',
       accentColor: undefined,
       backgroundColor: undefined,
@@ -232,7 +236,10 @@ describe('admin menu integration', () => {
       radius: 24,
       buttonStyle: undefined,
       heroLayout: undefined,
-      showFeaturedBadges: undefined
+      menuCardLayout: undefined,
+      heroImageUrl: undefined,
+      showFeaturedBadges: undefined,
+      showCategoryChips: undefined
     })
   })
 

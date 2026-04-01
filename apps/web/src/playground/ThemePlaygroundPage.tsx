@@ -26,6 +26,18 @@ const themeOptions = [
 export function ThemePlaygroundPage() {
   const { theme, isLoading, isLiveTheme, errorMessage } = useTheme()
   const { source, tenantSlug, setSource, setTenantSlug } = useThemePlaygroundStore()
+  const detailCards =
+    theme.menuCardLayout === "compact"
+      ? [
+          { title: "Menu layout", value: "Compact grid", hint: "Denser card layout for shorter menus." },
+          { title: "Hero content", value: theme.heroBadgeText, hint: theme.heroSubheadline },
+          { title: "Category chips", value: theme.showCategoryChips ? "Visible" : "Hidden", hint: "Controls hero category navigation." },
+        ]
+      : [
+          { title: "Menu layout", value: theme.menuCardLayout, hint: "Controls how food cards are presented." },
+          { title: "Hero content", value: theme.heroHeadline, hint: theme.heroSubheadline },
+          { title: "Promo banner", value: theme.promoBannerText || "None", hint: "Optional message block under the hero." },
+        ]
 
   return (
     <main className="min-h-screen bg-brand-background px-4 py-8 text-brand-text sm:px-6 lg:px-8">
@@ -41,10 +53,10 @@ export function ThemePlaygroundPage() {
                 className="text-4xl tracking-tight sm:text-5xl"
                 style={{ fontFamily: "var(--font-heading)" }}
               >
-                {theme.appTitle}
+                {theme.heroHeadline}
               </h1>
               <p className="max-w-2xl text-base text-brand-muted sm:text-lg">
-                {theme.description}
+                {theme.heroSubheadline}
               </p>
             </div>
             <div className="rounded-brand border border-brand-border/60 bg-brand-background/80 px-4 py-3 text-sm text-brand-muted">
@@ -126,19 +138,18 @@ export function ThemePlaygroundPage() {
             <div className="overflow-hidden rounded-[32px] border border-brand-border/70 bg-brand-surface shadow-brand">
               <div className="bg-brand-hero px-6 py-8 sm:px-8 sm:py-10">
                 <div className="max-w-xl space-y-4">
-                  <div className="inline-flex items-center gap-2 rounded-full border border-brand-border/80 bg-brand-surface/70 px-3 py-1 text-sm text-brand-muted">
-                    <MonitorSmartphone className="h-4 w-4" />
-                    PWA theme preview
+                <div className="inline-flex items-center gap-2 rounded-full border border-brand-border/80 bg-brand-surface/70 px-3 py-1 text-sm text-brand-muted">
+                  <MonitorSmartphone className="h-4 w-4" />
+                    {theme.heroBadgeText}
                   </div>
                   <h2
                     className="text-3xl leading-tight sm:text-4xl"
                     style={{ fontFamily: "var(--font-heading)" }}
                   >
-                    ThemeProvider injects CSS variables at the document root.
+                    {theme.appTitle}
                   </h2>
                   <p className="max-w-lg text-base text-brand-muted">
-                    This preview is the theme system foundation only. The next step is building real
-                    storefront pages on top of these variables.
+                    {theme.description}
                   </p>
                   <div className="flex flex-wrap gap-3">
                     <Button>Start order</Button>
@@ -150,24 +161,17 @@ export function ThemePlaygroundPage() {
               </div>
             </div>
 
+            {theme.promoBannerText ? (
+              <div className="rounded-[28px] border border-brand-border/70 bg-brand-surface p-5 shadow-brand">
+                <div className="text-sm font-semibold uppercase tracking-[0.14em] text-brand-muted">
+                  Promo Banner
+                </div>
+                <div className="mt-2 text-lg font-semibold">{theme.promoBannerText}</div>
+              </div>
+            ) : null}
+
             <div className="grid gap-4 md:grid-cols-3">
-              {[
-                {
-                  title: "Primary action",
-                  value: theme.palette.primary,
-                  hint: "Used for CTA buttons and active states.",
-                },
-                {
-                  title: "Surface + border",
-                  value: `${theme.palette.surface} / ${theme.palette.border}`,
-                  hint: "Cards, inputs, and secondary chrome.",
-                },
-                {
-                  title: "Typography",
-                  value: `${theme.typography.headingFont} / ${theme.typography.bodyFont}`,
-                  hint: "Heading and body font pairing.",
-                },
-              ].map((card) => (
+              {detailCards.map((card) => (
                 <div
                   key={card.title}
                   className="rounded-[28px] border border-brand-border/70 bg-brand-surface p-5 shadow-brand"

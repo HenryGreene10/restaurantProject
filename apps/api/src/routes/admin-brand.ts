@@ -32,6 +32,10 @@ function parseBrandConfig(body: unknown): BrandConfig {
   return {
     appTitle: pickString(payload.appTitle),
     tagline: pickString(payload.tagline),
+    heroHeadline: pickString(payload.heroHeadline),
+    heroSubheadline: pickString(payload.heroSubheadline),
+    heroBadgeText: pickString(payload.heroBadgeText),
+    promoBannerText: pickString(payload.promoBannerText),
     primaryColor: pickString(payload.primaryColor),
     accentColor: pickString(payload.accentColor),
     backgroundColor: pickString(payload.backgroundColor),
@@ -51,7 +55,15 @@ function parseBrandConfig(body: unknown): BrandConfig {
       payload.heroLayout === 'immersive' || payload.heroLayout === 'minimal'
         ? payload.heroLayout
         : undefined,
+    menuCardLayout:
+      payload.menuCardLayout === 'classic' ||
+      payload.menuCardLayout === 'compact' ||
+      payload.menuCardLayout === 'photo-first'
+        ? payload.menuCardLayout
+        : undefined,
+    heroImageUrl: pickString(payload.heroImageUrl),
     showFeaturedBadges: pickBoolean(payload.showFeaturedBadges),
+    showCategoryChips: pickBoolean(payload.showCategoryChips),
   }
 }
 

@@ -6,6 +6,11 @@ import { fetchTenantMenu, type MenuCategory, type MenuResponse } from "../lib/me
 type ThemeDraft = {
   appTitle: string
   tagline: string
+  heroHeadline: string
+  heroSubheadline: string
+  heroBadgeText: string
+  promoBannerText: string
+  heroImageUrl: string
   primaryColor: string
   accentColor: string
   backgroundColor: string
@@ -19,12 +24,19 @@ type ThemeDraft = {
   radius: number
   buttonStyle: "rounded" | "square"
   heroLayout: "immersive" | "minimal"
+  menuCardLayout: "classic" | "compact" | "photo-first"
   showFeaturedBadges: boolean
+  showCategoryChips: boolean
 }
 
 const defaultThemeDraft: ThemeDraft = {
   appTitle: "Restaurant",
   tagline: "Direct ordering, owned by the restaurant.",
+  heroHeadline: "Neighborhood favorites without marketplace markup.",
+  heroSubheadline: "Make repeat visits easier with direct ordering and better menu presentation.",
+  heroBadgeText: "Direct ordering",
+  promoBannerText: "Give loyal customers a direct-order reward funded by marketplace savings.",
+  heroImageUrl: "",
   primaryColor: "#b42318",
   accentColor: "#f59e0b",
   backgroundColor: "#f6f1ea",
@@ -38,7 +50,9 @@ const defaultThemeDraft: ThemeDraft = {
   radius: 24,
   buttonStyle: "rounded",
   heroLayout: "immersive",
+  menuCardLayout: "classic",
   showFeaturedBadges: true,
+  showCategoryChips: true,
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -48,12 +62,7 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 
 function getBrandConfig(menu: MenuResponse) {
   const nested = asRecord(menu.brand)
-  return (
-    asRecord(menu.brandConfig?.config) ??
-    asRecord(nested?.config) ??
-    nested ??
-    {}
-  )
+  return asRecord(menu.brandConfig?.config) ?? asRecord(nested?.config) ?? nested ?? {}
 }
 
 function getString(config: Record<string, unknown>, key: string) {
@@ -68,6 +77,11 @@ function buildDraft(menu: MenuResponse): ThemeDraft {
     ...defaultThemeDraft,
     appTitle: getString(config, "appTitle") ?? defaultThemeDraft.appTitle,
     tagline: getString(config, "tagline") ?? defaultThemeDraft.tagline,
+    heroHeadline: getString(config, "heroHeadline") ?? defaultThemeDraft.heroHeadline,
+    heroSubheadline: getString(config, "heroSubheadline") ?? defaultThemeDraft.heroSubheadline,
+    heroBadgeText: getString(config, "heroBadgeText") ?? defaultThemeDraft.heroBadgeText,
+    promoBannerText: getString(config, "promoBannerText") ?? defaultThemeDraft.promoBannerText,
+    heroImageUrl: getString(config, "heroImageUrl") ?? defaultThemeDraft.heroImageUrl,
     primaryColor: getString(config, "primaryColor") ?? defaultThemeDraft.primaryColor,
     accentColor: getString(config, "accentColor") ?? defaultThemeDraft.accentColor,
     backgroundColor: getString(config, "backgroundColor") ?? defaultThemeDraft.backgroundColor,
@@ -78,16 +92,21 @@ function buildDraft(menu: MenuResponse): ThemeDraft {
     onPrimary: getString(config, "onPrimary") ?? defaultThemeDraft.onPrimary,
     bodyFont: getString(config, "fontFamily") ?? defaultThemeDraft.bodyFont,
     headingFont: getString(config, "headingFont") ?? defaultThemeDraft.headingFont,
-    radius:
-      typeof config.radius === "number" ? config.radius : defaultThemeDraft.radius,
-    buttonStyle:
-      config.buttonStyle === "square" ? "square" : defaultThemeDraft.buttonStyle,
-    heroLayout:
-      config.heroLayout === "minimal" ? "minimal" : defaultThemeDraft.heroLayout,
+    radius: typeof config.radius === "number" ? config.radius : defaultThemeDraft.radius,
+    buttonStyle: config.buttonStyle === "square" ? "square" : defaultThemeDraft.buttonStyle,
+    heroLayout: config.heroLayout === "minimal" ? "minimal" : defaultThemeDraft.heroLayout,
+    menuCardLayout:
+      config.menuCardLayout === "compact" || config.menuCardLayout === "photo-first"
+        ? config.menuCardLayout
+        : defaultThemeDraft.menuCardLayout,
     showFeaturedBadges:
       typeof config.showFeaturedBadges === "boolean"
         ? config.showFeaturedBadges
         : defaultThemeDraft.showFeaturedBadges,
+    showCategoryChips:
+      typeof config.showCategoryChips === "boolean"
+        ? config.showCategoryChips
+        : defaultThemeDraft.showCategoryChips,
   }
 }
 
@@ -98,11 +117,7 @@ function formatPrice(priceCents: number) {
   }).format(priceCents / 100)
 }
 
-async function patchAdminJson<T>(
-  tenantSlug: string,
-  path: string,
-  body: unknown,
-) {
+async function patchAdminJson<T>(tenantSlug: string, path: string, body: unknown) {
   const response = await fetch(`/api${path}`, {
     method: "PATCH",
     headers: {
@@ -175,6 +190,9 @@ function PreviewPane({
   categories: MenuCategory[]
 }) {
   const cardRadius = theme.buttonStyle === "square" ? 10 : theme.radius
+  const visibleCategories = categories.filter((category) => category.visibility !== "HIDDEN")
+  const cardColumns =
+    theme.menuCardLayout === "compact" ? "repeat(2, minmax(0, 1fr))" : "minmax(0, 1fr)"
 
   return (
     <div
@@ -195,9 +213,11 @@ function PreviewPane({
           borderRadius: cardRadius,
           padding: theme.heroLayout === "immersive" ? "28px 24px" : "20px 20px 12px",
           background:
-            theme.heroLayout === "immersive"
-              ? `linear-gradient(135deg, ${theme.primaryColor}22, ${theme.accentColor}28)`
-              : "var(--preview-surface)",
+            theme.heroImageUrl && theme.heroLayout === "immersive"
+              ? `linear-gradient(135deg, ${theme.primaryColor}bb, ${theme.accentColor}66), url(${theme.heroImageUrl}) center/cover`
+              : theme.heroLayout === "immersive"
+                ? `linear-gradient(135deg, ${theme.primaryColor}22, ${theme.accentColor}28)`
+                : "var(--preview-surface)",
           border: "1px solid var(--preview-border)",
           marginBottom: 18,
         }}
@@ -214,7 +234,7 @@ function PreviewPane({
             marginBottom: 14,
           }}
         >
-          Customer menu preview
+          {theme.heroBadgeText}
         </div>
         <h1
           style={{
@@ -222,33 +242,52 @@ function PreviewPane({
             fontFamily: "var(--preview-heading-font)",
             fontSize: 36,
             lineHeight: 1.1,
+            maxWidth: 640,
           }}
         >
-          {theme.appTitle}
+          {theme.heroHeadline}
         </h1>
-        <p style={{ margin: "10px 0 0", color: "var(--preview-muted)", maxWidth: 480 }}>
-          {theme.tagline}
+        <p style={{ margin: "10px 0 0", color: "var(--preview-muted)", maxWidth: 520 }}>
+          {theme.heroSubheadline}
         </p>
-        <div style={{ display: "flex", gap: 10, marginTop: 18, flexWrap: "wrap" }}>
-          {categories.map((category) => (
-            <span
-              key={category.id}
-              style={{
-                padding: "8px 12px",
-                borderRadius: 999,
-                background: "var(--preview-surface)",
-                border: "1px solid var(--preview-border)",
-                fontSize: 13,
-              }}
-            >
-              {category.name}
-            </span>
-          ))}
-        </div>
+        {theme.showCategoryChips ? (
+          <div style={{ display: "flex", gap: 10, marginTop: 18, flexWrap: "wrap" }}>
+            {visibleCategories.map((category) => (
+              <span
+                key={category.id}
+                style={{
+                  padding: "8px 12px",
+                  borderRadius: 999,
+                  background: "var(--preview-surface)",
+                  border: "1px solid var(--preview-border)",
+                  fontSize: 13,
+                }}
+              >
+                {category.name}
+              </span>
+            ))}
+          </div>
+        ) : null}
       </div>
 
+      {theme.promoBannerText ? (
+        <div
+          style={{
+            borderRadius: cardRadius,
+            marginBottom: 18,
+            padding: "14px 16px",
+            background: `${theme.accentColor}20`,
+            border: "1px solid var(--preview-border)",
+            fontSize: 14,
+            fontWeight: 600,
+          }}
+        >
+          {theme.promoBannerText}
+        </div>
+      ) : null}
+
       <div style={{ display: "grid", gap: 16 }}>
-        {categories.map((category) => (
+        {visibleCategories.map((category) => (
           <div key={category.id}>
             <div
               style={{
@@ -272,84 +311,99 @@ function PreviewPane({
               </span>
             </div>
 
-            <div style={{ display: "grid", gap: 12 }}>
+            <div style={{ display: "grid", gap: 12, gridTemplateColumns: cardColumns }}>
               {category.categoryItems.map(({ id, item }) => (
                 <article
                   key={id}
                   style={{
                     borderRadius: cardRadius,
-                    padding: 16,
+                    padding: theme.menuCardLayout === "compact" ? 12 : 16,
                     background: "var(--preview-surface)",
                     border: "1px solid var(--preview-border)",
                     display: "grid",
                     gap: 10,
+                    gridTemplateColumns:
+                      theme.menuCardLayout === "photo-first" ? "120px minmax(0, 1fr)" : "1fr",
                   }}
                 >
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                    <div>
-                      <div
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 8,
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        <h3
+                  {theme.menuCardLayout === "photo-first" ? (
+                    <div
+                      style={{
+                        minHeight: 110,
+                        borderRadius: Math.max(12, cardRadius - 8),
+                        background:
+                          `linear-gradient(135deg, ${theme.primaryColor}22, ${theme.accentColor}18)`,
+                        border: "1px solid var(--preview-border)",
+                      }}
+                    />
+                  ) : null}
+                  <div style={{ display: "grid", gap: 10 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
+                      <div>
+                        <div
                           style={{
-                            margin: 0,
-                            fontSize: 18,
-                            fontFamily: "var(--preview-heading-font)",
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 8,
+                            flexWrap: "wrap",
                           }}
                         >
-                          {item.name}
-                        </h3>
-                        {theme.showFeaturedBadges && item.isFeatured ? (
-                          <span
+                          <h3
                             style={{
-                              fontSize: 11,
-                              fontWeight: 700,
-                              letterSpacing: "0.04em",
-                              textTransform: "uppercase",
-                              color: "var(--preview-on-primary)",
-                              background: "var(--preview-primary)",
-                              borderRadius: 999,
-                              padding: "5px 8px",
+                              margin: 0,
+                              fontSize: 18,
+                              fontFamily: "var(--preview-heading-font)",
                             }}
                           >
-                            Featured
-                          </span>
+                            {item.name}
+                          </h3>
+                          {theme.showFeaturedBadges && item.isFeatured ? (
+                            <span
+                              style={{
+                                fontSize: 11,
+                                fontWeight: 700,
+                                letterSpacing: "0.04em",
+                                textTransform: "uppercase",
+                                color: "var(--preview-on-primary)",
+                                background: "var(--preview-primary)",
+                                borderRadius: 999,
+                                padding: "5px 8px",
+                              }}
+                            >
+                              Featured
+                            </span>
+                          ) : null}
+                        </div>
+                        {item.description ? (
+                          <p style={{ margin: "6px 0 0", color: "var(--preview-muted)" }}>
+                            {item.description}
+                          </p>
                         ) : null}
                       </div>
-                      {item.description ? (
-                        <p style={{ margin: "6px 0 0", color: "var(--preview-muted)" }}>
-                          {item.description}
-                        </p>
+                      <strong>{formatPrice(item.variants[0]?.priceCents ?? item.basePriceCents)}</strong>
+                    </div>
+
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      {item.tags.map((tag) => (
+                        <span
+                          key={tag}
+                          style={{
+                            padding: "4px 8px",
+                            borderRadius: 999,
+                            background: `${theme.accentColor}1f`,
+                            color: "var(--preview-text)",
+                            fontSize: 12,
+                          }}
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                      {item.prepTimeMinutes ? (
+                        <span style={{ color: "var(--preview-muted)", fontSize: 12 }}>
+                          {item.prepTimeMinutes} min prep
+                        </span>
                       ) : null}
                     </div>
-                    <strong>{formatPrice(item.variants[0]?.priceCents ?? item.basePriceCents)}</strong>
-                  </div>
-
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {item.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        style={{
-                          padding: "4px 8px",
-                          borderRadius: 999,
-                          background: `${theme.accentColor}1f`,
-                          color: "var(--preview-text)",
-                          fontSize: 12,
-                        }}
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                    {item.prepTimeMinutes ? (
-                      <span style={{ color: "var(--preview-muted)", fontSize: 12 }}>
-                        {item.prepTimeMinutes} min prep
-                      </span>
-                    ) : null}
                   </div>
                 </article>
               ))}
@@ -437,6 +491,11 @@ export const App: React.FC = () => {
         body: JSON.stringify({
           appTitle: themeDraft.appTitle,
           tagline: themeDraft.tagline,
+          heroHeadline: themeDraft.heroHeadline,
+          heroSubheadline: themeDraft.heroSubheadline,
+          heroBadgeText: themeDraft.heroBadgeText,
+          promoBannerText: themeDraft.promoBannerText,
+          heroImageUrl: themeDraft.heroImageUrl,
           primaryColor: themeDraft.primaryColor,
           accentColor: themeDraft.accentColor,
           backgroundColor: themeDraft.backgroundColor,
@@ -450,7 +509,9 @@ export const App: React.FC = () => {
           radius: themeDraft.radius,
           buttonStyle: themeDraft.buttonStyle,
           heroLayout: themeDraft.heroLayout,
+          menuCardLayout: themeDraft.menuCardLayout,
           showFeaturedBadges: themeDraft.showFeaturedBadges,
+          showCategoryChips: themeDraft.showCategoryChips,
         }),
       })
 
@@ -490,7 +551,27 @@ export const App: React.FC = () => {
       await reloadMenu()
       setMenuActionMessage("Category order saved.")
     } catch (nextError) {
-      setMenuActionMessage(nextError instanceof Error ? nextError.message : "Failed to reorder categories")
+      setMenuActionMessage(
+        nextError instanceof Error ? nextError.message : "Failed to reorder categories",
+      )
+    }
+  }
+
+  const updateCategoryVisibility = async (
+    categoryId: string,
+    visibility: MenuCategory["visibility"],
+  ) => {
+    try {
+      setMenuActionMessage("Saving category visibility…")
+      await patchAdminJson(tenantSlug, `/admin/menu/categories/${categoryId}/availability`, {
+        visibility,
+      })
+      await reloadMenu()
+      setMenuActionMessage("Category visibility updated.")
+    } catch (nextError) {
+      setMenuActionMessage(
+        nextError instanceof Error ? nextError.message : "Failed to update category visibility",
+      )
     }
   }
 
@@ -548,23 +629,23 @@ export const App: React.FC = () => {
   }
 
   return (
-    <div style={{ maxWidth: 1520, margin: "0 auto", padding: 24 }}>
+    <div style={{ maxWidth: 1560, margin: "0 auto", padding: 24 }}>
       <header style={{ marginBottom: 20 }}>
         <div style={{ color: "#5f6f88", fontSize: 14, fontWeight: 600 }}>
           Restaurant admin dashboard
         </div>
         <h1 style={{ margin: "8px 0 6px", fontSize: 38 }}>Storefront customization</h1>
         <p style={{ margin: 0, maxWidth: 900, color: "#5f6f88", lineHeight: 1.55 }}>
-          This dashboard now prioritizes customer-facing menu presentation controls. Kitchen UI
-          remains standardized for now. The right pane previews how the storefront changes as the
-          restaurant edits its brand and menu presentation.
+          This dashboard is now the control surface for the customer-facing storefront. Theme,
+          hero content, promo messaging, category visibility, featured states, and ordering all
+          live here. Kitchen UI stays standardized for now.
         </p>
       </header>
 
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "420px minmax(0, 1fr)",
+          gridTemplateColumns: "480px minmax(0, 1fr)",
           gap: 20,
           alignItems: "start",
         }}
@@ -580,12 +661,7 @@ export const App: React.FC = () => {
                 <input
                   value={tenantSlug}
                   onChange={(event) => setTenantSlug(event.target.value)}
-                  style={{
-                    border: "1px solid #d7e1ec",
-                    borderRadius: 14,
-                    padding: "12px 14px",
-                    background: "#f9fbfe",
-                  }}
+                  style={inputStyle}
                 />
               </label>
 
@@ -601,8 +677,7 @@ export const App: React.FC = () => {
                 }}
               >
                 <div>
-                  <strong>Status:</strong>{" "}
-                  {isLoading ? "Loading" : error ? "Error" : "Loaded"}
+                  <strong>Status:</strong> {isLoading ? "Loading" : error ? "Error" : "Loaded"}
                 </div>
                 <div>
                   <strong>Categories:</strong> {categories.length}
@@ -616,60 +691,53 @@ export const App: React.FC = () => {
           </SectionCard>
 
           <SectionCard
-            title="Brand and layout controls"
-            subtitle="These are the controls the restaurant owner uses to shape the storefront."
+            title="Brand, hero, and layout"
+            subtitle="These settings persist to brand config and shape the customer-facing storefront."
           >
             <div style={{ display: "grid", gap: 14 }}>
               <label style={{ display: "grid", gap: 6 }}>
-                <span style={{ fontSize: 13, color: "#5f6f88", fontWeight: 600 }}>App title</span>
-                <input
-                  value={themeDraft.appTitle}
-                  onChange={(event) => updateTheme("appTitle", event.target.value)}
-                  style={inputStyle}
-                />
+                <span style={labelStyle}>App title</span>
+                <input value={themeDraft.appTitle} onChange={(event) => updateTheme("appTitle", event.target.value)} style={inputStyle} />
               </label>
 
               <label style={{ display: "grid", gap: 6 }}>
-                <span style={{ fontSize: 13, color: "#5f6f88", fontWeight: 600 }}>Tagline</span>
-                <textarea
-                  value={themeDraft.tagline}
-                  onChange={(event) => updateTheme("tagline", event.target.value)}
-                  rows={3}
-                  style={{ ...inputStyle, resize: "vertical" }}
-                />
+                <span style={labelStyle}>Tagline</span>
+                <textarea value={themeDraft.tagline} onChange={(event) => updateTheme("tagline", event.target.value)} rows={2} style={{ ...inputStyle, resize: "vertical" }} />
+              </label>
+
+              <label style={{ display: "grid", gap: 6 }}>
+                <span style={labelStyle}>Hero headline</span>
+                <textarea value={themeDraft.heroHeadline} onChange={(event) => updateTheme("heroHeadline", event.target.value)} rows={2} style={{ ...inputStyle, resize: "vertical" }} />
+              </label>
+
+              <label style={{ display: "grid", gap: 6 }}>
+                <span style={labelStyle}>Hero subheadline</span>
+                <textarea value={themeDraft.heroSubheadline} onChange={(event) => updateTheme("heroSubheadline", event.target.value)} rows={2} style={{ ...inputStyle, resize: "vertical" }} />
               </label>
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <ColorField
-                  label="Primary"
-                  value={themeDraft.primaryColor}
-                  onChange={(value) => updateTheme("primaryColor", value)}
-                />
-                <ColorField
-                  label="Accent"
-                  value={themeDraft.accentColor}
-                  onChange={(value) => updateTheme("accentColor", value)}
-                />
-                <ColorField
-                  label="Background"
-                  value={themeDraft.backgroundColor}
-                  onChange={(value) => updateTheme("backgroundColor", value)}
-                />
-                <ColorField
-                  label="Surface"
-                  value={themeDraft.surfaceColor}
-                  onChange={(value) => updateTheme("surfaceColor", value)}
-                />
-                <ColorField
-                  label="Text"
-                  value={themeDraft.textColor}
-                  onChange={(value) => updateTheme("textColor", value)}
-                />
-                <ColorField
-                  label="Border"
-                  value={themeDraft.borderColor}
-                  onChange={(value) => updateTheme("borderColor", value)}
-                />
+                <label style={{ display: "grid", gap: 6 }}>
+                  <span style={labelStyle}>Hero badge text</span>
+                  <input value={themeDraft.heroBadgeText} onChange={(event) => updateTheme("heroBadgeText", event.target.value)} style={inputStyle} />
+                </label>
+                <label style={{ display: "grid", gap: 6 }}>
+                  <span style={labelStyle}>Promo banner text</span>
+                  <input value={themeDraft.promoBannerText} onChange={(event) => updateTheme("promoBannerText", event.target.value)} style={inputStyle} />
+                </label>
+              </div>
+
+              <label style={{ display: "grid", gap: 6 }}>
+                <span style={labelStyle}>Hero image URL</span>
+                <input value={themeDraft.heroImageUrl} onChange={(event) => updateTheme("heroImageUrl", event.target.value)} style={inputStyle} placeholder="https://..." />
+              </label>
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <ColorField label="Primary" value={themeDraft.primaryColor} onChange={(value) => updateTheme("primaryColor", value)} />
+                <ColorField label="Accent" value={themeDraft.accentColor} onChange={(value) => updateTheme("accentColor", value)} />
+                <ColorField label="Background" value={themeDraft.backgroundColor} onChange={(value) => updateTheme("backgroundColor", value)} />
+                <ColorField label="Surface" value={themeDraft.surfaceColor} onChange={(value) => updateTheme("surfaceColor", value)} />
+                <ColorField label="Text" value={themeDraft.textColor} onChange={(value) => updateTheme("textColor", value)} />
+                <ColorField label="Border" value={themeDraft.borderColor} onChange={(value) => updateTheme("borderColor", value)} />
               </div>
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
@@ -696,9 +764,7 @@ export const App: React.FC = () => {
                 <SelectField
                   label="Button style"
                   value={themeDraft.buttonStyle}
-                  onChange={(value) =>
-                    updateTheme("buttonStyle", value as ThemeDraft["buttonStyle"])
-                  }
+                  onChange={(value) => updateTheme("buttonStyle", value as ThemeDraft["buttonStyle"])}
                   options={[
                     { label: "Rounded", value: "rounded" },
                     { label: "Square", value: "square" },
@@ -707,47 +773,37 @@ export const App: React.FC = () => {
                 <SelectField
                   label="Hero layout"
                   value={themeDraft.heroLayout}
-                  onChange={(value) =>
-                    updateTheme("heroLayout", value as ThemeDraft["heroLayout"])
-                  }
+                  onChange={(value) => updateTheme("heroLayout", value as ThemeDraft["heroLayout"])}
                   options={[
                     { label: "Immersive", value: "immersive" },
                     { label: "Minimal", value: "minimal" },
                   ]}
                 />
+                <SelectField
+                  label="Menu card layout"
+                  value={themeDraft.menuCardLayout}
+                  onChange={(value) => updateTheme("menuCardLayout", value as ThemeDraft["menuCardLayout"])}
+                  options={[
+                    { label: "Classic", value: "classic" },
+                    { label: "Compact grid", value: "compact" },
+                    { label: "Photo-first", value: "photo-first" },
+                  ]}
+                />
               </div>
 
               <label style={{ display: "grid", gap: 6 }}>
-                <span style={{ fontSize: 13, color: "#5f6f88", fontWeight: 600 }}>
-                  Card radius ({themeDraft.radius}px)
-                </span>
-                <input
-                  type="range"
-                  min={8}
-                  max={32}
-                  step={2}
-                  value={themeDraft.radius}
-                  onChange={(event) => updateTheme("radius", Number(event.target.value))}
-                />
+                <span style={labelStyle}>Card radius ({themeDraft.radius}px)</span>
+                <input type="range" min={8} max={32} step={2} value={themeDraft.radius} onChange={(event) => updateTheme("radius", Number(event.target.value))} />
               </label>
 
-              <label
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  padding: "10px 0 0",
-                  fontSize: 14,
-                }}
-              >
-                <input
-                  type="checkbox"
-                  checked={themeDraft.showFeaturedBadges}
-                  onChange={(event) =>
-                    updateTheme("showFeaturedBadges", event.target.checked)
-                  }
-                />
-                Show featured item badges in the storefront preview
+              <label style={checkboxRowStyle}>
+                <input type="checkbox" checked={themeDraft.showFeaturedBadges} onChange={(event) => updateTheme("showFeaturedBadges", event.target.checked)} />
+                Show featured item badges
+              </label>
+
+              <label style={checkboxRowStyle}>
+                <input type="checkbox" checked={themeDraft.showCategoryChips} onChange={(event) => updateTheme("showCategoryChips", event.target.checked)} />
+                Show category chips in the hero
               </label>
 
               <div style={{ display: "flex", gap: 12, alignItems: "center", paddingTop: 6 }}>
@@ -768,12 +824,7 @@ export const App: React.FC = () => {
                   {isSaving ? "Saving…" : "Save storefront settings"}
                 </button>
                 {saveMessage ? (
-                  <span
-                    style={{
-                      fontSize: 14,
-                      color: saveMessage.includes("saved") ? "#0f766e" : "#b42318",
-                    }}
-                  >
+                  <span style={{ fontSize: 14, color: saveMessage.includes("saved") ? "#0f766e" : "#b42318" }}>
                     {saveMessage}
                   </span>
                 ) : null}
@@ -783,18 +834,11 @@ export const App: React.FC = () => {
 
           <SectionCard
             title="Menu presentation controls"
-            subtitle="Reorder categories and items, control featured states, and manage storefront visibility."
+            subtitle="Control visibility, sequencing, and prominence per category and item."
           >
             <div style={{ display: "grid", gap: 16 }}>
-              <div
-                style={{
-                  fontSize: 14,
-                  color: menuActionMessage?.includes("Failed") || menuActionMessage?.includes("error")
-                    ? "#b42318"
-                    : "#5f6f88",
-                }}
-              >
-                {menuActionMessage ?? "All changes here immediately shape the customer-facing menu."}
+              <div style={{ fontSize: 14, color: menuActionMessage?.includes("Failed") ? "#b42318" : "#5f6f88" }}>
+                {menuActionMessage ?? "These changes shape what customers see in the storefront."}
               </div>
 
               {categories.map((category, categoryIndex) => (
@@ -809,37 +853,22 @@ export const App: React.FC = () => {
                     gap: 12,
                   }}
                 >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      gap: 12,
-                    }}
-                  >
-                    <div>
-                      <div style={{ fontWeight: 700 }}>{category.name}</div>
-                      <div style={{ fontSize: 13, color: "#5f6f88" }}>
-                        {category.categoryItems.length} items
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", gap: 12 }}>
+                    <div style={{ display: "grid", gap: 8, flex: 1 }}>
+                      <div>
+                        <div style={{ fontWeight: 700 }}>{category.name}</div>
+                        <div style={{ fontSize: 13, color: "#5f6f88" }}>
+                          {category.categoryItems.length} items
+                        </div>
                       </div>
+                      <CategoryVisibilityField
+                        value={category.visibility}
+                        onChange={(value) => void updateCategoryVisibility(category.id, value)}
+                      />
                     </div>
                     <div style={{ display: "flex", gap: 8 }}>
-                      <button
-                        type="button"
-                        onClick={() => reorderCategories(category.id, "up")}
-                        disabled={categoryIndex === 0}
-                        style={secondaryButtonStyle}
-                      >
-                        Move up
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => reorderCategories(category.id, "down")}
-                        disabled={categoryIndex === categories.length - 1}
-                        style={secondaryButtonStyle}
-                      >
-                        Move down
-                      </button>
+                      <button type="button" onClick={() => reorderCategories(category.id, "up")} disabled={categoryIndex === 0} style={secondaryButtonStyle}>Move up</button>
+                      <button type="button" onClick={() => reorderCategories(category.id, "down")} disabled={categoryIndex === categories.length - 1} style={secondaryButtonStyle}>Move down</button>
                     </div>
                   </div>
 
@@ -856,14 +885,7 @@ export const App: React.FC = () => {
                           gap: 10,
                         }}
                       >
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "start",
-                            gap: 12,
-                          }}
-                        >
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", gap: 12 }}>
                           <div>
                             <div style={{ fontWeight: 700 }}>{entry.item.name}</div>
                             <div style={{ fontSize: 13, color: "#5f6f88" }}>
@@ -876,27 +898,13 @@ export const App: React.FC = () => {
                           </div>
 
                           <div style={{ display: "flex", gap: 8 }}>
-                            <button
-                              type="button"
-                              onClick={() => reorderCategoryItem(category.id, entry.item.id, "up")}
-                              disabled={itemIndex === 0}
-                              style={secondaryButtonStyle}
-                            >
-                              ↑
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => reorderCategoryItem(category.id, entry.item.id, "down")}
-                              disabled={itemIndex === category.categoryItems.length - 1}
-                              style={secondaryButtonStyle}
-                            >
-                              ↓
-                            </button>
+                            <button type="button" onClick={() => reorderCategoryItem(category.id, entry.item.id, "up")} disabled={itemIndex === 0} style={secondaryButtonStyle}>↑</button>
+                            <button type="button" onClick={() => reorderCategoryItem(category.id, entry.item.id, "down")} disabled={itemIndex === category.categoryItems.length - 1} style={secondaryButtonStyle}>↓</button>
                           </div>
                         </div>
 
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                          <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 14 }}>
+                          <label style={checkboxRowStyle}>
                             <input
                               type="checkbox"
                               checked={entry.item.isFeatured}
@@ -912,14 +920,10 @@ export const App: React.FC = () => {
                           </label>
 
                           <label style={{ display: "grid", gap: 6 }}>
-                            <span style={{ fontSize: 13, color: "#5f6f88", fontWeight: 600 }}>
-                              Visibility
-                            </span>
+                            <span style={labelStyle}>Visibility</span>
                             <select
                               value={entry.item.visibility}
-                              onChange={(event) =>
-                                void updateItemVisibility(entry.item.id, event.target.value)
-                              }
+                              onChange={(event) => void updateItemVisibility(entry.item.id, event.target.value)}
                               style={inputStyle}
                             >
                               <option value="AVAILABLE">Available</option>
@@ -962,7 +966,7 @@ function ColorField({
 }) {
   return (
     <label style={{ display: "grid", gap: 6 }}>
-      <span style={{ fontSize: 13, color: "#5f6f88", fontWeight: 600 }}>{label}</span>
+      <span style={labelStyle}>{label}</span>
       <div
         style={{
           display: "grid",
@@ -1003,7 +1007,7 @@ function SelectField({
 }) {
   return (
     <label style={{ display: "grid", gap: 6 }}>
-      <span style={{ fontSize: 13, color: "#5f6f88", fontWeight: 600 }}>{label}</span>
+      <span style={labelStyle}>{label}</span>
       <select value={value} onChange={(event) => onChange(event.target.value)} style={inputStyle}>
         {options.map((option) => (
           <option key={option.value} value={option.value}>
@@ -1013,6 +1017,39 @@ function SelectField({
       </select>
     </label>
   )
+}
+
+function CategoryVisibilityField({
+  value,
+  onChange,
+}: {
+  value: MenuCategory["visibility"]
+  onChange: (value: MenuCategory["visibility"]) => void
+}) {
+  return (
+    <label style={{ display: "grid", gap: 6 }}>
+      <span style={labelStyle}>Category visibility</span>
+      <select value={value} onChange={(event) => onChange(event.target.value as MenuCategory["visibility"])} style={inputStyle}>
+        <option value="AVAILABLE">Available</option>
+        <option value="SOLD_OUT">Sold out</option>
+        <option value="HIDDEN">Hidden</option>
+        <option value="SCHEDULED">Scheduled</option>
+      </select>
+    </label>
+  )
+}
+
+const labelStyle: React.CSSProperties = {
+  fontSize: 13,
+  color: "#5f6f88",
+  fontWeight: 600,
+}
+
+const checkboxRowStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 8,
+  alignItems: "center",
+  fontSize: 14,
 }
 
 const inputStyle: React.CSSProperties = {

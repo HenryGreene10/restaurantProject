@@ -35,6 +35,16 @@ export function normalizeApiTheme(data: BrandConfigApiResponse, tenantSlug: stri
     description:
       pickString(config, "tagline", "description") ??
       "Live brand config loaded from the API.",
+    heroHeadline:
+      pickString(config, "heroHeadline") ??
+      pickString(config, "appTitle", "name") ??
+      tenantSlug,
+    heroSubheadline:
+      pickString(config, "heroSubheadline", "tagline", "description") ??
+      "Live brand config loaded from the API.",
+    heroBadgeText: pickString(config, "heroBadgeText") ?? "Live API theme",
+    promoBannerText: pickString(config, "promoBannerText") ?? "",
+    heroImageUrl: pickString(config, "heroImageUrl") ?? "",
     tenantSlug,
     palette: {
       background: pickString(config, "backgroundColor") ?? cleanMinimalTheme.palette.background,
@@ -54,9 +64,24 @@ export function normalizeApiTheme(data: BrandConfigApiResponse, tenantSlug: stri
         pickString(config, "headingFont", "fontFamily") ?? cleanMinimalTheme.typography.headingFont,
     },
     shape: {
-      radius: pickString(config, "radius") ?? cleanMinimalTheme.shape.radius,
+      radius:
+        (typeof config?.radius === "number" ? `${config.radius}px` : undefined) ??
+        pickString(config, "radius") ??
+        cleanMinimalTheme.shape.radius,
       shadow: pickString(config, "shadow") ?? cleanMinimalTheme.shape.shadow,
     },
+    menuCardLayout:
+      config?.menuCardLayout === "compact" || config?.menuCardLayout === "photo-first"
+        ? config.menuCardLayout
+        : cleanMinimalTheme.menuCardLayout,
+    showCategoryChips:
+      typeof config?.showCategoryChips === "boolean"
+        ? config.showCategoryChips
+        : cleanMinimalTheme.showCategoryChips,
+    showFeaturedBadges:
+      typeof config?.showFeaturedBadges === "boolean"
+        ? config.showFeaturedBadges
+        : cleanMinimalTheme.showFeaturedBadges,
     heroGradient:
       pickString(config, "heroGradient") ?? cleanMinimalTheme.heroGradient,
   }

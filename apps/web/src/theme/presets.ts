@@ -4,6 +4,11 @@ export const joePizzaTheme: BrandTheme = {
   name: "Joe's Pizza",
   appTitle: "Joe's Pizza",
   description: "Warm casual neighborhood pizza ordering theme.",
+  heroHeadline: "Pizza night without marketplace markup.",
+  heroSubheadline: "Direct ordering keeps the experience branded and the customer relationship owned by the restaurant.",
+  heroBadgeText: "Warm casual theme",
+  promoBannerText: "Try the direct-order welcome offer and keep ordering through the restaurant.",
+  heroImageUrl: "",
   tenantSlug: "joes-pizza",
   palette: {
     background: "#faf7f2",
@@ -23,6 +28,9 @@ export const joePizzaTheme: BrandTheme = {
     radius: "24px",
     shadow: "0 18px 48px rgba(39, 28, 23, 0.12)",
   },
+  menuCardLayout: "classic",
+  showCategoryChips: true,
+  showFeaturedBadges: true,
   heroGradient:
     "linear-gradient(135deg, rgba(194, 83, 37, 0.15), rgba(236, 170, 52, 0.25))",
 }
@@ -31,6 +39,11 @@ export const cleanMinimalTheme: BrandTheme = {
   name: "Clean Minimal",
   appTitle: "Daily Counter",
   description: "Clean minimal storefront with quieter contrast and sharper lines.",
+  heroHeadline: "Clean ordering flow for a modern storefront.",
+  heroSubheadline: "Minimal presentation, strong hierarchy, and just enough contrast for food-forward browsing.",
+  heroBadgeText: "Minimal theme",
+  promoBannerText: "Design-forward preset for tighter brand systems.",
+  heroImageUrl: "",
   palette: {
     background: "#f5f7fb",
     surface: "#ffffff",
@@ -49,6 +62,9 @@ export const cleanMinimalTheme: BrandTheme = {
     radius: "18px",
     shadow: "0 18px 44px rgba(15, 23, 42, 0.08)",
   },
+  menuCardLayout: "compact",
+  showCategoryChips: true,
+  showFeaturedBadges: false,
   heroGradient:
     "linear-gradient(135deg, rgba(15, 23, 42, 0.08), rgba(56, 189, 248, 0.14))",
 }

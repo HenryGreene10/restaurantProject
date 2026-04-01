@@ -41,6 +41,7 @@ export type MenuCategory = {
   id: string
   name: string
   sortOrder: number
+  visibility: "AVAILABLE" | "SOLD_OUT" | "HIDDEN" | "SCHEDULED"
   categoryItems: Array<{
     id: string
     sortOrder: number

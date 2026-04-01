@@ -13,10 +13,16 @@ export type BrandConfig = {
   appTitle?: string
   tagline?: string
   heroImageUrl?: string
+  heroHeadline?: string
+  heroSubheadline?: string
+  heroBadgeText?: string
+  promoBannerText?: string
   buttonStyle?: 'rounded' | 'square'
   heroLayout?: 'immersive' | 'minimal'
+  menuCardLayout?: 'classic' | 'compact' | 'photo-first'
   radius?: number
   showFeaturedBadges?: boolean
+  showCategoryChips?: boolean
 }
 
 export const defaultBrand: BrandConfig = {
