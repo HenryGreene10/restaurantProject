@@ -1,15 +1,27 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { Flame, MapPin, ShieldCheck, Sparkles, Timer } from "lucide-react"
+import { ChevronRight, ShieldCheck, Sparkles } from "lucide-react"
 
-import { Button } from "../components/Button"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import { Separator } from "@/components/ui/separator"
+import { createPickupOrder } from "../lib/orders"
 import { fetchTenantMenu } from "../lib/menu"
 import type { MenuCategory, MenuItem } from "../lib/menu"
 import { CartSummary } from "./CartSummary"
+import { useCheckoutStore } from "./checkoutStore"
 import { ItemCustomizationDrawer } from "./ItemCustomizationDrawer"
 import { useCartStore } from "./cartStore"
 import { useTheme } from "../theme/ThemeProvider"
 import { useThemePlaygroundStore } from "../theme/store"
+import type { CustomerSessionController } from "./useCustomerSession"
 
 function formatPrice(priceCents: number) {
   return new Intl.NumberFormat("en-US", {
@@ -34,23 +46,31 @@ function visibleCategories(categories: MenuCategory[]) {
     .filter((category) => category.categoryItems.length > 0)
 }
 
-export function StorefrontPage() {
+export function StorefrontPage({
+  customerSession,
+  onViewOrder,
+}: {
+  customerSession: CustomerSessionController
+  onViewOrder: (orderId: string) => void
+}) {
   const { theme, isLoading: isThemeLoading, errorMessage: themeError } = useTheme()
   const { tenantSlug, source } = useThemePlaygroundStore()
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null)
   const [cartOpen, setCartOpen] = useState(false)
   const [submittingOrder, setSubmittingOrder] = useState(false)
-  const [orderSuccess, setOrderSuccess] = useState<{
-    orderId: string
-    orderNumber: number
-    status: string
-  } | null>(null)
   const cartItems = useCartStore((state) => state.items)
   const addItem = useCartStore((state) => state.addItem)
   const removeItem = useCartStore((state) => state.removeItem)
   const incrementQuantity = useCartStore((state) => state.incrementQuantity)
   const decrementQuantity = useCartStore((state) => state.decrementQuantity)
   const clearCart = useCartStore((state) => state.clear)
+  const customerName = useCheckoutStore((state) => state.customerName)
+  const customerPhone = useCheckoutStore((state) => state.customerPhone)
+  const orderNotes = useCheckoutStore((state) => state.orderNotes)
+  const setCustomerName = useCheckoutStore((state) => state.setCustomerName)
+  const setCustomerPhone = useCheckoutStore((state) => state.setCustomerPhone)
+  const setOrderNotes = useCheckoutStore((state) => state.setOrderNotes)
+  const resetAfterOrder = useCheckoutStore((state) => state.resetAfterOrder)
   const menuQuery = useQuery({
     queryKey: ["tenant-menu", tenantSlug],
     queryFn: () => fetchTenantMenu(tenantSlug),
@@ -80,6 +100,12 @@ export function StorefrontPage() {
         ? "lg:grid-cols-2"
         : ""
 
+  useEffect(() => {
+    if (customerSession.customerPhone && !customerPhone.trim()) {
+      setCustomerPhone(customerSession.customerPhone)
+    }
+  }, [customerPhone, customerSession.customerPhone, setCustomerPhone])
+
   async function submitPickupOrder(payload: {
     customerName: string
     customerPhone: string
@@ -88,84 +114,75 @@ export function StorefrontPage() {
     setSubmittingOrder(true)
 
     try {
-      const response = await fetch("/api/v1/orders", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-tenant-slug": tenantSlug,
-        },
-        body: JSON.stringify({
-          type: "PICKUP",
+      let accessToken = customerSession.accessToken
+
+      if (!accessToken) {
+        const restored = await customerSession.restoreSession()
+        accessToken = restored?.accessToken ?? null
+      }
+
+      if (!accessToken) {
+        throw new Error("Verify your phone number before placing the pickup order.")
+      }
+
+      let order
+      try {
+        order = await createPickupOrder({
+          tenantSlug,
+          accessToken,
           customerName: payload.customerName,
           customerPhone: payload.customerPhone,
-          notes: payload.orderNotes,
-          items: cartItems.map((item) => ({
-            itemId: item.itemId,
-            variantName: item.variantName,
-            quantity: item.quantity,
-            unitPriceCents: item.unitPriceCents,
-            notes: item.notes,
-            modifiers: item.modifiers.map((modifier) => ({
-              groupName: modifier.groupName,
-              optionName: modifier.optionName,
-              priceDeltaCents: modifier.priceDeltaCents,
-            })),
-          })),
-        }),
-      })
+          orderNotes: payload.orderNotes,
+          items: cartItems,
+        })
+      } catch (error) {
+        if (error instanceof Error && error.message.includes("(401)")) {
+          const restored = await customerSession.restoreSession()
+          if (!restored?.accessToken) {
+            throw new Error("Your customer session expired. Verify your phone number again.")
+          }
 
-      const body = (await response.json().catch(() => null)) as
-        | { error?: string; id?: string; orderNumber?: number; status?: string }
-        | null
-
-      if (!response.ok) {
-        throw new Error(body?.error ?? `Failed to place order (${response.status})`)
+          order = await createPickupOrder({
+            tenantSlug,
+            accessToken: restored.accessToken,
+            customerName: payload.customerName,
+            customerPhone: payload.customerPhone,
+            orderNotes: payload.orderNotes,
+            items: cartItems,
+          })
+        } else {
+          throw error
+        }
       }
 
       clearCart()
-      setOrderSuccess({
-        orderId: body?.id ?? "unknown",
-        orderNumber: body?.orderNumber ?? 0,
-        status: body?.status ?? "PENDING",
-      })
+      resetAfterOrder()
+      setCartOpen(false)
+      onViewOrder(order.id)
     } finally {
       setSubmittingOrder(false)
     }
   }
 
   return (
-    <main className="min-h-screen bg-brand-background text-brand-text">
-      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        {orderSuccess ? (
-          <section className="mb-5 rounded-[28px] border border-emerald-200 bg-emerald-50 px-5 py-4 shadow-brand">
-            <div className="text-sm font-semibold uppercase tracking-[0.12em] text-emerald-700">
-              Order placed
-            </div>
-            <div className="mt-1 text-xl font-semibold text-emerald-950">
-              Pickup order #{orderSuccess.orderNumber || orderSuccess.orderId.slice(0, 6)} received.
-            </div>
-            <div className="mt-1 text-sm text-emerald-800">
-              Current status: {orderSuccess.status}. You can now move this into a full status page next.
-            </div>
-          </section>
-        ) : null}
-
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-brand border border-brand-border/70 bg-brand-surface/90 px-4 py-3 text-sm text-brand-muted shadow-brand">
+    <main className="min-h-screen bg-background text-foreground">
+      <div className="mx-auto flex max-w-7xl flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8 lg:gap-10">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius)] border border-border/80 bg-card px-5 py-4 text-sm text-muted-foreground shadow-sm">
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-4 w-4" />
-            Live storefront for tenant <span className="font-semibold text-brand-text">{tenantSlug}</span>
+            Live storefront for tenant <span className="font-semibold text-foreground">{tenantSlug}</span>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 text-sm">
             <span>Source: {source === "api" ? "Saved admin config" : "Preset preview"}</span>
-            <span className="rounded-full border border-brand-border px-3 py-1">
+            <Badge variant="outline" className="border-border bg-background text-muted-foreground">
               Direct ordering
-            </span>
+            </Badge>
           </div>
         </div>
 
-        <section className="overflow-hidden rounded-[32px] border border-brand-border/70 bg-brand-surface shadow-brand">
+        <section className="overflow-hidden rounded-[var(--radius)] border border-border/80 bg-card shadow-sm">
           <div
-            className="px-6 py-10 sm:px-8 lg:px-10"
+            className="px-6 py-14 sm:px-8 lg:px-10 lg:py-20"
             style={{
               background:
                 theme.heroImageUrl && theme.heroLayout === "immersive"
@@ -173,85 +190,65 @@ export function StorefrontPage() {
                   : theme.heroGradient,
             }}
           >
-            <div className="max-w-3xl space-y-5">
-              <div className="inline-flex items-center gap-2 rounded-full border border-brand-border/70 bg-brand-surface/75 px-3 py-1 text-sm text-brand-muted backdrop-blur">
+            <div className="max-w-3xl space-y-6">
+              <Badge
+                variant="outline"
+                className="inline-flex border-border/80 bg-card/80 px-3 py-1 text-sm text-muted-foreground backdrop-blur"
+              >
                 <Sparkles className="h-4 w-4" />
                 {theme.heroBadgeText}
-              </div>
+              </Badge>
 
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <h1
-                  className="max-w-3xl text-4xl leading-tight sm:text-5xl"
+                  className="max-w-3xl text-4xl leading-tight text-foreground sm:text-5xl lg:text-6xl"
                   style={{ fontFamily: "var(--font-heading)" }}
                 >
                   {theme.heroHeadline}
                 </h1>
-                <p className="max-w-2xl text-base text-brand-muted sm:text-lg">
+                <p className="max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
                   {theme.heroSubheadline}
                 </p>
-              </div>
-
-              <div className="flex flex-wrap gap-3">
-                <Button>Start order</Button>
-                <Button className="bg-brand-surface text-brand-text">Browse menu</Button>
-              </div>
-
-              <div className="flex flex-wrap gap-5 pt-2 text-sm text-brand-muted">
-                <div className="flex items-center gap-2">
-                  <Timer className="h-4 w-4" />
-                  Prep times visible on menu items
-                </div>
-                <div className="flex items-center gap-2">
-                  <MapPin className="h-4 w-4" />
-                  Direct pickup ordering
-                </div>
               </div>
             </div>
           </div>
         </section>
 
         {theme.promoBannerText ? (
-          <section className="mt-5 rounded-brand border border-brand-border/70 bg-brand-surface px-5 py-4 shadow-brand">
-            <div className="flex items-start gap-3">
-              <Flame className="mt-0.5 h-5 w-5 text-brand-primary" />
-              <div>
-                <div className="text-sm font-semibold uppercase tracking-[0.12em] text-brand-muted">
-                  Current Offer
-                </div>
-                <div className="mt-1 text-lg font-semibold">{theme.promoBannerText}</div>
-              </div>
-            </div>
+          <section className="rounded-[var(--radius)] border border-border/80 bg-card px-5 py-4 shadow-sm">
+            <p className="text-sm leading-6 text-muted-foreground">{theme.promoBannerText}</p>
           </section>
         ) : null}
 
         {theme.showCategoryChips && categories.length > 0 ? (
-          <section className="mt-5 flex flex-wrap gap-3">
+          <section className="flex flex-wrap gap-2.5">
             {categories.map((category) => (
-              <a
+              <Badge
                 key={category.id}
-                href={`#category-${category.id}`}
-                className="rounded-full border border-brand-border bg-brand-surface px-4 py-2 text-sm font-medium text-brand-text shadow-brand"
+                asChild
+                variant="outline"
+                className="border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground shadow-sm"
               >
-                {category.name}
-              </a>
+                <a href={`#category-${category.id}`}>{category.name}</a>
+              </Badge>
             ))}
           </section>
         ) : null}
 
         {featuredItems.length > 0 ? (
-          <section className="mt-10">
-            <div className="mb-4 flex items-end justify-between gap-4">
+          <section className="space-y-5">
+            <div className="flex items-end justify-between gap-4">
               <div>
-                <div className="text-sm font-semibold uppercase tracking-[0.12em] text-brand-muted">
+                <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
                   Featured
                 </div>
-                <h2 className="mt-1 text-3xl" style={{ fontFamily: "var(--font-heading)" }}>
+                <h2 className="mt-2 text-3xl text-foreground" style={{ fontFamily: "var(--font-heading)" }}>
                   Most popular right now
                 </h2>
               </div>
             </div>
 
-            <div className={`grid gap-4 ${menuCardColumns}`}>
+            <div className={`grid gap-5 ${menuCardColumns}`}>
               {featuredItems.map((item) => (
                 <MenuItemCard
                   key={`featured-${item.id}`}
@@ -265,17 +262,17 @@ export function StorefrontPage() {
           </section>
         ) : null}
 
-        <section className="mt-12 space-y-10">
+        <section className="space-y-12">
           {categories.map((category) => (
-            <div key={category.id} id={`category-${category.id}`}>
-              <div className="mb-4 flex items-center justify-between gap-4">
-                <h2 className="text-3xl" style={{ fontFamily: "var(--font-heading)" }}>
+            <div key={category.id} id={`category-${category.id}`} className="space-y-5">
+              <div className="flex items-center justify-between gap-4">
+                <h2 className="text-3xl text-foreground" style={{ fontFamily: "var(--font-heading)" }}>
                   {category.name}
                 </h2>
-                <div className="text-sm text-brand-muted">{category.categoryItems.length} items</div>
+                <div className="text-sm text-muted-foreground">{category.categoryItems.length} items</div>
               </div>
 
-              <div className={`grid gap-4 ${menuCardColumns}`}>
+              <div className={`grid gap-5 ${menuCardColumns}`}>
                 {category.categoryItems.map((entry) => (
                   <MenuItemCard
                     key={entry.id}
@@ -290,13 +287,13 @@ export function StorefrontPage() {
         </section>
 
         {(isThemeLoading || menuQuery.isLoading) && source === "api" ? (
-          <div className="mt-8 rounded-brand border border-dashed border-brand-border bg-brand-surface px-5 py-4 text-sm text-brand-muted">
+          <div className="rounded-[var(--radius)] border border-dashed border-border bg-card px-5 py-4 text-sm text-muted-foreground">
             Loading tenant storefront…
           </div>
         ) : null}
 
         {themeError || menuQuery.error ? (
-          <div className="mt-8 rounded-brand border border-red-200 bg-red-50 px-5 py-4 text-sm text-red-700">
+          <div className="rounded-[var(--radius)] border border-destructive/20 bg-destructive/10 px-5 py-4 text-sm text-foreground">
             {themeError ?? (menuQuery.error instanceof Error ? menuQuery.error.message : "Failed to load storefront")}
           </div>
         ) : null}
@@ -311,6 +308,10 @@ export function StorefrontPage() {
 
       <CartSummary
         items={cartItems}
+        customerName={customerName}
+        customerPhone={customerPhone}
+        customerSession={customerSession}
+        orderNotes={orderNotes}
         open={cartOpen}
         submitting={submittingOrder}
         onOpen={() => setCartOpen(true)}
@@ -319,6 +320,13 @@ export function StorefrontPage() {
         onDecrement={decrementQuantity}
         onRemove={removeItem}
         onClear={clearCart}
+        onCustomerNameChange={setCustomerName}
+        onCustomerPhoneChange={setCustomerPhone}
+        onOrderNotesChange={setOrderNotes}
+        onRequestOtp={customerSession.sendCode}
+        onVerifyOtp={async (phone, code) => {
+          await customerSession.verifyCode(phone, code)
+        }}
         onCheckout={submitPickupOrder}
       />
     </main>
@@ -338,85 +346,75 @@ function MenuItemCard({
 }) {
   const isPhotoFirst = themeMode === "photo-first"
   const isCompact = themeMode === "compact"
+  const meta = [
+    item.prepTimeMinutes ? `${item.prepTimeMinutes} min prep` : null,
+    item.itemModifierGroups.length > 0 ? "Customizable" : null,
+    item.variants.length > 1 ? `${item.variants.length} sizes` : null,
+  ].filter(Boolean)
+  const badgeLabel =
+    item.visibility === "SOLD_OUT" ? "Sold out" : featured ? "Featured" : null
 
   return (
-    <article
+    <Card
+      size={isCompact ? "sm" : "default"}
       className={[
-        "rounded-[28px] border border-brand-border/70 bg-brand-surface shadow-brand",
-        isPhotoFirst ? "grid grid-cols-[112px_minmax(0,1fr)] gap-0 overflow-hidden" : "p-5",
+        "border border-border/80 bg-card shadow-sm",
+        isPhotoFirst ? "grid grid-cols-[132px_minmax(0,1fr)] gap-0 overflow-hidden" : "",
+        item.visibility === "SOLD_OUT" ? "opacity-70" : "",
       ].join(" ")}
     >
       {isPhotoFirst ? <div className="min-h-full bg-brand-hero" /> : null}
 
-      <div className={isPhotoFirst ? "p-5" : ""}>
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <h3
-                className={isCompact ? "text-lg" : "text-xl"}
-                style={{ fontFamily: "var(--font-heading)" }}
-              >
-                {item.name}
-              </h3>
-              {featured ? (
-                <span className="rounded-full bg-brand-primary px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-brand-primary-foreground">
-                  Featured
-                </span>
+      <div className="flex flex-col">
+        <CardHeader className={isPhotoFirst ? "px-5 pt-5" : ""}>
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-3">
+              {badgeLabel ? (
+                <Badge
+                  variant="outline"
+                  className="border-border bg-background text-muted-foreground"
+                >
+                  {badgeLabel}
+                </Badge>
               ) : null}
-              {item.visibility === "SOLD_OUT" ? (
-                <span className="rounded-full border border-brand-border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.08em] text-brand-muted">
-                  Sold out
-                </span>
-              ) : null}
-            </div>
-            {item.description ? (
-              <p className="mt-2 text-sm leading-6 text-brand-muted">{item.description}</p>
-            ) : null}
-          </div>
-          <div className="text-right">
-            <div className="text-lg font-semibold">{formatPrice(itemPrice(item))}</div>
-            <div className="mt-1 text-xs text-brand-muted">
-              {item.variants.length > 1 ? `${item.variants.length} sizes` : "Standard"}
+              <div className="flex items-start justify-between gap-6">
+                <h3
+                  className={isCompact ? "text-lg text-foreground" : "text-xl text-foreground"}
+                  style={{ fontFamily: "var(--font-heading)" }}
+                >
+                  {item.name}
+                </h3>
+                <div className="shrink-0 text-base font-semibold text-foreground">
+                  {formatPrice(itemPrice(item))}
+                </div>
+              </div>
             </div>
           </div>
-        </div>
+        </CardHeader>
 
-        <div className="mt-4 flex flex-wrap gap-2">
-          {item.tags.map((tag) => (
-            <span
-              key={tag}
-              className="rounded-full bg-brand-primary/10 px-2.5 py-1 text-xs font-medium text-brand-text"
-            >
-              {tag}
-            </span>
-          ))}
-          {item.prepTimeMinutes ? (
-            <span className="rounded-full border border-brand-border px-2.5 py-1 text-xs text-brand-muted">
-              {item.prepTimeMinutes} min
-            </span>
+        <CardContent className={isPhotoFirst ? "px-5" : ""}>
+          {item.description ? (
+            <p className="text-sm leading-6 text-muted-foreground">{item.description}</p>
           ) : null}
-          {item.itemModifierGroups.length > 0 ? (
-            <span className="rounded-full border border-brand-border px-2.5 py-1 text-xs text-brand-muted">
-              Customizable
-            </span>
+          {meta.length > 0 ? (
+            <>
+              <Separator className="my-4" />
+              <div className="text-sm text-muted-foreground">{meta.join(" · ")}</div>
+            </>
           ) : null}
-        </div>
+        </CardContent>
 
-        <div className="mt-5 flex flex-wrap items-center gap-3">
-          <Button
-            className="text-sm"
-            disabled={item.visibility === "SOLD_OUT"}
-            onClick={onCustomize}
-          >
-            {item.visibility === "SOLD_OUT" ? "Sold out" : "Customize"}
-          </Button>
-          {item.variants.length > 1 ? (
-            <div className="text-sm text-brand-muted">
-              {item.variants.map((variant) => variant.name).join(" · ")}
-            </div>
-          ) : null}
-        </div>
+        <CardFooter className={isPhotoFirst ? "px-5 pb-5 pt-0" : "pt-0"}>
+          {item.visibility === "SOLD_OUT" ? (
+            <div className="text-sm text-muted-foreground">Sold out today</div>
+          ) : (
+            <Button variant="outline" onClick={onCustomize}>
+              Add
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          )}
+        </CardFooter>
       </div>
-    </article>
+    </Card>
   )
 }

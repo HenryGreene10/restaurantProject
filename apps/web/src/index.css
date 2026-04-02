@@ -1,3 +1,6 @@
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/inter";
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -33,4 +36,45 @@ body {
 
 * {
   box-sizing: border-box;
+}
+
+@layer base {
+  :root {
+    --background: rgb(var(--color-brand-background));
+    --foreground: rgb(var(--color-brand-text));
+    --card: rgb(var(--color-brand-surface));
+    --card-foreground: rgb(var(--color-brand-text));
+    --popover: rgb(var(--color-brand-surface));
+    --popover-foreground: rgb(var(--color-brand-text));
+    --primary: rgb(var(--color-brand-primary));
+    --primary-foreground: rgb(var(--color-brand-primary-foreground));
+    --secondary: rgb(var(--color-brand-surface));
+    --secondary-foreground: rgb(var(--color-brand-text));
+    --muted: rgb(var(--color-brand-surface));
+    --muted-foreground: rgb(var(--color-brand-muted));
+    --accent: rgb(var(--color-brand-accent));
+    --accent-foreground: rgb(var(--color-brand-text));
+    --destructive: rgb(var(--color-brand-primary));
+    --destructive-foreground: rgb(var(--color-brand-primary-foreground));
+    --border: rgb(var(--color-brand-border));
+    --input: rgb(var(--color-brand-border));
+    --ring: rgb(var(--color-brand-accent));
+    --chart-1: rgb(var(--color-brand-primary));
+    --chart-2: rgb(var(--color-brand-accent));
+    --chart-3: rgb(var(--color-brand-text));
+    --chart-4: rgb(var(--color-brand-muted));
+    --chart-5: rgb(var(--color-brand-border));
+    --radius: var(--radius-brand);
+    --sidebar: rgb(var(--color-brand-surface));
+    --sidebar-foreground: rgb(var(--color-brand-text));
+    --sidebar-primary: rgb(var(--color-brand-primary));
+    --sidebar-primary-foreground: rgb(var(--color-brand-primary-foreground));
+    --sidebar-accent: rgb(var(--color-brand-accent));
+    --sidebar-accent-foreground: rgb(var(--color-brand-text));
+    --sidebar-border: rgb(var(--color-brand-border));
+    --sidebar-ring: rgb(var(--color-brand-accent));
+  }
+  * {
+    border-color: var(--border);
+  }
 }

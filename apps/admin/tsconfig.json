@@ -1,8 +1,12 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
     "jsx": "react-jsx",
     "outDir": "dist"
   },
-  "include": ["src", "vite.config.ts"]
+  "include": ["src", "vite.config.ts", "tailwind.config.ts"]
 }

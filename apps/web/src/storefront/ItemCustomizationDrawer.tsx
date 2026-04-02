@@ -2,7 +2,11 @@ import { AnimatePresence, motion } from "framer-motion"
 import { Minus, Plus, X } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 
-import { Button } from "../components/Button"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Label } from "@/components/ui/label"
+import { Separator } from "@/components/ui/separator"
 import type { MenuItem } from "../lib/menu"
 
 type SelectionMap = Record<string, string[]>
@@ -175,57 +179,62 @@ export function ItemCustomizationDrawer({
             exit={{ x: "100%" }}
             transition={{ type: "spring", stiffness: 280, damping: 28 }}
           >
-            <div className="flex items-center justify-between border-b border-brand-border px-5 py-4">
+            <div className="flex items-center justify-between border-b border-border px-6 py-5">
               <div>
-                <div className="text-sm font-semibold uppercase tracking-[0.12em] text-brand-muted">
+                <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
                   Customize item
                 </div>
-                <h2 className="mt-1 text-2xl" style={{ fontFamily: "var(--font-heading)" }}>
+                <h2 className="mt-2 text-2xl text-foreground" style={{ fontFamily: "var(--font-heading)" }}>
                   {item.name}
                 </h2>
               </div>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon-sm"
                 onClick={onClose}
-                className="rounded-full border border-brand-border p-2 text-brand-muted"
               >
                 <X className="h-5 w-5" />
-              </button>
+              </Button>
             </div>
 
-            <div className="flex-1 space-y-6 px-5 py-5">
+            <div className="flex-1 space-y-6 px-6 py-6">
               {item.description ? (
-                <p className="text-sm leading-6 text-brand-muted">{item.description}</p>
+                <p className="max-w-2xl text-sm leading-6 text-muted-foreground">{item.description}</p>
               ) : null}
 
               {item.variants.length > 0 ? (
-                <section className="space-y-3">
-                  <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-brand-muted">
-                    Choose size
-                  </h3>
+                <section className="space-y-4">
+                  <div className="space-y-2">
+                    <Badge variant="outline" className="border-border bg-background text-muted-foreground">
+                      Choose size
+                    </Badge>
+                    <div className="text-sm text-muted-foreground">Pick the size that fits this order.</div>
+                  </div>
                   <div className="grid gap-3">
                     {item.variants.map((variant) => {
                       const active = selectedVariant?.id === variant.id
                       return (
-                        <button
+                        <Button
                           key={variant.id}
                           type="button"
                           onClick={() => setSelectedVariantId(variant.id)}
+                          variant="outline"
                           className={[
-                            "flex items-center justify-between rounded-brand border px-4 py-3 text-left",
+                            "h-auto w-full items-start justify-between gap-4 px-4 py-4 text-left",
                             active
-                              ? "border-brand-primary bg-brand-primary/10"
-                              : "border-brand-border bg-brand-background",
+                              ? "border-primary bg-primary/10 text-foreground"
+                              : "border-border bg-card text-foreground",
                           ].join(" ")}
                         >
                           <span>
                             <span className="block font-semibold">{variant.name}</span>
                             {variant.isDefault ? (
-                              <span className="block text-sm text-brand-muted">Default</span>
+                              <span className="mt-1 block text-sm text-muted-foreground">Default</span>
                             ) : null}
                           </span>
                           <span className="font-semibold">{formatPrice(variant.priceCents)}</span>
-                        </button>
+                        </Button>
                       )
                     })}
                   </div>
@@ -233,12 +242,12 @@ export function ItemCustomizationDrawer({
               ) : null}
 
               {item.itemModifierGroups.map((itemGroup) => (
-                <section key={itemGroup.id} className="space-y-3">
+                <section key={itemGroup.id} className="space-y-4">
                   <div>
-                    <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-brand-muted">
+                    <Badge variant="outline" className="border-border bg-background text-muted-foreground">
                       {itemGroup.group.name}
-                    </h3>
-                    <p className="mt-1 text-sm text-brand-muted">
+                    </Badge>
+                    <p className="mt-2 text-sm text-muted-foreground">
                       {itemGroup.group.selection === "SINGLE"
                         ? "Choose one option"
                         : `Choose up to ${itemGroup.maxSelections ?? itemGroup.group.options.length}`}
@@ -252,9 +261,10 @@ export function ItemCustomizationDrawer({
                         selectedOptions[itemGroup.group.id]?.includes(option.id) ?? false
 
                       return (
-                        <button
+                        <Button
                           key={option.id}
                           type="button"
+                          variant="outline"
                           onClick={() =>
                             itemGroup.group.selection === "SINGLE"
                               ? selectSingle(itemGroup.group.id, option.id)
@@ -265,17 +275,17 @@ export function ItemCustomizationDrawer({
                                 )
                           }
                           className={[
-                            "flex items-center justify-between rounded-brand border px-4 py-3 text-left",
+                            "h-auto w-full items-start justify-between gap-4 px-4 py-4 text-left",
                             selected
-                              ? "border-brand-primary bg-brand-primary/10"
-                              : "border-brand-border bg-brand-background",
+                              ? "border-primary bg-primary/10 text-foreground"
+                              : "border-border bg-card text-foreground",
                           ].join(" ")}
                         >
                           <span className="font-medium">{option.name}</span>
-                          <span className="text-sm text-brand-muted">
+                          <span className="text-sm text-muted-foreground">
                             +{formatPrice(option.priceDeltaCents)}
                           </span>
-                        </button>
+                        </Button>
                       )
                     })}
                   </div>
@@ -283,43 +293,49 @@ export function ItemCustomizationDrawer({
               ))}
 
               <section className="space-y-3">
-                <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-brand-muted">
-                  Notes
-                </h3>
+                <div className="space-y-2">
+                  <Badge variant="outline" className="border-border bg-background text-muted-foreground">
+                    Notes
+                  </Badge>
+                  <Label htmlFor="item-notes">Special instructions</Label>
+                </div>
                 <textarea
+                  id="item-notes"
                   value={notes}
                   onChange={(event) => setNotes(event.target.value)}
                   rows={3}
                   placeholder="Add any special instructions for the kitchen"
-                  className="w-full rounded-brand border border-brand-border bg-brand-background px-4 py-3 text-sm text-brand-text outline-none"
+                  className="min-h-24 w-full rounded-[var(--radius)] border border-input bg-background px-4 py-3 text-sm text-foreground shadow-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30"
                 />
               </section>
 
               <section className="space-y-3">
-                <h3 className="text-sm font-semibold uppercase tracking-[0.12em] text-brand-muted">
+                <Badge variant="outline" className="border-border bg-background text-muted-foreground">
                   Quantity
-                </h3>
-                <div className="inline-flex items-center gap-3 rounded-full border border-brand-border bg-brand-background px-3 py-2">
-                  <button
+                </Badge>
+                <div className="inline-flex items-center gap-2 rounded-[var(--radius)] border border-border bg-background px-2 py-2">
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon-sm"
                     onClick={() => setQuantity((current) => Math.max(1, current - 1))}
-                    className="rounded-full border border-brand-border p-2"
                   >
                     <Minus className="h-4 w-4" />
-                  </button>
-                  <span className="min-w-8 text-center font-semibold">{quantity}</span>
-                  <button
+                  </Button>
+                  <span className="min-w-8 text-center text-sm font-semibold text-foreground">{quantity}</span>
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon-sm"
                     onClick={() => setQuantity((current) => current + 1)}
-                    className="rounded-full border border-brand-border p-2"
                   >
                     <Plus className="h-4 w-4" />
-                  </button>
+                  </Button>
                 </div>
               </section>
 
               {validationErrors.length > 0 ? (
-                <div className="rounded-brand border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                <div className="rounded-[var(--radius)] border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-foreground">
                   {validationErrors.map((error) => (
                     <div key={error}>{error}</div>
                   ))}
@@ -327,13 +343,15 @@ export function ItemCustomizationDrawer({
               ) : null}
             </div>
 
-            <div className="border-t border-brand-border bg-brand-surface px-5 py-4">
-              <div className="mb-3 flex items-center justify-between text-sm text-brand-muted">
+            <div className="border-t border-border bg-card px-6 py-5">
+              <div className="space-y-3">
+              <div className="flex items-center justify-between text-sm text-muted-foreground">
                 <span>Total</span>
-                <span className="text-lg font-semibold text-brand-text">
+                <span className="text-lg font-semibold text-foreground">
                   {formatPrice(unitPriceCents * quantity)}
                 </span>
               </div>
+              <Separator />
               <Button
                 className="w-full justify-center"
                 disabled={!canSubmit}
@@ -341,6 +359,7 @@ export function ItemCustomizationDrawer({
               >
                 Add to cart
               </Button>
+              </div>
             </div>
           </motion.aside>
         </>
