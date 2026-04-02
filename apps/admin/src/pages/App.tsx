@@ -14,9 +14,24 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
+import { AnimatePresence, motion } from "framer-motion"
+import { CheckCircle2, Eye, EyeOff, LayoutPanelTop, Palette, Sparkles, Star, Trash2 } from "lucide-react"
 
 import { AssistantPanel } from "../assistant/AssistantPanel"
 import { fetchTenantMenu, type MenuCategory, type MenuResponse } from "../lib/menu"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Separator } from "@/components/ui/separator"
+import { cn } from "@/lib/utils"
 
 type ThemeDraft = {
   appTitle: string
@@ -255,23 +270,13 @@ function SectionCard({
   children: React.ReactNode
 }) {
   return (
-    <section
-      style={{
-        background: "#ffffff",
-        border: "1px solid #dbe5f0",
-        borderRadius: 24,
-        padding: 20,
-        boxShadow: "0 18px 48px rgba(15, 23, 42, 0.08)",
-      }}
-    >
-      <div style={{ marginBottom: 16 }}>
-        <h2 style={{ margin: 0, fontSize: 18 }}>{title}</h2>
-        {subtitle ? (
-          <p style={{ margin: "6px 0 0", color: "#61708a", fontSize: 14 }}>{subtitle}</p>
-        ) : null}
-      </div>
-      {children}
-    </section>
+    <Card className="gap-0 border border-border/80 bg-card py-0 shadow-sm">
+      <CardHeader className="gap-1 border-b border-border/70 px-6 py-5">
+        <CardTitle>{title}</CardTitle>
+        {subtitle ? <CardDescription>{subtitle}</CardDescription> : null}
+      </CardHeader>
+      <CardContent className="px-6 py-6">{children}</CardContent>
+    </Card>
   )
 }
 
@@ -283,267 +288,289 @@ function PreviewPane({
   categories: MenuCategory[]
 }) {
   const cardRadius = theme.buttonStyle === "square" ? 10 : theme.radius
-  const visibleCategories = previewCategories(categories)
+  const visible = previewCategories(categories)
   const cardColumns =
     theme.menuCardLayout === "compact" ? "repeat(2, minmax(0, 1fr))" : "minmax(0, 1fr)"
 
   return (
     <div
+      className="min-h-[860px] rounded-[calc(var(--radius)*1.2)] border border-border/70 bg-card p-5 shadow-sm"
       style={{
         ...previewStyle(theme),
-        minHeight: 860,
-        borderRadius: 36,
-        border: "1px solid rgba(15, 23, 42, 0.08)",
-        background: "var(--preview-background)",
-        color: "var(--preview-text)",
-        padding: 24,
-        boxShadow: "0 24px 80px rgba(15, 23, 42, 0.12)",
         fontFamily: "var(--preview-body-font)",
       }}
     >
       <div
         style={{
-          borderRadius: cardRadius,
-          padding: theme.heroLayout === "immersive" ? "28px 24px" : "20px 20px 12px",
-          background:
-            theme.heroImageUrl && theme.heroLayout === "immersive"
-              ? `linear-gradient(135deg, ${theme.primaryColor}bb, ${theme.accentColor}66), url(${theme.heroImageUrl}) center/cover`
-              : theme.heroLayout === "immersive"
-                ? `linear-gradient(135deg, ${theme.primaryColor}22, ${theme.accentColor}28)`
-                : "var(--preview-surface)",
-          border: "1px solid var(--preview-border)",
-          marginBottom: 18,
+          minHeight: "100%",
+          borderRadius: "calc(var(--preview-radius) + 10px)",
+          background: "var(--preview-background)",
+          color: "var(--preview-text)",
+          padding: 24,
+          boxShadow: "var(--shadow-brand)",
         }}
       >
         <div
           style={{
-            display: "inline-flex",
-            borderRadius: 999,
-            padding: "6px 10px",
-            background: "var(--preview-surface)",
-            border: "1px solid var(--preview-border)",
-            color: "var(--preview-muted)",
-            fontSize: 12,
-            marginBottom: 14,
-          }}
-        >
-          {theme.heroBadgeText}
-        </div>
-        <h1
-          style={{
-            margin: 0,
-            fontFamily: "var(--preview-heading-font)",
-            fontSize: 36,
-            lineHeight: 1.1,
-            maxWidth: 640,
-          }}
-        >
-          {theme.heroHeadline}
-        </h1>
-        <p style={{ margin: "10px 0 0", color: "var(--preview-muted)", maxWidth: 520 }}>
-          {theme.heroSubheadline}
-        </p>
-        {theme.showCategoryChips ? (
-          <div style={{ display: "flex", gap: 10, marginTop: 18, flexWrap: "wrap" }}>
-            {visibleCategories.map((category) => (
-              <span
-                key={category.id}
-                style={{
-                  padding: "8px 12px",
-                  borderRadius: 999,
-                  background: "var(--preview-surface)",
-                  border: "1px solid var(--preview-border)",
-                  fontSize: 13,
-                }}
-              >
-                {category.name}
-              </span>
-            ))}
-          </div>
-        ) : null}
-      </div>
-
-      {theme.promoBannerText ? (
-        <div
-          style={{
             borderRadius: cardRadius,
-            marginBottom: 18,
-            padding: "14px 16px",
-            background: `${theme.accentColor}20`,
+            padding: theme.heroLayout === "immersive" ? "32px 28px" : "22px 22px 16px",
+            background:
+              theme.heroImageUrl && theme.heroLayout === "immersive"
+                ? `linear-gradient(135deg, ${theme.primaryColor}bb, ${theme.accentColor}55), url(${theme.heroImageUrl}) center/cover`
+                : theme.heroLayout === "immersive"
+                  ? `linear-gradient(135deg, ${theme.primaryColor}16, ${theme.accentColor}14)`
+                  : "var(--preview-surface)",
             border: "1px solid var(--preview-border)",
-            fontSize: 14,
-            fontWeight: 600,
+            display: "grid",
+            gap: 18,
           }}
         >
-          {theme.promoBannerText}
-        </div>
-      ) : null}
-
-      <div style={{ display: "grid", gap: 16 }}>
-        {visibleCategories.map((category) => (
-          <div key={category.id}>
-            <div
+          <div
+            style={{
+              display: "inline-flex",
+              width: "fit-content",
+              borderRadius: cardRadius,
+              padding: "6px 10px",
+              background: "var(--preview-surface)",
+              border: "1px solid var(--preview-border)",
+              color: "var(--preview-muted)",
+              fontSize: 12,
+            }}
+          >
+            {theme.heroBadgeText}
+          </div>
+          <div style={{ display: "grid", gap: 10 }}>
+            <h1
               style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 10,
+                margin: 0,
+                fontFamily: "var(--preview-heading-font)",
+                fontSize: 38,
+                lineHeight: 1.05,
+                maxWidth: 680,
               }}
             >
-              <h2
-                style={{
-                  margin: 0,
-                  fontFamily: "var(--preview-heading-font)",
-                  fontSize: 24,
-                }}
-              >
-              {category.name}
-              </h2>
-              <span style={{ color: "var(--preview-muted)", fontSize: 13 }}>
-                {category.categoryItems.length} items
-              </span>
-            </div>
-
-            <div style={{ display: "grid", gap: 12, gridTemplateColumns: cardColumns }}>
-              {category.categoryItems.map(({ id, item }) => (
-                <article
-                  key={id}
+              {theme.heroHeadline}
+            </h1>
+            <p
+              style={{
+                margin: 0,
+                color: "var(--preview-muted)",
+                maxWidth: 560,
+                lineHeight: 1.55,
+              }}
+            >
+              {theme.heroSubheadline}
+            </p>
+          </div>
+          {theme.showCategoryChips ? (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+              {visible.map((category) => (
+                <span
+                  key={category.id}
                   style={{
                     borderRadius: cardRadius,
-                    padding: theme.menuCardLayout === "compact" ? 12 : 16,
-                    background: "var(--preview-surface)",
                     border: "1px solid var(--preview-border)",
-                    opacity: item.visibility === "SOLD_OUT" ? 0.72 : 1,
-                    display: "grid",
-                    gap: 10,
-                    gridTemplateColumns:
-                      theme.menuCardLayout === "photo-first" ? "120px minmax(0, 1fr)" : "1fr",
+                    background: "var(--preview-surface)",
+                    color: "var(--preview-text)",
+                    padding: "7px 12px",
+                    fontSize: 13,
                   }}
                 >
-                  {theme.menuCardLayout === "photo-first" ? (
-                    <div
-                      style={{
-                        minHeight: 110,
-                        borderRadius: Math.max(12, cardRadius - 8),
-                        background:
-                          `linear-gradient(135deg, ${theme.primaryColor}22, ${theme.accentColor}18)`,
-                        border: "1px solid var(--preview-border)",
-                      }}
-                    />
-                  ) : null}
-                  <div style={{ display: "grid", gap: 10 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-                      <div>
+                  {category.name}
+                </span>
+              ))}
+            </div>
+          ) : null}
+        </div>
+
+        {theme.promoBannerText ? (
+          <div
+            style={{
+              marginTop: 16,
+              borderRadius: cardRadius,
+              border: "1px solid var(--preview-border)",
+              background: `${theme.accentColor}14`,
+              color: "var(--preview-muted)",
+              padding: "13px 16px",
+              fontSize: 14,
+              lineHeight: 1.55,
+            }}
+          >
+            {theme.promoBannerText}
+          </div>
+        ) : null}
+
+        <div style={{ display: "grid", gap: 22, marginTop: 22 }}>
+          {visible.map((category) => (
+            <section key={category.id} style={{ display: "grid", gap: 12 }}>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 16,
+                }}
+              >
+                <h2
+                  style={{
+                    margin: 0,
+                    fontFamily: "var(--preview-heading-font)",
+                    fontSize: 24,
+                  }}
+                >
+                  {category.name}
+                </h2>
+                <span style={{ color: "var(--preview-muted)", fontSize: 13 }}>
+                  {category.categoryItems.length} items
+                </span>
+              </div>
+
+              <div style={{ display: "grid", gap: 12, gridTemplateColumns: cardColumns }}>
+                {category.categoryItems.map(({ id, item }) => (
+                  <article
+                    key={id}
+                    style={{
+                      borderRadius: cardRadius,
+                      padding: theme.menuCardLayout === "compact" ? 14 : 18,
+                      border: "1px solid var(--preview-border)",
+                      background: "var(--preview-surface)",
+                      display: "grid",
+                      gap: 12,
+                      opacity: item.visibility === "SOLD_OUT" ? 0.76 : 1,
+                      gridTemplateColumns:
+                        theme.menuCardLayout === "photo-first" ? "132px minmax(0, 1fr)" : "1fr",
+                    }}
+                  >
+                    {theme.menuCardLayout === "photo-first" ? (
+                      <div
+                        style={{
+                          minHeight: 124,
+                          borderRadius: Math.max(12, cardRadius - 8),
+                          border: "1px solid var(--preview-border)",
+                          background: `linear-gradient(135deg, ${theme.primaryColor}12, ${theme.accentColor}12)`,
+                        }}
+                      />
+                    ) : null}
+
+                    <div style={{ display: "grid", gap: 12 }}>
+                      <div style={{ display: "grid", gap: 8 }}>
                         <div
                           style={{
                             display: "flex",
-                            alignItems: "center",
-                            gap: 8,
-                            flexWrap: "wrap",
+                            justifyContent: "space-between",
+                            alignItems: "flex-start",
+                            gap: 16,
                           }}
                         >
-                          <h3
-                            style={{
-                              margin: 0,
-                              fontSize: 18,
-                              fontFamily: "var(--preview-heading-font)",
-                            }}
-                          >
-                            {item.name}
-                          </h3>
-                          {theme.showFeaturedBadges && item.isFeatured ? (
-                            <span
+                          <div style={{ display: "grid", gap: 8 }}>
+                            <div
                               style={{
-                                fontSize: 11,
-                                fontWeight: 700,
-                                letterSpacing: "0.04em",
-                                textTransform: "uppercase",
-                                color: "var(--preview-on-primary)",
-                                background: "var(--preview-primary)",
-                                borderRadius: 999,
-                                padding: "5px 8px",
+                                display: "flex",
+                                alignItems: "center",
+                                flexWrap: "wrap",
+                                gap: 8,
                               }}
                             >
-                              Featured
-                            </span>
-                          ) : null}
-                          {item.visibility === "SOLD_OUT" ? (
+                              <h3
+                                style={{
+                                  margin: 0,
+                                  fontSize: 18,
+                                  fontFamily: "var(--preview-heading-font)",
+                                }}
+                              >
+                                {item.name}
+                              </h3>
+                              {theme.showFeaturedBadges && item.isFeatured ? (
+                                <span
+                                  style={{
+                                    borderRadius: cardRadius,
+                                    border: "1px solid var(--preview-border)",
+                                    color: "var(--preview-muted)",
+                                    fontSize: 11,
+                                    padding: "4px 8px",
+                                  }}
+                                >
+                                  Featured
+                                </span>
+                              ) : null}
+                              {item.visibility === "SOLD_OUT" ? (
+                                <span
+                                  style={{
+                                    borderRadius: cardRadius,
+                                    border: "1px solid var(--preview-border)",
+                                    background: `${theme.accentColor}12`,
+                                    color: "var(--preview-muted)",
+                                    fontSize: 11,
+                                    padding: "4px 8px",
+                                  }}
+                                >
+                                  Sold out
+                                </span>
+                              ) : null}
+                            </div>
+                            {item.description ? (
+                              <p
+                                style={{
+                                  margin: 0,
+                                  color: "var(--preview-muted)",
+                                  lineHeight: 1.55,
+                                }}
+                              >
+                                {item.description}
+                              </p>
+                            ) : null}
+                          </div>
+                          <strong>{formatPrice(item.variants[0]?.priceCents ?? item.basePriceCents)}</strong>
+                        </div>
+
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                          {item.tags.slice(0, 1).map((tag) => (
                             <span
+                              key={tag}
                               style={{
-                                fontSize: 11,
-                                fontWeight: 700,
-                                letterSpacing: "0.04em",
-                                textTransform: "uppercase",
-                                color: "var(--preview-muted)",
-                                background: "transparent",
+                                borderRadius: cardRadius,
                                 border: "1px solid var(--preview-border)",
-                                borderRadius: 999,
-                                padding: "5px 8px",
+                                color: "var(--preview-muted)",
+                                fontSize: 12,
+                                padding: "4px 8px",
                               }}
                             >
-                              Sold out
+                              {tag}
+                            </span>
+                          ))}
+                          {item.prepTimeMinutes ? (
+                            <span style={{ color: "var(--preview-muted)", fontSize: 12 }}>
+                              {item.prepTimeMinutes} min prep
                             </span>
                           ) : null}
                         </div>
-                        {item.description ? (
-                          <p style={{ margin: "6px 0 0", color: "var(--preview-muted)" }}>
-                            {item.description}
-                          </p>
-                        ) : null}
                       </div>
-                      <strong>{formatPrice(item.variants[0]?.priceCents ?? item.basePriceCents)}</strong>
-                    </div>
 
-                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                      {item.tags.map((tag) => (
-                        <span
-                          key={tag}
+                      {item.visibility === "SOLD_OUT" ? (
+                        <div style={{ color: "var(--preview-muted)", fontSize: 14 }}>Sold out today</div>
+                      ) : (
+                        <button
+                          type="button"
                           style={{
-                            padding: "4px 8px",
-                            borderRadius: 999,
-                            background: `${theme.accentColor}1f`,
+                            width: "fit-content",
+                            borderRadius: cardRadius,
+                            border: "1px solid var(--preview-border)",
+                            padding: "10px 14px",
+                            background: "transparent",
                             color: "var(--preview-text)",
-                            fontSize: 12,
+                            fontWeight: 600,
                           }}
                         >
-                          {tag}
-                        </span>
-                      ))}
-                      {item.prepTimeMinutes ? (
-                        <span style={{ color: "var(--preview-muted)", fontSize: 12 }}>
-                          {item.prepTimeMinutes} min prep
-                        </span>
-                      ) : null}
+                          Add
+                        </button>
+                      )}
                     </div>
-
-                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                      <button
-                        type="button"
-                        disabled={item.visibility === "SOLD_OUT"}
-                        style={{
-                          border: "1px solid var(--preview-border)",
-                          borderRadius: 999,
-                          padding: "10px 14px",
-                          background: item.visibility === "SOLD_OUT" ? "var(--preview-surface)" : "var(--preview-primary)",
-                          color: item.visibility === "SOLD_OUT" ? "var(--preview-muted)" : "var(--preview-on-primary)",
-                          fontWeight: 700,
-                          cursor: item.visibility === "SOLD_OUT" ? "not-allowed" : "pointer",
-                        }}
-                      >
-                        {item.visibility === "SOLD_OUT" ? "Sold out" : "Customize"}
-                      </button>
-                      {item.variants.length > 1 ? (
-                        <div style={{ fontSize: 13, color: "var(--preview-muted)" }}>
-                          {item.variants.map((variant) => variant.name).join(" · ")}
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
-          </div>
-        ))}
+                  </article>
+                ))}
+              </div>
+            </section>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -896,63 +923,53 @@ export const App: React.FC = () => {
   }
 
   return (
-    <div style={{ maxWidth: 1560, margin: "0 auto", padding: 24 }}>
-      <header style={{ marginBottom: 20 }}>
-        <div style={{ color: "#5f6f88", fontSize: 14, fontWeight: 600 }}>
+    <motion.main
+      className="mx-auto flex w-full max-w-[1560px] flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.22, ease: "easeOut" }}
+    >
+      <header className="grid gap-4">
+        <Badge variant="outline" className="w-fit border-border bg-background text-muted-foreground">
           Restaurant admin dashboard
+        </Badge>
+        <div className="grid gap-3">
+          <h1 className="font-heading text-4xl text-foreground sm:text-5xl">
+            Storefront customization
+          </h1>
+          <p className="max-w-4xl text-base leading-7 text-muted-foreground">
+            Tune the customer-facing storefront in one place. Theme, hero content, promo
+            messaging, category visibility, featured states, and ordering all live here while
+            kitchen workflows stay standardized.
+          </p>
         </div>
-        <h1 style={{ margin: "8px 0 6px", fontSize: 38 }}>Storefront customization</h1>
-        <p style={{ margin: 0, maxWidth: 900, color: "#5f6f88", lineHeight: 1.55 }}>
-          This dashboard is now the control surface for the customer-facing storefront. Theme,
-          hero content, promo messaging, category visibility, featured states, and ordering all
-          live here. Kitchen UI stays standardized for now.
-        </p>
       </header>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "minmax(360px, 0.4fr) minmax(0, 0.6fr)",
-          gap: 20,
-          alignItems: "start",
-        }}
-      >
-        <div style={{ display: "grid", gap: 20 }}>
+      <div className="grid gap-6 xl:grid-cols-[minmax(360px,0.38fr)_minmax(0,0.62fr)] xl:items-start">
+        <div className="grid gap-6">
           <SectionCard
             title="Tenant and storefront"
             subtitle="Use the live tenant menu as the preview data source."
           >
-            <div style={{ display: "grid", gap: 12 }}>
-              <label style={{ display: "grid", gap: 6 }}>
-                <span style={{ fontSize: 13, color: "#5f6f88", fontWeight: 600 }}>Tenant slug</span>
-                <input
+            <div className="grid gap-5">
+              <div className="grid gap-2">
+                <Label htmlFor="tenant-slug" className="text-sm text-muted-foreground">
+                  Tenant slug
+                </Label>
+                <Input
+                  id="tenant-slug"
                   value={tenantSlug}
                   onChange={(event) => setTenantSlug(event.target.value)}
-                  style={inputStyle}
                 />
-              </label>
+              </div>
 
-              <div
-                style={{
-                  display: "grid",
-                  gap: 8,
-                  padding: 14,
-                  borderRadius: 16,
-                  background: "#f7fafe",
-                  border: "1px solid #dbe5f0",
-                  fontSize: 14,
-                }}
-              >
-                <div>
-                  <strong>Status:</strong> {isLoading ? "Loading" : error ? "Error" : "Loaded"}
-                </div>
-                <div>
-                  <strong>Categories:</strong> {categories.length}
-                </div>
-                <div>
-                  <strong>Featured items:</strong> {featuredCount}
-                </div>
-                {error ? <div style={{ color: "#b42318" }}>{error}</div> : null}
+              <div className="grid gap-3 rounded-[var(--radius)] border border-border/70 bg-background/70 p-4">
+                <StatusRow label="Status" value={isLoading ? "Loading" : error ? "Error" : "Loaded"} />
+                <StatusRow label="Categories" value={String(categories.length)} />
+                <StatusRow label="Featured items" value={String(featuredCount)} />
+                {error ? (
+                  <div className="text-sm text-destructive">{error}</div>
+                ) : null}
               </div>
             </div>
           </SectionCard>
@@ -961,55 +978,64 @@ export const App: React.FC = () => {
             title="Storefront controls"
             subtitle="Draft edits update the preview instantly. Save persists them to the backend."
           >
-            <div style={{ display: "grid", gap: 20 }}>
+            <div className="grid gap-5">
               <TabBar activeTab={activeTab} onChange={setActiveTab} />
 
-              {activeTab === "branding" ? (
-                <BrandingTab theme={draftTheme} onThemeChange={updateTheme} />
-              ) : null}
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={activeTab}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.18, ease: "easeOut" }}
+                  className="grid gap-5"
+                >
+                  {activeTab === "branding" ? (
+                    <BrandingTab theme={draftTheme} onThemeChange={updateTheme} />
+                  ) : null}
 
-              {activeTab === "layout" ? (
-                <LayoutTab theme={draftTheme} onThemeChange={updateTheme} />
-              ) : null}
+                  {activeTab === "layout" ? (
+                    <LayoutTab theme={draftTheme} onThemeChange={updateTheme} />
+                  ) : null}
 
-              {activeTab === "menu" ? (
-                <MenuTab
-                  categories={categories}
-                  menuActionMessage={menuActionMessage}
-                  onAddItem={addItemToCategory}
-                  onCategoryVisibilityChange={updateCategoryVisibility}
-                  onCategoryReorder={reorderCategories}
-                  onDeleteItem={deleteItemFromMenu}
-                  onItemFeaturedChange={(itemId, isFeatured) =>
-                    void updateItemPresentation(
-                      itemId,
-                      { isFeatured },
-                      "Featured state updated.",
-                    )
-                  }
-                  onItemReorder={reorderCategoryItem}
-                  onItemVisibilityChange={updateItemVisibility}
-                />
-              ) : null}
+                  {activeTab === "menu" ? (
+                    <MenuTab
+                      categories={categories}
+                      menuActionMessage={menuActionMessage}
+                      onAddItem={addItemToCategory}
+                      onCategoryVisibilityChange={updateCategoryVisibility}
+                      onCategoryReorder={reorderCategories}
+                      onDeleteItem={deleteItemFromMenu}
+                      onItemFeaturedChange={(itemId, isFeatured) =>
+                        void updateItemPresentation(
+                          itemId,
+                          { isFeatured },
+                          "Featured state updated.",
+                        )
+                      }
+                      onItemReorder={reorderCategoryItem}
+                      onItemVisibilityChange={updateItemVisibility}
+                    />
+                  ) : null}
 
-              {activeTab === "assistant" ? (
-                <AssistantPanel
-                  tenantSlug={tenantSlug}
-                  onRefreshTargets={(targets) => {
-                    if (targets.includes("menu")) {
-                      void reloadMenuData()
-                    }
-                  }}
-                />
-              ) : null}
+                  {activeTab === "assistant" ? (
+                    <AssistantPanel
+                      tenantSlug={tenantSlug}
+                      onRefreshTargets={(targets) => {
+                        if (targets.includes("menu")) {
+                          void reloadMenuData()
+                        }
+                      }}
+                    />
+                  ) : null}
+                </motion.div>
+              </AnimatePresence>
 
               {(activeTab === "branding" || activeTab === "layout" || isThemeDirty || saveMessage) ? (
                 <ThemeSaveBar
                   isDirty={isThemeDirty}
                   isLoading={isLoading}
                   isSaving={isSaving}
-                  primaryColor={draftTheme.primaryColor}
-                  onPrimary={draftTheme.onPrimary}
                   onSave={() => void saveTheme()}
                   saveMessage={saveMessage}
                 />
@@ -1025,6 +1051,15 @@ export const App: React.FC = () => {
           <PreviewPane theme={draftTheme} categories={categories} />
         </SectionCard>
       </div>
+    </motion.main>
+  )
+}
+
+function StatusRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 text-sm">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium text-foreground">{value}</span>
     </div>
   )
 }
@@ -1036,44 +1071,33 @@ function TabBar({
   activeTab: AdminTab
   onChange: (value: AdminTab) => void
 }) {
-  const tabs: Array<{ id: AdminTab; label: string }> = [
-    { id: "branding", label: "Branding" },
-    { id: "layout", label: "Layout" },
-    { id: "menu", label: "Menu" },
-    { id: "assistant", label: "AI Assistant" },
+  const tabs: Array<{ id: AdminTab; label: string; icon: React.ReactNode }> = [
+    { id: "branding", label: "Branding", icon: <Palette className="h-4 w-4" /> },
+    { id: "layout", label: "Layout", icon: <LayoutPanelTop className="h-4 w-4" /> },
+    { id: "menu", label: "Menu", icon: <Sparkles className="h-4 w-4" /> },
+    { id: "assistant", label: "AI Assistant", icon: <CheckCircle2 className="h-4 w-4" /> },
   ]
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexWrap: "wrap",
-        gap: 8,
-        padding: 8,
-        borderRadius: 18,
-        background: "#f7fafe",
-        border: "1px solid #dbe5f0",
-      }}
-    >
+    <div className="flex flex-wrap gap-2 rounded-[var(--radius)] border border-border/70 bg-background/70 p-2">
       {tabs.map((tab) => {
         const isActive = activeTab === tab.id
         return (
-          <button
+          <Button
             key={tab.id}
             type="button"
+            variant={isActive ? "secondary" : "ghost"}
             onClick={() => onChange(tab.id)}
-            style={{
-              border: "none",
-              borderRadius: 12,
-              padding: "10px 14px",
-              background: isActive ? "#172033" : "transparent",
-              color: isActive ? "#ffffff" : "#5f6f88",
-              fontWeight: 700,
-              cursor: "pointer",
-            }}
+            className={cn(
+              "gap-2 rounded-[calc(var(--radius)-8px)] px-3 text-sm",
+              isActive
+                ? "border border-border/70 bg-card text-foreground shadow-sm"
+                : "text-muted-foreground",
+            )}
           >
+            {tab.icon}
             {tab.label}
-          </button>
+          </Button>
         )
       })}
     </div>
@@ -1088,57 +1112,58 @@ function BrandingTab({
   onThemeChange: ThemeChangeHandler
 }) {
   return (
-    <div style={{ display: "grid", gap: 14 }}>
-      <label style={{ display: "grid", gap: 6 }}>
-        <span style={labelStyle}>Hero headline</span>
-        <textarea
-          value={theme.heroHeadline}
-          onChange={(event) => onThemeChange("heroHeadline", event.target.value)}
-          rows={2}
-          style={{ ...inputStyle, resize: "vertical" }}
-        />
-      </label>
+    <div className="grid gap-5">
+      <div className="grid gap-5 lg:grid-cols-2">
+        <FieldShell className="lg:col-span-2">
+          <Label htmlFor="hero-headline" className={fieldLabelClassName}>
+            Hero headline
+          </Label>
+          <textarea
+            id="hero-headline"
+            value={theme.heroHeadline}
+            onChange={(event) => onThemeChange("heroHeadline", event.target.value)}
+            rows={2}
+            className={textareaClassName}
+          />
+        </FieldShell>
 
-      <label style={{ display: "grid", gap: 6 }}>
-        <span style={labelStyle}>Hero subheadline</span>
-        <textarea
-          value={theme.heroSubheadline}
-          onChange={(event) => onThemeChange("heroSubheadline", event.target.value)}
-          rows={2}
-          style={{ ...inputStyle, resize: "vertical" }}
-        />
-      </label>
+        <FieldShell className="lg:col-span-2">
+          <Label htmlFor="hero-subheadline" className={fieldLabelClassName}>
+            Hero subheadline
+          </Label>
+          <textarea
+            id="hero-subheadline"
+            value={theme.heroSubheadline}
+            onChange={(event) => onThemeChange("heroSubheadline", event.target.value)}
+            rows={3}
+            className={textareaClassName}
+          />
+        </FieldShell>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-        <label style={{ display: "grid", gap: 6 }}>
-          <span style={labelStyle}>Hero badge text</span>
-          <input
+        <FieldShell>
+          <Label htmlFor="hero-badge" className={fieldLabelClassName}>
+            Hero badge text
+          </Label>
+          <Input
+            id="hero-badge"
             value={theme.heroBadgeText}
             onChange={(event) => onThemeChange("heroBadgeText", event.target.value)}
-            style={inputStyle}
           />
-        </label>
-        <label style={{ display: "grid", gap: 6 }}>
-          <span style={labelStyle}>Promo banner text</span>
-          <input
+        </FieldShell>
+
+        <FieldShell>
+          <Label htmlFor="promo-banner" className={fieldLabelClassName}>
+            Promo banner text
+          </Label>
+          <Input
+            id="promo-banner"
             value={theme.promoBannerText}
             onChange={(event) => onThemeChange("promoBannerText", event.target.value)}
-            style={inputStyle}
           />
-        </label>
+        </FieldShell>
       </div>
 
-      <label style={{ display: "grid", gap: 6 }}>
-        <span style={labelStyle}>Hero image URL</span>
-        <input
-          value={theme.heroImageUrl}
-          onChange={(event) => onThemeChange("heroImageUrl", event.target.value)}
-          style={inputStyle}
-          placeholder="https://..."
-        />
-      </label>
-
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <ColorField label="Primary" value={theme.primaryColor} onChange={(value) => onThemeChange("primaryColor", value)} />
         <ColorField label="Accent" value={theme.accentColor} onChange={(value) => onThemeChange("accentColor", value)} />
         <ColorField label="Background" value={theme.backgroundColor} onChange={(value) => onThemeChange("backgroundColor", value)} />
@@ -1147,7 +1172,7 @@ function BrandingTab({
         <ColorField label="Border" value={theme.borderColor} onChange={(value) => onThemeChange("borderColor", value)} />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+      <div className="grid gap-4 lg:grid-cols-2">
         <SelectField
           label="Body font"
           value={theme.bodyFont}
@@ -1170,46 +1195,46 @@ function BrandingTab({
         />
       </div>
 
-      <details
-        style={{
-          border: "1px solid #dbe5f0",
-          borderRadius: 16,
-          background: "#f9fbfe",
-          padding: 16,
-        }}
-      >
-        <summary style={{ cursor: "pointer", fontSize: 14, fontWeight: 700, color: "#172033" }}>
+      <details className="rounded-[var(--radius)] border border-border/70 bg-background/70 p-4">
+        <summary className="cursor-pointer list-none text-sm font-medium text-foreground">
           Advanced settings
         </summary>
-        <div style={{ display: "grid", gap: 14, marginTop: 14 }}>
-          <label style={{ display: "grid", gap: 6 }}>
-            <span style={labelStyle}>App title</span>
-            <input
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <FieldShell>
+            <Label htmlFor="app-title" className={fieldLabelClassName}>
+              App title
+            </Label>
+            <Input
+              id="app-title"
               value={theme.appTitle}
               onChange={(event) => onThemeChange("appTitle", event.target.value)}
-              style={inputStyle}
             />
-          </label>
+          </FieldShell>
 
-          <label style={{ display: "grid", gap: 6 }}>
-            <span style={labelStyle}>Tagline</span>
+          <FieldShell>
+            <Label htmlFor="hero-image-url" className={fieldLabelClassName}>
+              Hero image URL
+            </Label>
+            <Input
+              id="hero-image-url"
+              value={theme.heroImageUrl}
+              onChange={(event) => onThemeChange("heroImageUrl", event.target.value)}
+              placeholder="https://..."
+            />
+          </FieldShell>
+
+          <FieldShell className="lg:col-span-2">
+            <Label htmlFor="tagline" className={fieldLabelClassName}>
+              Tagline
+            </Label>
             <textarea
+              id="tagline"
               value={theme.tagline}
               onChange={(event) => onThemeChange("tagline", event.target.value)}
               rows={2}
-              style={{ ...inputStyle, resize: "vertical" }}
+              className={textareaClassName}
             />
-          </label>
-
-          <label style={{ display: "grid", gap: 6 }}>
-            <span style={labelStyle}>Hero image URL</span>
-            <input
-              value={theme.heroImageUrl}
-              onChange={(event) => onThemeChange("heroImageUrl", event.target.value)}
-              style={inputStyle}
-              placeholder="https://..."
-            />
-          </label>
+          </FieldShell>
         </div>
       </details>
     </div>
@@ -1224,8 +1249,8 @@ function LayoutTab({
   onThemeChange: ThemeChangeHandler
 }) {
   return (
-    <div style={{ display: "grid", gap: 14 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+    <div className="grid gap-5">
+      <div className="grid gap-4 lg:grid-cols-3">
         <SelectField
           label="Button style"
           value={theme.buttonStyle}
@@ -1256,35 +1281,38 @@ function LayoutTab({
         />
       </div>
 
-      <label style={{ display: "grid", gap: 6 }}>
-        <span style={labelStyle}>Card radius ({theme.radius}px)</span>
+      <FieldShell>
+        <div className="flex items-center justify-between gap-3">
+          <Label htmlFor="radius" className={fieldLabelClassName}>
+            Card radius
+          </Label>
+          <span className="text-sm text-muted-foreground">{theme.radius}px</span>
+        </div>
         <input
+          id="radius"
           type="range"
           min={8}
           max={32}
           step={2}
           value={theme.radius}
           onChange={(event) => onThemeChange("radius", Number(event.target.value))}
+          className="accent-primary"
         />
-      </label>
+      </FieldShell>
 
-      <label style={checkboxRowStyle}>
-        <input
-          type="checkbox"
+      <div className="grid gap-3 rounded-[var(--radius)] border border-border/70 bg-background/70 p-4">
+        <ToggleRow
           checked={theme.showFeaturedBadges}
-          onChange={(event) => onThemeChange("showFeaturedBadges", event.target.checked)}
+          label="Show featured item badges"
+          onChange={(checked) => onThemeChange("showFeaturedBadges", checked)}
         />
-        Show featured item badges
-      </label>
-
-      <label style={checkboxRowStyle}>
-        <input
-          type="checkbox"
+        <Separator />
+        <ToggleRow
           checked={theme.showCategoryChips}
-          onChange={(event) => onThemeChange("showCategoryChips", event.target.checked)}
+          label="Show category chips in the hero"
+          onChange={(checked) => onThemeChange("showCategoryChips", checked)}
         />
-        Show category chips in the hero
-      </label>
+      </div>
     </div>
   )
 }
@@ -1293,65 +1321,37 @@ function ThemeSaveBar({
   isDirty,
   isLoading,
   isSaving,
-  onPrimary,
   onSave,
-  primaryColor,
   saveMessage,
 }: {
   isDirty: boolean
   isLoading: boolean
   isSaving: boolean
-  onPrimary: string
   onSave: () => void
-  primaryColor: string
   saveMessage: string | null
 }) {
+  const isSaved = Boolean(saveMessage?.toLowerCase().includes("saved"))
+
   return (
-    <div
-      style={{
-        display: "flex",
-        flexWrap: "wrap",
-        gap: 12,
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: 16,
-        borderRadius: 18,
-        border: "1px solid #dbe5f0",
-        background: "#f9fbfe",
-      }}
-    >
-      <div style={{ display: "grid", gap: 4 }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: isDirty ? "#b45309" : "#5f6f88" }}>
+    <div className="flex flex-wrap items-center justify-between gap-4 rounded-[var(--radius)] border border-border/70 bg-background/70 p-4">
+      <div className="grid gap-1">
+        <div className={cn("text-sm font-medium", isDirty ? "text-foreground" : "text-muted-foreground")}>
           {isDirty ? "Unsaved changes" : "Draft matches saved settings"}
         </div>
         {saveMessage ? (
-          <div
-            style={{
-              fontSize: 14,
-              color: saveMessage.includes("saved") ? "#0f766e" : "#b42318",
-            }}
-          >
+          <div className={cn("text-sm", isSaved ? "text-foreground" : "text-destructive")}>
             {saveMessage}
           </div>
         ) : null}
       </div>
 
-      <button
+      <Button
         type="button"
         onClick={onSave}
         disabled={isSaving || isLoading || !isDirty}
-        style={{
-          border: "none",
-          borderRadius: 14,
-          padding: "12px 18px",
-          background: isSaving || !isDirty ? "#9aa8bc" : primaryColor,
-          color: onPrimary,
-          fontWeight: 700,
-          cursor: isSaving || !isDirty ? "not-allowed" : "pointer",
-        }}
       >
         {isSaving ? "Saving…" : "Save storefront settings"}
-      </button>
+      </Button>
     </div>
   )
 }
@@ -1414,13 +1414,13 @@ function MenuTab({
     }
 
     if (activeType === "item" && overType === "item") {
-      const activeCategoryId = String(active.data.current?.categoryId ?? "")
-      const overCategoryId = String(over.data.current?.categoryId ?? "")
-      if (!activeCategoryId || activeCategoryId !== overCategoryId) {
+      const activeCategory = String(active.data.current?.categoryId ?? "")
+      const overCategory = String(over.data.current?.categoryId ?? "")
+      if (!activeCategory || activeCategory !== overCategory) {
         return
       }
 
-      const category = categories.find((entry) => entry.id === activeCategoryId)
+      const category = categories.find((entry) => entry.id === activeCategory)
       if (!category) {
         return
       }
@@ -1429,19 +1429,14 @@ function MenuTab({
       const oldIndex = itemIds.indexOf(String(active.id))
       const newIndex = itemIds.indexOf(String(over.id))
       if (oldIndex >= 0 && newIndex >= 0 && oldIndex !== newIndex) {
-        void Promise.resolve(onItemReorder(activeCategoryId, arrayMove(itemIds, oldIndex, newIndex)))
+        void Promise.resolve(onItemReorder(activeCategory, arrayMove(itemIds, oldIndex, newIndex)))
       }
     }
   }
 
   return (
-    <div style={{ display: "grid", gap: 16 }}>
-      <div
-        style={{
-          fontSize: 14,
-          color: menuActionMessage?.includes("Failed") ? "#b42318" : "#5f6f88",
-        }}
-      >
+    <div className="grid gap-4">
+      <div className={cn("text-sm", menuActionMessage?.includes("Failed") ? "text-destructive" : "text-muted-foreground")}>
         {menuActionMessage ?? "These changes shape what customers see in the storefront."}
       </div>
 
@@ -1469,7 +1464,7 @@ function MenuTab({
         onDragEnd={handleDragEnd}
       >
         <SortableContext items={categoryIds} strategy={verticalListSortingStrategy}>
-          <div style={{ display: "grid", gap: 14 }}>
+          <div className="grid gap-4">
             {categories.map((category) => (
               <SortableCategoryCard
                 key={category.id}
@@ -1556,75 +1551,77 @@ function SortableCategoryCard({
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
-        opacity: isDragging ? 0.6 : 1,
+        opacity: isDragging ? 0.7 : 1,
         position: "relative",
       }}
     >
       {showTopDropIndicator ? <DropIndicator position="top" /> : null}
-      <div
-        style={{
-          border: "1px solid #dbe5f0",
-          borderRadius: 18,
-          padding: 16,
-          background: isHidden ? "#f5f7fb" : "#f9fbfe",
-          display: "grid",
-          gap: 12,
-          boxShadow:
-            activeDragType === "category" && overDragId === category.id
-              ? "0 0 0 2px rgba(23, 32, 51, 0.12)"
-              : "none",
-        }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-            <DragHandleButton attributes={attributes} listeners={listeners} label={`Reorder category ${category.name}`} />
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontWeight: 700, opacity: isHidden ? 0.6 : 1 }}>{category.name}</div>
-              <div style={{ fontSize: 13, color: "#5f6f88" }}>
-                {category.categoryItems.length} items
+      <motion.div layout>
+        <Card
+          className={cn(
+            "gap-4 border border-border/80 py-0 shadow-sm",
+            isHidden ? "bg-background/70" : "bg-card",
+            activeDragType === "category" && overDragId === category.id ? "ring-2 ring-ring/20" : "",
+          )}
+        >
+          <CardContent className="grid gap-4 px-4 py-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 items-center gap-3">
+                <DragHandleButton
+                  attributes={attributes}
+                  listeners={listeners}
+                  label={`Reorder category ${category.name}`}
+                />
+                <div className="min-w-0 space-y-1">
+                  <div className={cn("truncate font-medium text-foreground", isHidden ? "opacity-60" : "")}>
+                    {category.name}
+                  </div>
+                  <div className="text-sm text-muted-foreground">
+                    {category.categoryItems.length} items
+                  </div>
+                </div>
               </div>
+
+              <IconToggleButton
+                active={!isHidden}
+                label={isHidden ? `Show ${category.name}` : `Hide ${category.name}`}
+                onClick={() =>
+                  onCategoryVisibilityChange(
+                    category.id,
+                    isHidden ? "AVAILABLE" : "HIDDEN",
+                  )
+                }
+              >
+                {isHidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </IconToggleButton>
             </div>
-          </div>
 
-          <IconToggleButton
-            active={!isHidden}
-            label={isHidden ? `Show ${category.name}` : `Hide ${category.name}`}
-            onClick={() =>
-              onCategoryVisibilityChange(
-                category.id,
-                isHidden ? "AVAILABLE" : "HIDDEN",
-              )
-            }
-          >
-            <EyeIcon crossed={isHidden} />
-          </IconToggleButton>
-        </div>
+            <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
+              <div className="grid gap-3">
+                {category.categoryItems.map((entry) => (
+                  <SortableItemRow
+                    activeCategoryId={activeCategoryId}
+                    activeDragId={activeDragId}
+                    activeDragType={activeDragType}
+                    key={entry.item.id}
+                    categoryId={category.id}
+                    entry={entry}
+                    itemIds={itemIds}
+                    onDelete={onDeleteItem}
+                    onFeaturedChange={onItemFeaturedChange}
+                    onVisibilityChange={onItemVisibilityChange}
+                    overDragId={overDragId}
+                  />
+                ))}
+              </div>
+            </SortableContext>
 
-        <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
-          <div style={{ display: "grid", gap: 10 }}>
-            {category.categoryItems.map((entry) => (
-              <SortableItemRow
-                activeCategoryId={activeCategoryId}
-                activeDragId={activeDragId}
-                activeDragType={activeDragType}
-                key={entry.item.id}
-                categoryId={category.id}
-                entry={entry}
-                itemIds={itemIds}
-                onDelete={onDeleteItem}
-                onFeaturedChange={onItemFeaturedChange}
-                onVisibilityChange={onItemVisibilityChange}
-                overDragId={overDragId}
-              />
-            ))}
-          </div>
-        </SortableContext>
+            <Separator />
 
-        <AddItemInlineForm
-          categoryId={category.id}
-          onSubmit={onAddItem}
-        />
-      </div>
+            <AddItemInlineForm categoryId={category.id} onSubmit={onAddItem} />
+          </CardContent>
+        </Card>
+      </motion.div>
       {showBottomDropIndicator ? <DropIndicator position="bottom" /> : null}
     </div>
   )
@@ -1689,99 +1686,90 @@ function SortableItemRow({
       style={{
         transform: CSS.Transform.toString(transform),
         transition,
-        opacity: isDragging ? 0.55 : isHidden ? 0.58 : 1,
+        opacity: isDragging ? 0.6 : isHidden ? 0.6 : 1,
         position: "relative",
-        border: "1px solid #dde6f1",
-        borderRadius: 14,
-        padding: 14,
-        background: isSoldOut ? "#fff7ed" : "#ffffff",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        gap: 12,
-        boxShadow:
-          isSameCategoryDrag && overDragId === entry.item.id
-            ? "0 0 0 2px rgba(23, 32, 51, 0.12)"
-            : "none",
       }}
     >
       {showTopDropIndicator ? <DropIndicator position="top" inset /> : null}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-        <DragHandleButton attributes={attributes} listeners={listeners} label={`Reorder item ${entry.item.name}`} />
-        <div style={{ minWidth: 0 }}>
-          <div style={{ fontWeight: 700 }}>{entry.item.name}</div>
-          <div style={{ fontSize: 13, color: "#5f6f88" }}>
-            {formatPrice(entry.item.variants[0]?.priceCents ?? entry.item.basePriceCents)}
+      <motion.div layout>
+        <div
+          className={cn(
+            "flex items-center justify-between gap-3 rounded-[var(--radius)] border border-border/70 bg-background px-3 py-3",
+            isSoldOut ? "bg-accent/10" : "",
+            isSameCategoryDrag && overDragId === entry.item.id ? "ring-2 ring-ring/20" : "",
+          )}
+        >
+          <div className="flex min-w-0 items-center gap-3">
+            <DragHandleButton
+              attributes={attributes}
+              listeners={listeners}
+              label={`Reorder item ${entry.item.name}`}
+            />
+            <div className="min-w-0">
+              <div className="truncate font-medium text-foreground">{entry.item.name}</div>
+              <div className="text-sm text-muted-foreground">
+                {formatPrice(entry.item.variants[0]?.priceCents ?? entry.item.basePriceCents)}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <IconToggleButton
+              active={!isHidden}
+              label={isHidden ? `Show ${entry.item.name}` : `Hide ${entry.item.name}`}
+              onClick={() =>
+                onVisibilityChange(
+                  entry.item.id,
+                  isHidden ? "AVAILABLE" : "HIDDEN",
+                )
+              }
+            >
+              {isHidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </IconToggleButton>
+
+            <IconToggleButton
+              active={entry.item.isFeatured}
+              label={entry.item.isFeatured ? `Unfeature ${entry.item.name}` : `Feature ${entry.item.name}`}
+              onClick={() => onFeaturedChange(entry.item.id, !entry.item.isFeatured)}
+            >
+              <Star className={cn("h-4 w-4", entry.item.isFeatured ? "fill-current" : "")} />
+            </IconToggleButton>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                onVisibilityChange(
+                  entry.item.id,
+                  isSoldOut ? "AVAILABLE" : "SOLD_OUT",
+                )
+              }
+              className={cn(
+                "rounded-[calc(var(--radius)-8px)]",
+                isSoldOut ? "border-accent bg-accent/15 text-foreground" : "text-muted-foreground",
+              )}
+            >
+              Sold out
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (window.confirm(`Delete ${entry.item.name}?`)) {
+                  void Promise.resolve(onDelete(entry.item.id))
+                }
+              }}
+              className="rounded-[calc(var(--radius)-8px)] border-destructive/20 text-destructive hover:bg-destructive/10 hover:text-destructive"
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete
+            </Button>
           </div>
         </div>
-      </div>
-
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <IconToggleButton
-          active={!isHidden}
-          label={isHidden ? `Show ${entry.item.name}` : `Hide ${entry.item.name}`}
-          onClick={() =>
-            onVisibilityChange(
-              entry.item.id,
-              isHidden ? "AVAILABLE" : "HIDDEN",
-            )
-          }
-        >
-          <EyeIcon crossed={isHidden} />
-        </IconToggleButton>
-
-        <IconToggleButton
-          active={entry.item.isFeatured}
-          label={entry.item.isFeatured ? `Unfeature ${entry.item.name}` : `Feature ${entry.item.name}`}
-          onClick={() => onFeaturedChange(entry.item.id, !entry.item.isFeatured)}
-        >
-          <StarIcon filled={entry.item.isFeatured} />
-        </IconToggleButton>
-
-        <button
-          type="button"
-          onClick={() =>
-            onVisibilityChange(
-              entry.item.id,
-              isSoldOut ? "AVAILABLE" : "SOLD_OUT",
-            )
-          }
-          style={{
-            border: "1px solid",
-            borderColor: isSoldOut ? "#f97316" : "#d7e1ec",
-            borderRadius: 999,
-            padding: "8px 12px",
-            background: isSoldOut ? "#f97316" : "#ffffff",
-            color: isSoldOut ? "#ffffff" : "#172033",
-            fontSize: 13,
-            fontWeight: 700,
-            cursor: "pointer",
-          }}
-        >
-          Sold out
-        </button>
-
-        <button
-          type="button"
-          onClick={() => {
-            if (window.confirm(`Delete ${entry.item.name}?`)) {
-              void Promise.resolve(onDelete(entry.item.id))
-            }
-          }}
-          style={{
-            border: "1px solid #fecaca",
-            borderRadius: 999,
-            padding: "8px 12px",
-            background: "#ffffff",
-            color: "#b42318",
-            fontSize: 13,
-            fontWeight: 700,
-            cursor: "pointer",
-          }}
-        >
-          Delete
-        </button>
-      </div>
+      </motion.div>
       {showBottomDropIndicator ? <DropIndicator position="bottom" inset /> : null}
     </div>
   )
@@ -1823,42 +1811,24 @@ function AddItemInlineForm({
   }
 
   return (
-    <div
-      style={{
-        borderTop: "1px solid #e2e8f0",
-        paddingTop: 12,
-        display: "grid",
-        gap: 10,
-      }}
-    >
+    <div className="grid gap-3">
       {!open ? (
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          style={{
-            ...secondaryButtonStyle,
-            width: "fit-content",
-            padding: "10px 14px",
-            fontWeight: 700,
-          }}
-        >
+        <Button type="button" variant="outline" onClick={() => setOpen(true)} className="w-fit">
           Add item
-        </button>
+        </Button>
       ) : (
         <>
-          <div style={{ display: "grid", gridTemplateColumns: "1.4fr 0.8fr", gap: 10 }}>
-            <input
+          <div className="grid gap-3 lg:grid-cols-[1.5fr_0.8fr]">
+            <Input
               value={name}
               onChange={(event) => setName(event.target.value)}
               placeholder="Item name"
-              style={inputStyle}
             />
-            <input
+            <Input
               value={price}
               onChange={(event) => setPrice(event.target.value)}
               placeholder="Price"
               inputMode="decimal"
-              style={inputStyle}
             />
           </div>
           <textarea
@@ -1866,31 +1836,15 @@ function AddItemInlineForm({
             onChange={(event) => setDescription(event.target.value)}
             placeholder="Description"
             rows={2}
-            style={{ ...inputStyle, resize: "vertical" }}
+            className={textareaClassName}
           />
-          <div style={{ display: "flex", gap: 10 }}>
-            <button
-              type="button"
-              onClick={() => void handleSubmit()}
-              style={{
-                border: "none",
-                borderRadius: 12,
-                padding: "10px 14px",
-                background: "#172033",
-                color: "#ffffff",
-                fontWeight: 700,
-                cursor: "pointer",
-              }}
-            >
+          <div className="flex flex-wrap gap-3">
+            <Button type="button" onClick={() => void handleSubmit()}>
               Create item
-            </button>
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              style={secondaryButtonStyle}
-            >
+            </Button>
+            <Button type="button" variant="ghost" onClick={() => setOpen(false)}>
               Cancel
-            </button>
+            </Button>
           </div>
         </>
       )}
@@ -1908,15 +1862,11 @@ function DropIndicator({
   return (
     <div
       aria-hidden="true"
+      className="pointer-events-none absolute h-1 rounded-full bg-primary/70"
       style={{
-        position: "absolute",
         [position]: inset ? 6 : -8,
         left: inset ? 10 : 0,
         right: inset ? 10 : 0,
-        height: 4,
-        borderRadius: 999,
-        background: "#172033",
-        pointerEvents: "none",
       }}
     />
   )
@@ -1932,26 +1882,17 @@ function DragHandleButton({
   listeners: ReturnType<typeof useSortable>["listeners"]
 }) {
   return (
-    <button
+    <Button
       type="button"
+      variant="outline"
+      size="icon-sm"
       aria-label={label}
       {...attributes}
       {...listeners}
-      style={{
-        border: "1px solid #d7e1ec",
-        borderRadius: 10,
-        width: 34,
-        height: 34,
-        display: "grid",
-        placeItems: "center",
-        background: "#ffffff",
-        color: "#61708a",
-        cursor: "grab",
-        flexShrink: 0,
-      }}
+      className="shrink-0 cursor-grab rounded-[calc(var(--radius)-8px)] text-muted-foreground"
     >
       <GripIcon />
-    </button>
+    </Button>
   )
 }
 
@@ -1967,44 +1908,19 @@ function IconToggleButton({
   onClick: () => void
 }) {
   return (
-    <button
+    <Button
       type="button"
       aria-label={label}
       onClick={onClick}
-      style={{
-        border: "1px solid",
-        borderColor: active ? "#172033" : "#d7e1ec",
-        borderRadius: 10,
-        width: 34,
-        height: 34,
-        display: "grid",
-        placeItems: "center",
-        background: active ? "#172033" : "#ffffff",
-        color: active ? "#ffffff" : "#61708a",
-        cursor: "pointer",
-        flexShrink: 0,
-      }}
+      variant="outline"
+      size="icon-sm"
+      className={cn(
+        "rounded-[calc(var(--radius)-8px)]",
+        active ? "border-primary/30 bg-primary/10 text-foreground" : "text-muted-foreground",
+      )}
     >
       {children}
-    </button>
-  )
-}
-
-function EyeIcon({ crossed = false }: { crossed?: boolean }) {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6Z" />
-      <circle cx="12" cy="12" r="3" />
-      {crossed ? <path d="M4 4l16 16" /> : null}
-    </svg>
-  )
-}
-
-function StarIcon({ filled = false }: { filled?: boolean }) {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-      <path d="m12 3 2.75 5.57 6.15.89-4.45 4.33 1.05 6.12L12 17.02 6.5 19.91l1.05-6.12L3.1 9.46l6.15-.89L12 3Z" />
-    </svg>
+    </Button>
   )
 }
 
@@ -2021,6 +1937,20 @@ function GripIcon() {
   )
 }
 
+function FieldShell({
+  children,
+  className,
+}: {
+  children: React.ReactNode
+  className?: string
+}) {
+  return (
+    <div className={cn("grid gap-2", className)}>
+      {children}
+    </div>
+  )
+}
+
 function ColorField({
   label,
   value,
@@ -2031,32 +1961,18 @@ function ColorField({
   onChange: (value: string) => void
 }) {
   return (
-    <label style={{ display: "grid", gap: 6 }}>
-      <span style={labelStyle}>{label}</span>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "52px 1fr",
-          gap: 10,
-          alignItems: "center",
-        }}
-      >
+    <FieldShell>
+      <Label className={fieldLabelClassName}>{label}</Label>
+      <div className="grid grid-cols-[54px_minmax(0,1fr)] items-center gap-3">
         <input
           type="color"
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          style={{
-            width: 52,
-            height: 42,
-            padding: 4,
-            border: "1px solid #d7e1ec",
-            borderRadius: 12,
-            background: "#ffffff",
-          }}
+          className="h-10 w-[54px] rounded-[var(--radius)] border border-input bg-background p-1"
         />
-        <input value={value} onChange={(event) => onChange(event.target.value)} style={inputStyle} />
+        <Input value={value} onChange={(event) => onChange(event.target.value)} />
       </div>
-    </label>
+    </FieldShell>
   )
 }
 
@@ -2072,45 +1988,43 @@ function SelectField({
   options: Array<{ label: string; value: string }>
 }) {
   return (
-    <label style={{ display: "grid", gap: 6 }}>
-      <span style={labelStyle}>{label}</span>
-      <select value={value} onChange={(event) => onChange(event.target.value)} style={inputStyle}>
+    <FieldShell>
+      <Label className={fieldLabelClassName}>{label}</Label>
+      <select value={value} onChange={(event) => onChange(event.target.value)} className={selectClassName}>
         {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
           </option>
         ))}
       </select>
+    </FieldShell>
+  )
+}
+
+function ToggleRow({
+  checked,
+  label,
+  onChange,
+}: {
+  checked: boolean
+  label: string
+  onChange: (checked: boolean) => void
+}) {
+  return (
+    <label className="flex items-center justify-between gap-4 text-sm text-foreground">
+      <span>{label}</span>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(event) => onChange(event.target.checked)}
+        className="h-4 w-4 accent-primary"
+      />
     </label>
   )
 }
 
-const labelStyle: React.CSSProperties = {
-  fontSize: 13,
-  color: "#5f6f88",
-  fontWeight: 600,
-}
-
-const checkboxRowStyle: React.CSSProperties = {
-  display: "flex",
-  gap: 8,
-  alignItems: "center",
-  fontSize: 14,
-}
-
-const inputStyle: React.CSSProperties = {
-  border: "1px solid #d7e1ec",
-  borderRadius: 14,
-  padding: "12px 14px",
-  background: "#f9fbfe",
-  color: "#172033",
-}
-
-const secondaryButtonStyle: React.CSSProperties = {
-  border: "1px solid #d7e1ec",
-  borderRadius: 12,
-  padding: "8px 12px",
-  background: "#ffffff",
-  color: "#172033",
-  cursor: "pointer",
-}
+const fieldLabelClassName = "text-sm font-medium text-muted-foreground"
+const textareaClassName =
+  "min-h-24 w-full rounded-[var(--radius)] border border-input bg-background px-3 py-3 text-sm text-foreground shadow-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30"
+const selectClassName =
+  "h-10 w-full rounded-[var(--radius)] border border-input bg-background px-3 text-sm text-foreground shadow-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30"

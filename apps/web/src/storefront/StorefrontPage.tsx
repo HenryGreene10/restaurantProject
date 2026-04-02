@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
+import { motion } from "framer-motion"
 import { ChevronRight, ShieldCheck, Sparkles } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
@@ -165,7 +166,12 @@ export function StorefrontPage({
   }
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
+    <motion.main
+      className="min-h-screen bg-background text-foreground"
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.24, ease: "easeOut" }}
+    >
       <div className="mx-auto flex max-w-7xl flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8 lg:gap-10">
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius)] border border-border/80 bg-card px-5 py-4 text-sm text-muted-foreground shadow-sm">
           <div className="flex items-center gap-2">
@@ -329,7 +335,7 @@ export function StorefrontPage({
         }}
         onCheckout={submitPickupOrder}
       />
-    </main>
+    </motion.main>
   )
 }
 
@@ -355,66 +361,68 @@ function MenuItemCard({
     item.visibility === "SOLD_OUT" ? "Sold out" : featured ? "Featured" : null
 
   return (
-    <Card
-      size={isCompact ? "sm" : "default"}
-      className={[
-        "border border-border/80 bg-card shadow-sm",
-        isPhotoFirst ? "grid grid-cols-[132px_minmax(0,1fr)] gap-0 overflow-hidden" : "",
-        item.visibility === "SOLD_OUT" ? "opacity-70" : "",
-      ].join(" ")}
-    >
-      {isPhotoFirst ? <div className="min-h-full bg-brand-hero" /> : null}
+    <motion.div whileTap={{ scale: 0.985 }} transition={{ duration: 0.12, ease: "easeOut" }}>
+      <Card
+        size={isCompact ? "sm" : "default"}
+        className={[
+          "border border-border/80 bg-card shadow-sm",
+          isPhotoFirst ? "grid grid-cols-[132px_minmax(0,1fr)] gap-0 overflow-hidden" : "",
+          item.visibility === "SOLD_OUT" ? "opacity-70" : "",
+        ].join(" ")}
+      >
+        {isPhotoFirst ? <div className="min-h-full bg-brand-hero" /> : null}
 
-      <div className="flex flex-col">
-        <CardHeader className={isPhotoFirst ? "px-5 pt-5" : ""}>
-          <div className="flex items-start justify-between gap-4">
-            <div className="space-y-3">
-              {badgeLabel ? (
-                <Badge
-                  variant="outline"
-                  className="border-border bg-background text-muted-foreground"
-                >
-                  {badgeLabel}
-                </Badge>
-              ) : null}
-              <div className="flex items-start justify-between gap-6">
-                <h3
-                  className={isCompact ? "text-lg text-foreground" : "text-xl text-foreground"}
-                  style={{ fontFamily: "var(--font-heading)" }}
-                >
-                  {item.name}
-                </h3>
-                <div className="shrink-0 text-base font-semibold text-foreground">
-                  {formatPrice(itemPrice(item))}
+        <div className="flex flex-col">
+          <CardHeader className={isPhotoFirst ? "px-5 pt-5" : ""}>
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-3">
+                {badgeLabel ? (
+                  <Badge
+                    variant="outline"
+                    className="border-border bg-background text-muted-foreground"
+                  >
+                    {badgeLabel}
+                  </Badge>
+                ) : null}
+                <div className="flex items-start justify-between gap-6">
+                  <h3
+                    className={isCompact ? "text-lg text-foreground" : "text-xl text-foreground"}
+                    style={{ fontFamily: "var(--font-heading)" }}
+                  >
+                    {item.name}
+                  </h3>
+                  <div className="shrink-0 text-base font-semibold text-foreground">
+                    {formatPrice(itemPrice(item))}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </CardHeader>
+          </CardHeader>
 
-        <CardContent className={isPhotoFirst ? "px-5" : ""}>
-          {item.description ? (
-            <p className="text-sm leading-6 text-muted-foreground">{item.description}</p>
-          ) : null}
-          {meta.length > 0 ? (
-            <>
-              <Separator className="my-4" />
-              <div className="text-sm text-muted-foreground">{meta.join(" · ")}</div>
-            </>
-          ) : null}
-        </CardContent>
+          <CardContent className={isPhotoFirst ? "px-5" : ""}>
+            {item.description ? (
+              <p className="text-sm leading-6 text-muted-foreground">{item.description}</p>
+            ) : null}
+            {meta.length > 0 ? (
+              <>
+                <Separator className="my-4" />
+                <div className="text-sm text-muted-foreground">{meta.join(" · ")}</div>
+              </>
+            ) : null}
+          </CardContent>
 
-        <CardFooter className={isPhotoFirst ? "px-5 pb-5 pt-0" : "pt-0"}>
-          {item.visibility === "SOLD_OUT" ? (
-            <div className="text-sm text-muted-foreground">Sold out today</div>
-          ) : (
-            <Button variant="outline" onClick={onCustomize}>
-              Add
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          )}
-        </CardFooter>
-      </div>
-    </Card>
+          <CardFooter className={isPhotoFirst ? "px-5 pb-5 pt-0" : "pt-0"}>
+            {item.visibility === "SOLD_OUT" ? (
+              <div className="text-sm text-muted-foreground">Sold out today</div>
+            ) : (
+              <Button variant="outline" onClick={onCustomize}>
+                Add
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            )}
+          </CardFooter>
+        </div>
+      </Card>
+    </motion.div>
   )
 }
