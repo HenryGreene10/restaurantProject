@@ -1,4 +1,19 @@
 import React, { useEffect, useMemo, useState } from "react"
+import {
+  DndContext,
+  PointerSensor,
+  closestCorners,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core"
+import {
+  SortableContext,
+  arrayMove,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable"
+import { CSS } from "@dnd-kit/utilities"
 
 import { AssistantPanel } from "../assistant/AssistantPanel"
 import { fetchTenantMenu, type MenuCategory, type MenuResponse } from "../lib/menu"
@@ -110,6 +125,42 @@ function buildDraft(menu: MenuResponse): ThemeDraft {
   }
 }
 
+type AdminTab = "branding" | "layout" | "menu" | "assistant"
+type ThemeChangeHandler = <K extends keyof ThemeDraft>(key: K, value: ThemeDraft[K]) => void
+type CategoryItemEntry = MenuCategory["categoryItems"][number]
+
+function areThemesEqual(left: ThemeDraft, right: ThemeDraft) {
+  return JSON.stringify(left) === JSON.stringify(right)
+}
+
+function themePayload(theme: ThemeDraft) {
+  return {
+    appTitle: theme.appTitle,
+    tagline: theme.tagline,
+    heroHeadline: theme.heroHeadline,
+    heroSubheadline: theme.heroSubheadline,
+    heroBadgeText: theme.heroBadgeText,
+    promoBannerText: theme.promoBannerText,
+    heroImageUrl: theme.heroImageUrl,
+    primaryColor: theme.primaryColor,
+    accentColor: theme.accentColor,
+    backgroundColor: theme.backgroundColor,
+    surfaceColor: theme.surfaceColor,
+    textColor: theme.textColor,
+    mutedColor: theme.mutedColor,
+    borderColor: theme.borderColor,
+    onPrimary: theme.onPrimary,
+    fontFamily: theme.bodyFont,
+    headingFont: theme.headingFont,
+    radius: theme.radius,
+    buttonStyle: theme.buttonStyle,
+    heroLayout: theme.heroLayout,
+    menuCardLayout: theme.menuCardLayout,
+    showFeaturedBadges: theme.showFeaturedBadges,
+    showCategoryChips: theme.showCategoryChips,
+  }
+}
+
 function formatPrice(priceCents: number) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -133,6 +184,48 @@ async function patchAdminJson<T>(tenantSlug: string, path: string, body: unknown
   }
 
   return response.json() as Promise<T>
+}
+
+async function postAdminJson<T>(tenantSlug: string, path: string, body: unknown) {
+  const response = await fetch(`/api${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-tenant-slug": tenantSlug,
+    },
+    body: JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null
+    throw new Error(payload?.error ?? `Request failed (${response.status})`)
+  }
+
+  return response.json() as Promise<T>
+}
+
+async function deleteAdmin(tenantSlug: string, path: string) {
+  const response = await fetch(`/api${path}`, {
+    method: "DELETE",
+    headers: {
+      "x-tenant-slug": tenantSlug,
+    },
+  })
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null
+    throw new Error(payload?.error ?? `Request failed (${response.status})`)
+  }
+}
+
+function previewCategories(categories: MenuCategory[]) {
+  return categories
+    .filter((category) => category.visibility !== "HIDDEN")
+    .map((category) => ({
+      ...category,
+      categoryItems: category.categoryItems.filter((entry) => entry.item.visibility !== "HIDDEN"),
+    }))
+    .filter((category) => category.categoryItems.length > 0)
 }
 
 function previewStyle(theme: ThemeDraft): React.CSSProperties {
@@ -190,7 +283,7 @@ function PreviewPane({
   categories: MenuCategory[]
 }) {
   const cardRadius = theme.buttonStyle === "square" ? 10 : theme.radius
-  const visibleCategories = categories.filter((category) => category.visibility !== "HIDDEN")
+  const visibleCategories = previewCategories(categories)
   const cardColumns =
     theme.menuCardLayout === "compact" ? "repeat(2, minmax(0, 1fr))" : "minmax(0, 1fr)"
 
@@ -304,7 +397,7 @@ function PreviewPane({
                   fontSize: 24,
                 }}
               >
-                {category.name}
+              {category.name}
               </h2>
               <span style={{ color: "var(--preview-muted)", fontSize: 13 }}>
                 {category.categoryItems.length} items
@@ -320,6 +413,7 @@ function PreviewPane({
                     padding: theme.menuCardLayout === "compact" ? 12 : 16,
                     background: "var(--preview-surface)",
                     border: "1px solid var(--preview-border)",
+                    opacity: item.visibility === "SOLD_OUT" ? 0.72 : 1,
                     display: "grid",
                     gap: 10,
                     gridTemplateColumns:
@@ -373,6 +467,23 @@ function PreviewPane({
                               Featured
                             </span>
                           ) : null}
+                          {item.visibility === "SOLD_OUT" ? (
+                            <span
+                              style={{
+                                fontSize: 11,
+                                fontWeight: 700,
+                                letterSpacing: "0.04em",
+                                textTransform: "uppercase",
+                                color: "var(--preview-muted)",
+                                background: "transparent",
+                                border: "1px solid var(--preview-border)",
+                                borderRadius: 999,
+                                padding: "5px 8px",
+                              }}
+                            >
+                              Sold out
+                            </span>
+                          ) : null}
                         </div>
                         {item.description ? (
                           <p style={{ margin: "6px 0 0", color: "var(--preview-muted)" }}>
@@ -404,6 +515,29 @@ function PreviewPane({
                         </span>
                       ) : null}
                     </div>
+
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <button
+                        type="button"
+                        disabled={item.visibility === "SOLD_OUT"}
+                        style={{
+                          border: "1px solid var(--preview-border)",
+                          borderRadius: 999,
+                          padding: "10px 14px",
+                          background: item.visibility === "SOLD_OUT" ? "var(--preview-surface)" : "var(--preview-primary)",
+                          color: item.visibility === "SOLD_OUT" ? "var(--preview-muted)" : "var(--preview-on-primary)",
+                          fontWeight: 700,
+                          cursor: item.visibility === "SOLD_OUT" ? "not-allowed" : "pointer",
+                        }}
+                      >
+                        {item.visibility === "SOLD_OUT" ? "Sold out" : "Customize"}
+                      </button>
+                      {item.variants.length > 1 ? (
+                        <div style={{ fontSize: 13, color: "var(--preview-muted)" }}>
+                          {item.variants.map((variant) => variant.name).join(" · ")}
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
                 </article>
               ))}
@@ -418,12 +552,14 @@ function PreviewPane({
 export const App: React.FC = () => {
   const [tenantSlug, setTenantSlug] = useState("joes-pizza")
   const [menuData, setMenuData] = useState<MenuResponse | null>(null)
-  const [themeDraft, setThemeDraft] = useState<ThemeDraft>(defaultThemeDraft)
+  const [savedTheme, setSavedTheme] = useState<ThemeDraft>(defaultThemeDraft)
+  const [draftTheme, setDraftTheme] = useState<ThemeDraft>(defaultThemeDraft)
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
   const [menuActionMessage, setMenuActionMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<AdminTab>("branding")
 
   useEffect(() => {
     let cancelled = false
@@ -437,8 +573,10 @@ export const App: React.FC = () => {
       try {
         const menu = await fetchTenantMenu(tenantSlug)
         if (cancelled) return
+        const nextTheme = buildDraft(menu)
         setMenuData(menu)
-        setThemeDraft(buildDraft(menu))
+        setSavedTheme(nextTheme)
+        setDraftTheme(nextTheme)
       } catch (nextError) {
         if (cancelled) return
         setError(nextError instanceof Error ? nextError.message : "Failed to load menu")
@@ -465,15 +603,39 @@ export const App: React.FC = () => {
       ),
     [categories],
   )
+  const isThemeDirty = useMemo(
+    () => !areThemesEqual(savedTheme, draftTheme),
+    [draftTheme, savedTheme],
+  )
 
   const updateTheme = <K extends keyof ThemeDraft>(key: K, value: ThemeDraft[K]) => {
-    setThemeDraft((current) => ({ ...current, [key]: value }))
+    setDraftTheme((current) => ({ ...current, [key]: value }))
+    setSaveMessage(null)
   }
 
-  const reloadMenu = async () => {
+  const updateMenuCategories = (
+    updater: (categories: MenuCategory[]) => MenuCategory[],
+  ) => {
+    setMenuData((current) => {
+      if (!current) {
+        return current
+      }
+
+      return {
+        ...current,
+        categories: updater(current.categories),
+      }
+    })
+  }
+
+  const reloadMenuData = async (syncTheme = false) => {
     const refreshedMenu = await fetchTenantMenu(tenantSlug)
     setMenuData(refreshedMenu)
-    setThemeDraft(buildDraft(refreshedMenu))
+    if (syncTheme) {
+      const nextTheme = buildDraft(refreshedMenu)
+      setSavedTheme(nextTheme)
+      setDraftTheme(nextTheme)
+    }
     return refreshedMenu
   }
 
@@ -488,31 +650,7 @@ export const App: React.FC = () => {
           "Content-Type": "application/json",
           "x-tenant-slug": tenantSlug,
         },
-        body: JSON.stringify({
-          appTitle: themeDraft.appTitle,
-          tagline: themeDraft.tagline,
-          heroHeadline: themeDraft.heroHeadline,
-          heroSubheadline: themeDraft.heroSubheadline,
-          heroBadgeText: themeDraft.heroBadgeText,
-          promoBannerText: themeDraft.promoBannerText,
-          heroImageUrl: themeDraft.heroImageUrl,
-          primaryColor: themeDraft.primaryColor,
-          accentColor: themeDraft.accentColor,
-          backgroundColor: themeDraft.backgroundColor,
-          surfaceColor: themeDraft.surfaceColor,
-          textColor: themeDraft.textColor,
-          mutedColor: themeDraft.mutedColor,
-          borderColor: themeDraft.borderColor,
-          onPrimary: themeDraft.onPrimary,
-          fontFamily: themeDraft.bodyFont,
-          headingFont: themeDraft.headingFont,
-          radius: themeDraft.radius,
-          buttonStyle: themeDraft.buttonStyle,
-          heroLayout: themeDraft.heroLayout,
-          menuCardLayout: themeDraft.menuCardLayout,
-          showFeaturedBadges: themeDraft.showFeaturedBadges,
-          showCategoryChips: themeDraft.showCategoryChips,
-        }),
+        body: JSON.stringify(themePayload(draftTheme)),
       })
 
       if (!response.ok) {
@@ -520,7 +658,7 @@ export const App: React.FC = () => {
         throw new Error(payload?.error ?? `Failed to save theme (${response.status})`)
       }
 
-      await reloadMenu()
+      await reloadMenuData(true)
       setSaveMessage("Storefront settings saved.")
     } catch (nextError) {
       setSaveMessage(nextError instanceof Error ? nextError.message : "Failed to save theme")
@@ -529,15 +667,16 @@ export const App: React.FC = () => {
     }
   }
 
-  const reorderCategories = async (categoryId: string, direction: "up" | "down") => {
+  const reorderCategories = async (nextCategoryIds: string[]) => {
     if (!menuData) return
 
-    const currentIndex = categories.findIndex((category) => category.id === categoryId)
-    const swapIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1
-    if (currentIndex < 0 || swapIndex < 0 || swapIndex >= categories.length) return
+    const categoryById = new Map(categories.map((category) => [category.id, category]))
+    const reordered = nextCategoryIds
+      .map((categoryId) => categoryById.get(categoryId))
+      .filter((category): category is MenuCategory => Boolean(category))
+      .map((category, index) => ({ ...category, sortOrder: index }))
 
-    const reordered = [...categories]
-    ;[reordered[currentIndex], reordered[swapIndex]] = [reordered[swapIndex], reordered[currentIndex]]
+    updateMenuCategories(() => reordered)
 
     try {
       setMenuActionMessage("Saving category order…")
@@ -548,9 +687,10 @@ export const App: React.FC = () => {
           }),
         ),
       )
-      await reloadMenu()
+      await reloadMenuData()
       setMenuActionMessage("Category order saved.")
     } catch (nextError) {
+      await reloadMenuData()
       setMenuActionMessage(
         nextError instanceof Error ? nextError.message : "Failed to reorder categories",
       )
@@ -561,43 +701,62 @@ export const App: React.FC = () => {
     categoryId: string,
     visibility: MenuCategory["visibility"],
   ) => {
+    const previousCategories = categories
+
+    updateMenuCategories((current) =>
+      current.map((category) =>
+        category.id === categoryId ? { ...category, visibility } : category,
+      ),
+    )
+
     try {
       setMenuActionMessage("Saving category visibility…")
       await patchAdminJson(tenantSlug, `/admin/menu/categories/${categoryId}/availability`, {
         visibility,
       })
-      await reloadMenu()
+      await reloadMenuData()
       setMenuActionMessage("Category visibility updated.")
     } catch (nextError) {
+      updateMenuCategories(() => previousCategories)
       setMenuActionMessage(
         nextError instanceof Error ? nextError.message : "Failed to update category visibility",
       )
     }
   }
 
-  const reorderCategoryItem = async (
-    categoryId: string,
-    itemId: string,
-    direction: "up" | "down",
-  ) => {
+  const reorderCategoryItem = async (categoryId: string, nextItemIds: string[]) => {
     const category = categories.find((entry) => entry.id === categoryId)
     if (!category) return
 
-    const itemIndex = category.categoryItems.findIndex((entry) => entry.item.id === itemId)
-    const swapIndex = direction === "up" ? itemIndex - 1 : itemIndex + 1
-    if (itemIndex < 0 || swapIndex < 0 || swapIndex >= category.categoryItems.length) return
+    const entryByItemId = new Map(
+      category.categoryItems.map((entry) => [entry.item.id, entry]),
+    )
+    const reorderedEntries = nextItemIds
+      .map((itemId) => entryByItemId.get(itemId))
+      .filter((entry): entry is CategoryItemEntry => Boolean(entry))
+      .map((entry, index) => ({
+        ...entry,
+        sortOrder: index,
+      }))
 
-    const nextOrder = [...category.categoryItems.map((entry) => entry.item.id)]
-    ;[nextOrder[itemIndex], nextOrder[swapIndex]] = [nextOrder[swapIndex], nextOrder[itemIndex]]
+    const previousCategories = categories
+    updateMenuCategories((current) =>
+      current.map((entry) =>
+        entry.id === categoryId
+          ? { ...entry, categoryItems: reorderedEntries }
+          : entry,
+      ),
+    )
 
     try {
       setMenuActionMessage("Saving item order…")
       await patchAdminJson(tenantSlug, `/admin/menu/categories/${categoryId}/items/reorder`, {
-        itemIds: nextOrder,
+        itemIds: nextItemIds,
       })
-      await reloadMenu()
+      await reloadMenuData()
       setMenuActionMessage("Item order saved.")
     } catch (nextError) {
+      updateMenuCategories(() => previousCategories)
       setMenuActionMessage(nextError instanceof Error ? nextError.message : "Failed to reorder items")
     }
   }
@@ -607,24 +766,132 @@ export const App: React.FC = () => {
     body: Record<string, unknown>,
     successMessage: string,
   ) => {
+    const previousCategories = categories
+    updateMenuCategories((current) =>
+      current.map((category) => ({
+        ...category,
+        categoryItems: category.categoryItems.map((entry) =>
+          entry.item.id === itemId
+            ? {
+                ...entry,
+                item: {
+                  ...entry.item,
+                  ...(typeof body.isFeatured === "boolean"
+                    ? { isFeatured: body.isFeatured }
+                    : {}),
+                },
+              }
+            : entry,
+        ),
+      })),
+    )
+
     try {
       setMenuActionMessage("Saving item settings…")
       await patchAdminJson(tenantSlug, `/admin/menu/items/${itemId}`, body)
-      await reloadMenu()
+      await reloadMenuData()
       setMenuActionMessage(successMessage)
     } catch (nextError) {
+      updateMenuCategories(() => previousCategories)
       setMenuActionMessage(nextError instanceof Error ? nextError.message : "Failed to update item")
     }
   }
 
-  const updateItemVisibility = async (itemId: string, visibility: string) => {
+  const updateItemVisibility = async (
+    itemId: string,
+    visibility: CategoryItemEntry["item"]["visibility"],
+  ) => {
+    const previousCategories = categories
+    updateMenuCategories((current) =>
+      current.map((category) => ({
+        ...category,
+        categoryItems: category.categoryItems.map((entry) =>
+          entry.item.id === itemId
+            ? {
+                ...entry,
+                item: {
+                  ...entry.item,
+                  visibility,
+                },
+              }
+            : entry,
+        ),
+      })),
+    )
+
     try {
-      setMenuActionMessage("Saving availability…")
+      setMenuActionMessage(
+        visibility === "HIDDEN"
+          ? "Hiding item…"
+          : visibility === "SOLD_OUT"
+            ? "Marking item sold out…"
+            : "Updating item visibility…",
+      )
       await patchAdminJson(tenantSlug, `/admin/menu/items/${itemId}/availability`, { visibility })
-      await reloadMenu()
-      setMenuActionMessage("Availability updated.")
+      await reloadMenuData()
+      setMenuActionMessage(
+        visibility === "HIDDEN"
+          ? "Item hidden."
+          : visibility === "SOLD_OUT"
+            ? "Item marked sold out."
+            : "Item shown.",
+      )
     } catch (nextError) {
+      updateMenuCategories(() => previousCategories)
       setMenuActionMessage(nextError instanceof Error ? nextError.message : "Failed to update availability")
+    }
+  }
+
+  const addItemToCategory = async (
+    categoryId: string,
+    input: { name: string; description: string; priceCents: number },
+  ) => {
+    const category = categories.find((entry) => entry.id === categoryId)
+    if (!category) return
+
+    try {
+      setMenuActionMessage("Adding item…")
+      const created = await postAdminJson<{ id: string }>(tenantSlug, "/admin/menu/items", {
+        name: input.name,
+        description: input.description || null,
+        basePriceCents: input.priceCents,
+        photoUrl: null,
+        tags: [],
+        prepTimeMinutes: 0,
+        specialInstructionsEnabled: false,
+        isFeatured: false,
+        visibility: "AVAILABLE",
+        categoryIds: [categoryId],
+      })
+
+      await patchAdminJson(tenantSlug, `/admin/menu/categories/${categoryId}/items/reorder`, {
+        itemIds: [...category.categoryItems.map((entry) => entry.item.id), created.id],
+      })
+
+      await reloadMenuData()
+      setMenuActionMessage("Item added.")
+    } catch (nextError) {
+      setMenuActionMessage(nextError instanceof Error ? nextError.message : "Failed to add item")
+    }
+  }
+
+  const deleteItemFromMenu = async (itemId: string) => {
+    const previousCategories = categories
+    updateMenuCategories((current) =>
+      current.map((category) => ({
+        ...category,
+        categoryItems: category.categoryItems.filter((entry) => entry.item.id !== itemId),
+      })),
+    )
+
+    try {
+      setMenuActionMessage("Deleting item…")
+      await deleteAdmin(tenantSlug, `/admin/menu/items/${itemId}`)
+      await reloadMenuData()
+      setMenuActionMessage("Item deleted.")
+    } catch (nextError) {
+      updateMenuCategories(() => previousCategories)
+      setMenuActionMessage(nextError instanceof Error ? nextError.message : "Failed to delete item")
     }
   }
 
@@ -645,7 +912,7 @@ export const App: React.FC = () => {
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "480px minmax(0, 1fr)",
+          gridTemplateColumns: "minmax(360px, 0.4fr) minmax(0, 0.6fr)",
           gap: 20,
           alignItems: "start",
         }}
@@ -691,267 +958,1057 @@ export const App: React.FC = () => {
           </SectionCard>
 
           <SectionCard
-            title="Brand, hero, and layout"
-            subtitle="These settings persist to brand config and shape the customer-facing storefront."
+            title="Storefront controls"
+            subtitle="Draft edits update the preview instantly. Save persists them to the backend."
           >
-            <div style={{ display: "grid", gap: 14 }}>
-              <label style={{ display: "grid", gap: 6 }}>
-                <span style={labelStyle}>App title</span>
-                <input value={themeDraft.appTitle} onChange={(event) => updateTheme("appTitle", event.target.value)} style={inputStyle} />
-              </label>
+            <div style={{ display: "grid", gap: 20 }}>
+              <TabBar activeTab={activeTab} onChange={setActiveTab} />
 
-              <label style={{ display: "grid", gap: 6 }}>
-                <span style={labelStyle}>Tagline</span>
-                <textarea value={themeDraft.tagline} onChange={(event) => updateTheme("tagline", event.target.value)} rows={2} style={{ ...inputStyle, resize: "vertical" }} />
-              </label>
+              {activeTab === "branding" ? (
+                <BrandingTab theme={draftTheme} onThemeChange={updateTheme} />
+              ) : null}
 
-              <label style={{ display: "grid", gap: 6 }}>
-                <span style={labelStyle}>Hero headline</span>
-                <textarea value={themeDraft.heroHeadline} onChange={(event) => updateTheme("heroHeadline", event.target.value)} rows={2} style={{ ...inputStyle, resize: "vertical" }} />
-              </label>
+              {activeTab === "layout" ? (
+                <LayoutTab theme={draftTheme} onThemeChange={updateTheme} />
+              ) : null}
 
-              <label style={{ display: "grid", gap: 6 }}>
-                <span style={labelStyle}>Hero subheadline</span>
-                <textarea value={themeDraft.heroSubheadline} onChange={(event) => updateTheme("heroSubheadline", event.target.value)} rows={2} style={{ ...inputStyle, resize: "vertical" }} />
-              </label>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <label style={{ display: "grid", gap: 6 }}>
-                  <span style={labelStyle}>Hero badge text</span>
-                  <input value={themeDraft.heroBadgeText} onChange={(event) => updateTheme("heroBadgeText", event.target.value)} style={inputStyle} />
-                </label>
-                <label style={{ display: "grid", gap: 6 }}>
-                  <span style={labelStyle}>Promo banner text</span>
-                  <input value={themeDraft.promoBannerText} onChange={(event) => updateTheme("promoBannerText", event.target.value)} style={inputStyle} />
-                </label>
-              </div>
-
-              <label style={{ display: "grid", gap: 6 }}>
-                <span style={labelStyle}>Hero image URL</span>
-                <input value={themeDraft.heroImageUrl} onChange={(event) => updateTheme("heroImageUrl", event.target.value)} style={inputStyle} placeholder="https://..." />
-              </label>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <ColorField label="Primary" value={themeDraft.primaryColor} onChange={(value) => updateTheme("primaryColor", value)} />
-                <ColorField label="Accent" value={themeDraft.accentColor} onChange={(value) => updateTheme("accentColor", value)} />
-                <ColorField label="Background" value={themeDraft.backgroundColor} onChange={(value) => updateTheme("backgroundColor", value)} />
-                <ColorField label="Surface" value={themeDraft.surfaceColor} onChange={(value) => updateTheme("surfaceColor", value)} />
-                <ColorField label="Text" value={themeDraft.textColor} onChange={(value) => updateTheme("textColor", value)} />
-                <ColorField label="Border" value={themeDraft.borderColor} onChange={(value) => updateTheme("borderColor", value)} />
-              </div>
-
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <SelectField
-                  label="Body font"
-                  value={themeDraft.bodyFont}
-                  onChange={(value) => updateTheme("bodyFont", value)}
-                  options={[
-                    { label: "Inter", value: "Inter, sans-serif" },
-                    { label: "System UI", value: "system-ui, sans-serif" },
-                    { label: "Arial", value: "Arial, sans-serif" },
-                  ]}
+              {activeTab === "menu" ? (
+                <MenuTab
+                  categories={categories}
+                  menuActionMessage={menuActionMessage}
+                  onAddItem={addItemToCategory}
+                  onCategoryVisibilityChange={updateCategoryVisibility}
+                  onCategoryReorder={reorderCategories}
+                  onDeleteItem={deleteItemFromMenu}
+                  onItemFeaturedChange={(itemId, isFeatured) =>
+                    void updateItemPresentation(
+                      itemId,
+                      { isFeatured },
+                      "Featured state updated.",
+                    )
+                  }
+                  onItemReorder={reorderCategoryItem}
+                  onItemVisibilityChange={updateItemVisibility}
                 />
-                <SelectField
-                  label="Heading font"
-                  value={themeDraft.headingFont}
-                  onChange={(value) => updateTheme("headingFont", value)}
-                  options={[
-                    { label: "Georgia", value: "Georgia, serif" },
-                    { label: "Inter", value: "Inter, sans-serif" },
-                    { label: "Times", value: "\"Times New Roman\", serif" },
-                  ]}
-                />
-                <SelectField
-                  label="Button style"
-                  value={themeDraft.buttonStyle}
-                  onChange={(value) => updateTheme("buttonStyle", value as ThemeDraft["buttonStyle"])}
-                  options={[
-                    { label: "Rounded", value: "rounded" },
-                    { label: "Square", value: "square" },
-                  ]}
-                />
-                <SelectField
-                  label="Hero layout"
-                  value={themeDraft.heroLayout}
-                  onChange={(value) => updateTheme("heroLayout", value as ThemeDraft["heroLayout"])}
-                  options={[
-                    { label: "Immersive", value: "immersive" },
-                    { label: "Minimal", value: "minimal" },
-                  ]}
-                />
-                <SelectField
-                  label="Menu card layout"
-                  value={themeDraft.menuCardLayout}
-                  onChange={(value) => updateTheme("menuCardLayout", value as ThemeDraft["menuCardLayout"])}
-                  options={[
-                    { label: "Classic", value: "classic" },
-                    { label: "Compact grid", value: "compact" },
-                    { label: "Photo-first", value: "photo-first" },
-                  ]}
-                />
-              </div>
+              ) : null}
 
-              <label style={{ display: "grid", gap: 6 }}>
-                <span style={labelStyle}>Card radius ({themeDraft.radius}px)</span>
-                <input type="range" min={8} max={32} step={2} value={themeDraft.radius} onChange={(event) => updateTheme("radius", Number(event.target.value))} />
-              </label>
+              {activeTab === "assistant" ? <AssistantPanel /> : null}
 
-              <label style={checkboxRowStyle}>
-                <input type="checkbox" checked={themeDraft.showFeaturedBadges} onChange={(event) => updateTheme("showFeaturedBadges", event.target.checked)} />
-                Show featured item badges
-              </label>
-
-              <label style={checkboxRowStyle}>
-                <input type="checkbox" checked={themeDraft.showCategoryChips} onChange={(event) => updateTheme("showCategoryChips", event.target.checked)} />
-                Show category chips in the hero
-              </label>
-
-              <div style={{ display: "flex", gap: 12, alignItems: "center", paddingTop: 6 }}>
-                <button
-                  type="button"
-                  onClick={saveTheme}
-                  disabled={isSaving || isLoading}
-                  style={{
-                    border: "none",
-                    borderRadius: 14,
-                    padding: "12px 18px",
-                    background: isSaving ? "#9aa8bc" : themeDraft.primaryColor,
-                    color: themeDraft.onPrimary,
-                    fontWeight: 700,
-                    cursor: isSaving ? "wait" : "pointer",
-                  }}
-                >
-                  {isSaving ? "Saving…" : "Save storefront settings"}
-                </button>
-                {saveMessage ? (
-                  <span style={{ fontSize: 14, color: saveMessage.includes("saved") ? "#0f766e" : "#b42318" }}>
-                    {saveMessage}
-                  </span>
-                ) : null}
-              </div>
+              {(activeTab === "branding" || activeTab === "layout" || isThemeDirty || saveMessage) ? (
+                <ThemeSaveBar
+                  isDirty={isThemeDirty}
+                  isLoading={isLoading}
+                  isSaving={isSaving}
+                  primaryColor={draftTheme.primaryColor}
+                  onPrimary={draftTheme.onPrimary}
+                  onSave={() => void saveTheme()}
+                  saveMessage={saveMessage}
+                />
+              ) : null}
             </div>
           </SectionCard>
-
-          <SectionCard
-            title="Menu presentation controls"
-            subtitle="Control visibility, sequencing, and prominence per category and item."
-          >
-            <div style={{ display: "grid", gap: 16 }}>
-              <div style={{ fontSize: 14, color: menuActionMessage?.includes("Failed") ? "#b42318" : "#5f6f88" }}>
-                {menuActionMessage ?? "These changes shape what customers see in the storefront."}
-              </div>
-
-              {categories.map((category, categoryIndex) => (
-                <div
-                  key={category.id}
-                  style={{
-                    border: "1px solid #dbe5f0",
-                    borderRadius: 18,
-                    padding: 14,
-                    background: "#f9fbfe",
-                    display: "grid",
-                    gap: 12,
-                  }}
-                >
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", gap: 12 }}>
-                    <div style={{ display: "grid", gap: 8, flex: 1 }}>
-                      <div>
-                        <div style={{ fontWeight: 700 }}>{category.name}</div>
-                        <div style={{ fontSize: 13, color: "#5f6f88" }}>
-                          {category.categoryItems.length} items
-                        </div>
-                      </div>
-                      <CategoryVisibilityField
-                        value={category.visibility}
-                        onChange={(value) => void updateCategoryVisibility(category.id, value)}
-                      />
-                    </div>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button type="button" onClick={() => reorderCategories(category.id, "up")} disabled={categoryIndex === 0} style={secondaryButtonStyle}>Move up</button>
-                      <button type="button" onClick={() => reorderCategories(category.id, "down")} disabled={categoryIndex === categories.length - 1} style={secondaryButtonStyle}>Move down</button>
-                    </div>
-                  </div>
-
-                  <div style={{ display: "grid", gap: 10 }}>
-                    {category.categoryItems.map((entry, itemIndex) => (
-                      <div
-                        key={entry.id}
-                        style={{
-                          border: "1px solid #dde6f1",
-                          borderRadius: 14,
-                          padding: 12,
-                          background: "#ffffff",
-                          display: "grid",
-                          gap: 10,
-                        }}
-                      >
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", gap: 12 }}>
-                          <div>
-                            <div style={{ fontWeight: 700 }}>{entry.item.name}</div>
-                            <div style={{ fontSize: 13, color: "#5f6f88" }}>
-                              {formatPrice(entry.item.variants[0]?.priceCents ?? entry.item.basePriceCents)}
-                              {" · "}
-                              {entry.item.isFeatured ? "Featured" : "Standard"}
-                              {" · "}
-                              {entry.item.visibility}
-                            </div>
-                          </div>
-
-                          <div style={{ display: "flex", gap: 8 }}>
-                            <button type="button" onClick={() => reorderCategoryItem(category.id, entry.item.id, "up")} disabled={itemIndex === 0} style={secondaryButtonStyle}>↑</button>
-                            <button type="button" onClick={() => reorderCategoryItem(category.id, entry.item.id, "down")} disabled={itemIndex === category.categoryItems.length - 1} style={secondaryButtonStyle}>↓</button>
-                          </div>
-                        </div>
-
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                          <label style={checkboxRowStyle}>
-                            <input
-                              type="checkbox"
-                              checked={entry.item.isFeatured}
-                              onChange={(event) =>
-                                void updateItemPresentation(
-                                  entry.item.id,
-                                  { isFeatured: event.target.checked },
-                                  "Featured state updated.",
-                                )
-                              }
-                            />
-                            Featured item
-                          </label>
-
-                          <label style={{ display: "grid", gap: 6 }}>
-                            <span style={labelStyle}>Visibility</span>
-                            <select
-                              value={entry.item.visibility}
-                              onChange={(event) => void updateItemVisibility(entry.item.id, event.target.value)}
-                              style={inputStyle}
-                            >
-                              <option value="AVAILABLE">Available</option>
-                              <option value="SOLD_OUT">Sold out</option>
-                              <option value="HIDDEN">Hidden</option>
-                              <option value="SCHEDULED">Scheduled</option>
-                            </select>
-                          </label>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </SectionCard>
-
-          <AssistantPanel />
         </div>
 
         <SectionCard
           title="Live storefront preview"
           subtitle="Uses the tenant's real menu data and the current dashboard draft settings."
         >
-          <PreviewPane theme={themeDraft} categories={categories} />
+          <PreviewPane theme={draftTheme} categories={categories} />
         </SectionCard>
       </div>
     </div>
+  )
+}
+
+function TabBar({
+  activeTab,
+  onChange,
+}: {
+  activeTab: AdminTab
+  onChange: (value: AdminTab) => void
+}) {
+  const tabs: Array<{ id: AdminTab; label: string }> = [
+    { id: "branding", label: "Branding" },
+    { id: "layout", label: "Layout" },
+    { id: "menu", label: "Menu" },
+    { id: "assistant", label: "AI Assistant" },
+  ]
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        gap: 8,
+        padding: 8,
+        borderRadius: 18,
+        background: "#f7fafe",
+        border: "1px solid #dbe5f0",
+      }}
+    >
+      {tabs.map((tab) => {
+        const isActive = activeTab === tab.id
+        return (
+          <button
+            key={tab.id}
+            type="button"
+            onClick={() => onChange(tab.id)}
+            style={{
+              border: "none",
+              borderRadius: 12,
+              padding: "10px 14px",
+              background: isActive ? "#172033" : "transparent",
+              color: isActive ? "#ffffff" : "#5f6f88",
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            {tab.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function BrandingTab({
+  theme,
+  onThemeChange,
+}: {
+  theme: ThemeDraft
+  onThemeChange: ThemeChangeHandler
+}) {
+  return (
+    <div style={{ display: "grid", gap: 14 }}>
+      <label style={{ display: "grid", gap: 6 }}>
+        <span style={labelStyle}>Hero headline</span>
+        <textarea
+          value={theme.heroHeadline}
+          onChange={(event) => onThemeChange("heroHeadline", event.target.value)}
+          rows={2}
+          style={{ ...inputStyle, resize: "vertical" }}
+        />
+      </label>
+
+      <label style={{ display: "grid", gap: 6 }}>
+        <span style={labelStyle}>Hero subheadline</span>
+        <textarea
+          value={theme.heroSubheadline}
+          onChange={(event) => onThemeChange("heroSubheadline", event.target.value)}
+          rows={2}
+          style={{ ...inputStyle, resize: "vertical" }}
+        />
+      </label>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <label style={{ display: "grid", gap: 6 }}>
+          <span style={labelStyle}>Hero badge text</span>
+          <input
+            value={theme.heroBadgeText}
+            onChange={(event) => onThemeChange("heroBadgeText", event.target.value)}
+            style={inputStyle}
+          />
+        </label>
+        <label style={{ display: "grid", gap: 6 }}>
+          <span style={labelStyle}>Promo banner text</span>
+          <input
+            value={theme.promoBannerText}
+            onChange={(event) => onThemeChange("promoBannerText", event.target.value)}
+            style={inputStyle}
+          />
+        </label>
+      </div>
+
+      <label style={{ display: "grid", gap: 6 }}>
+        <span style={labelStyle}>Hero image URL</span>
+        <input
+          value={theme.heroImageUrl}
+          onChange={(event) => onThemeChange("heroImageUrl", event.target.value)}
+          style={inputStyle}
+          placeholder="https://..."
+        />
+      </label>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <ColorField label="Primary" value={theme.primaryColor} onChange={(value) => onThemeChange("primaryColor", value)} />
+        <ColorField label="Accent" value={theme.accentColor} onChange={(value) => onThemeChange("accentColor", value)} />
+        <ColorField label="Background" value={theme.backgroundColor} onChange={(value) => onThemeChange("backgroundColor", value)} />
+        <ColorField label="Surface" value={theme.surfaceColor} onChange={(value) => onThemeChange("surfaceColor", value)} />
+        <ColorField label="Text" value={theme.textColor} onChange={(value) => onThemeChange("textColor", value)} />
+        <ColorField label="Border" value={theme.borderColor} onChange={(value) => onThemeChange("borderColor", value)} />
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <SelectField
+          label="Body font"
+          value={theme.bodyFont}
+          onChange={(value) => onThemeChange("bodyFont", value)}
+          options={[
+            { label: "Inter", value: "Inter, sans-serif" },
+            { label: "System UI", value: "system-ui, sans-serif" },
+            { label: "Arial", value: "Arial, sans-serif" },
+          ]}
+        />
+        <SelectField
+          label="Heading font"
+          value={theme.headingFont}
+          onChange={(value) => onThemeChange("headingFont", value)}
+          options={[
+            { label: "Georgia", value: "Georgia, serif" },
+            { label: "Inter", value: "Inter, sans-serif" },
+            { label: "Times", value: "\"Times New Roman\", serif" },
+          ]}
+        />
+      </div>
+
+      <details
+        style={{
+          border: "1px solid #dbe5f0",
+          borderRadius: 16,
+          background: "#f9fbfe",
+          padding: 16,
+        }}
+      >
+        <summary style={{ cursor: "pointer", fontSize: 14, fontWeight: 700, color: "#172033" }}>
+          Advanced settings
+        </summary>
+        <div style={{ display: "grid", gap: 14, marginTop: 14 }}>
+          <label style={{ display: "grid", gap: 6 }}>
+            <span style={labelStyle}>App title</span>
+            <input
+              value={theme.appTitle}
+              onChange={(event) => onThemeChange("appTitle", event.target.value)}
+              style={inputStyle}
+            />
+          </label>
+
+          <label style={{ display: "grid", gap: 6 }}>
+            <span style={labelStyle}>Tagline</span>
+            <textarea
+              value={theme.tagline}
+              onChange={(event) => onThemeChange("tagline", event.target.value)}
+              rows={2}
+              style={{ ...inputStyle, resize: "vertical" }}
+            />
+          </label>
+
+          <label style={{ display: "grid", gap: 6 }}>
+            <span style={labelStyle}>Hero image URL</span>
+            <input
+              value={theme.heroImageUrl}
+              onChange={(event) => onThemeChange("heroImageUrl", event.target.value)}
+              style={inputStyle}
+              placeholder="https://..."
+            />
+          </label>
+        </div>
+      </details>
+    </div>
+  )
+}
+
+function LayoutTab({
+  theme,
+  onThemeChange,
+}: {
+  theme: ThemeDraft
+  onThemeChange: ThemeChangeHandler
+}) {
+  return (
+    <div style={{ display: "grid", gap: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        <SelectField
+          label="Button style"
+          value={theme.buttonStyle}
+          onChange={(value) => onThemeChange("buttonStyle", value as ThemeDraft["buttonStyle"])}
+          options={[
+            { label: "Rounded", value: "rounded" },
+            { label: "Square", value: "square" },
+          ]}
+        />
+        <SelectField
+          label="Hero layout"
+          value={theme.heroLayout}
+          onChange={(value) => onThemeChange("heroLayout", value as ThemeDraft["heroLayout"])}
+          options={[
+            { label: "Immersive", value: "immersive" },
+            { label: "Minimal", value: "minimal" },
+          ]}
+        />
+        <SelectField
+          label="Menu card layout"
+          value={theme.menuCardLayout}
+          onChange={(value) => onThemeChange("menuCardLayout", value as ThemeDraft["menuCardLayout"])}
+          options={[
+            { label: "Classic", value: "classic" },
+            { label: "Compact grid", value: "compact" },
+            { label: "Photo-first", value: "photo-first" },
+          ]}
+        />
+      </div>
+
+      <label style={{ display: "grid", gap: 6 }}>
+        <span style={labelStyle}>Card radius ({theme.radius}px)</span>
+        <input
+          type="range"
+          min={8}
+          max={32}
+          step={2}
+          value={theme.radius}
+          onChange={(event) => onThemeChange("radius", Number(event.target.value))}
+        />
+      </label>
+
+      <label style={checkboxRowStyle}>
+        <input
+          type="checkbox"
+          checked={theme.showFeaturedBadges}
+          onChange={(event) => onThemeChange("showFeaturedBadges", event.target.checked)}
+        />
+        Show featured item badges
+      </label>
+
+      <label style={checkboxRowStyle}>
+        <input
+          type="checkbox"
+          checked={theme.showCategoryChips}
+          onChange={(event) => onThemeChange("showCategoryChips", event.target.checked)}
+        />
+        Show category chips in the hero
+      </label>
+    </div>
+  )
+}
+
+function ThemeSaveBar({
+  isDirty,
+  isLoading,
+  isSaving,
+  onPrimary,
+  onSave,
+  primaryColor,
+  saveMessage,
+}: {
+  isDirty: boolean
+  isLoading: boolean
+  isSaving: boolean
+  onPrimary: string
+  onSave: () => void
+  primaryColor: string
+  saveMessage: string | null
+}) {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexWrap: "wrap",
+        gap: 12,
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: 16,
+        borderRadius: 18,
+        border: "1px solid #dbe5f0",
+        background: "#f9fbfe",
+      }}
+    >
+      <div style={{ display: "grid", gap: 4 }}>
+        <div style={{ fontSize: 14, fontWeight: 700, color: isDirty ? "#b45309" : "#5f6f88" }}>
+          {isDirty ? "Unsaved changes" : "Draft matches saved settings"}
+        </div>
+        {saveMessage ? (
+          <div
+            style={{
+              fontSize: 14,
+              color: saveMessage.includes("saved") ? "#0f766e" : "#b42318",
+            }}
+          >
+            {saveMessage}
+          </div>
+        ) : null}
+      </div>
+
+      <button
+        type="button"
+        onClick={onSave}
+        disabled={isSaving || isLoading || !isDirty}
+        style={{
+          border: "none",
+          borderRadius: 14,
+          padding: "12px 18px",
+          background: isSaving || !isDirty ? "#9aa8bc" : primaryColor,
+          color: onPrimary,
+          fontWeight: 700,
+          cursor: isSaving || !isDirty ? "not-allowed" : "pointer",
+        }}
+      >
+        {isSaving ? "Saving…" : "Save storefront settings"}
+      </button>
+    </div>
+  )
+}
+
+function MenuTab({
+  onAddItem,
+  categories,
+  menuActionMessage,
+  onCategoryReorder,
+  onCategoryVisibilityChange,
+  onDeleteItem,
+  onItemFeaturedChange,
+  onItemReorder,
+  onItemVisibilityChange,
+}: {
+  onAddItem: (
+    categoryId: string,
+    input: { name: string; description: string; priceCents: number },
+  ) => void | Promise<void>
+  categories: MenuCategory[]
+  menuActionMessage: string | null
+  onCategoryReorder: (nextCategoryIds: string[]) => void
+  onCategoryVisibilityChange: (categoryId: string, visibility: MenuCategory["visibility"]) => void
+  onDeleteItem: (itemId: string) => void | Promise<void>
+  onItemFeaturedChange: (itemId: string, isFeatured: boolean) => void
+  onItemReorder: (categoryId: string, nextItemIds: string[]) => void
+  onItemVisibilityChange: (
+    itemId: string,
+    visibility: CategoryItemEntry["item"]["visibility"],
+  ) => void
+}) {
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
+  const categoryIds = categories.map((category) => category.id)
+  const [activeDragId, setActiveDragId] = useState<string | null>(null)
+  const [activeDragType, setActiveDragType] = useState<"category" | "item" | null>(null)
+  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null)
+  const [overDragId, setOverDragId] = useState<string | null>(null)
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    setActiveDragId(null)
+    setActiveDragType(null)
+    setActiveCategoryId(null)
+    setOverDragId(null)
+
+    if (!over || active.id === over.id) {
+      return
+    }
+
+    const activeType = active.data.current?.type
+    const overType = over.data.current?.type
+
+    if (activeType === "category" && overType === "category") {
+      const oldIndex = categoryIds.indexOf(String(active.id))
+      const newIndex = categoryIds.indexOf(String(over.id))
+      if (oldIndex >= 0 && newIndex >= 0 && oldIndex !== newIndex) {
+        void Promise.resolve(onCategoryReorder(arrayMove(categoryIds, oldIndex, newIndex)))
+      }
+      return
+    }
+
+    if (activeType === "item" && overType === "item") {
+      const activeCategoryId = String(active.data.current?.categoryId ?? "")
+      const overCategoryId = String(over.data.current?.categoryId ?? "")
+      if (!activeCategoryId || activeCategoryId !== overCategoryId) {
+        return
+      }
+
+      const category = categories.find((entry) => entry.id === activeCategoryId)
+      if (!category) {
+        return
+      }
+
+      const itemIds = category.categoryItems.map((entry) => entry.item.id)
+      const oldIndex = itemIds.indexOf(String(active.id))
+      const newIndex = itemIds.indexOf(String(over.id))
+      if (oldIndex >= 0 && newIndex >= 0 && oldIndex !== newIndex) {
+        void Promise.resolve(onItemReorder(activeCategoryId, arrayMove(itemIds, oldIndex, newIndex)))
+      }
+    }
+  }
+
+  return (
+    <div style={{ display: "grid", gap: 16 }}>
+      <div
+        style={{
+          fontSize: 14,
+          color: menuActionMessage?.includes("Failed") ? "#b42318" : "#5f6f88",
+        }}
+      >
+        {menuActionMessage ?? "These changes shape what customers see in the storefront."}
+      </div>
+
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragStart={(event) => {
+          setActiveDragId(String(event.active.id))
+          setActiveDragType((event.active.data.current?.type as "category" | "item" | undefined) ?? null)
+          setActiveCategoryId(
+            typeof event.active.data.current?.categoryId === "string"
+              ? event.active.data.current.categoryId
+              : null,
+          )
+        }}
+        onDragOver={(event) => {
+          setOverDragId(event.over ? String(event.over.id) : null)
+        }}
+        onDragCancel={() => {
+          setActiveDragId(null)
+          setActiveDragType(null)
+          setActiveCategoryId(null)
+          setOverDragId(null)
+        }}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext items={categoryIds} strategy={verticalListSortingStrategy}>
+          <div style={{ display: "grid", gap: 14 }}>
+            {categories.map((category) => (
+              <SortableCategoryCard
+                key={category.id}
+                activeCategoryId={activeCategoryId}
+                activeDragId={activeDragId}
+                activeDragType={activeDragType}
+                category={category}
+                categoryIds={categoryIds}
+                onAddItem={onAddItem}
+                onCategoryVisibilityChange={onCategoryVisibilityChange}
+                onDeleteItem={onDeleteItem}
+                onItemFeaturedChange={onItemFeaturedChange}
+                onItemVisibilityChange={onItemVisibilityChange}
+                overDragId={overDragId}
+              />
+            ))}
+          </div>
+        </SortableContext>
+      </DndContext>
+    </div>
+  )
+}
+
+function SortableCategoryCard({
+  activeCategoryId,
+  activeDragId,
+  activeDragType,
+  category,
+  categoryIds,
+  onAddItem,
+  onCategoryVisibilityChange,
+  onDeleteItem,
+  onItemFeaturedChange,
+  onItemVisibilityChange,
+  overDragId,
+}: {
+  activeCategoryId: string | null
+  activeDragId: string | null
+  activeDragType: "category" | "item" | null
+  category: MenuCategory
+  categoryIds: string[]
+  onAddItem: (
+    categoryId: string,
+    input: { name: string; description: string; priceCents: number },
+  ) => void | Promise<void>
+  onCategoryVisibilityChange: (categoryId: string, visibility: MenuCategory["visibility"]) => void
+  onDeleteItem: (itemId: string) => void | Promise<void>
+  onItemFeaturedChange: (itemId: string, isFeatured: boolean) => void
+  onItemVisibilityChange: (
+    itemId: string,
+    visibility: CategoryItemEntry["item"]["visibility"],
+  ) => void
+  overDragId: string | null
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: category.id,
+    data: { type: "category", categoryId: category.id },
+  })
+
+  const itemIds = category.categoryItems.map((entry) => entry.item.id)
+  const isHidden = category.visibility === "HIDDEN"
+  const categoryIndex = categoryIds.indexOf(category.id)
+  const activeCategoryIndex = activeDragId ? categoryIds.indexOf(activeDragId) : -1
+  const showTopDropIndicator =
+    activeDragType === "category" &&
+    overDragId === category.id &&
+    activeCategoryIndex > categoryIndex
+  const showBottomDropIndicator =
+    activeDragType === "category" &&
+    overDragId === category.id &&
+    activeCategoryIndex >= 0 &&
+    activeCategoryIndex < categoryIndex
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.6 : 1,
+        position: "relative",
+      }}
+    >
+      {showTopDropIndicator ? <DropIndicator position="top" /> : null}
+      <div
+        style={{
+          border: "1px solid #dbe5f0",
+          borderRadius: 18,
+          padding: 16,
+          background: isHidden ? "#f5f7fb" : "#f9fbfe",
+          display: "grid",
+          gap: 12,
+          boxShadow:
+            activeDragType === "category" && overDragId === category.id
+              ? "0 0 0 2px rgba(23, 32, 51, 0.12)"
+              : "none",
+        }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+            <DragHandleButton attributes={attributes} listeners={listeners} label={`Reorder category ${category.name}`} />
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontWeight: 700, opacity: isHidden ? 0.6 : 1 }}>{category.name}</div>
+              <div style={{ fontSize: 13, color: "#5f6f88" }}>
+                {category.categoryItems.length} items
+              </div>
+            </div>
+          </div>
+
+          <IconToggleButton
+            active={!isHidden}
+            label={isHidden ? `Show ${category.name}` : `Hide ${category.name}`}
+            onClick={() =>
+              onCategoryVisibilityChange(
+                category.id,
+                isHidden ? "AVAILABLE" : "HIDDEN",
+              )
+            }
+          >
+            <EyeIcon crossed={isHidden} />
+          </IconToggleButton>
+        </div>
+
+        <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
+          <div style={{ display: "grid", gap: 10 }}>
+            {category.categoryItems.map((entry) => (
+              <SortableItemRow
+                activeCategoryId={activeCategoryId}
+                activeDragId={activeDragId}
+                activeDragType={activeDragType}
+                key={entry.item.id}
+                categoryId={category.id}
+                entry={entry}
+                itemIds={itemIds}
+                onDelete={onDeleteItem}
+                onFeaturedChange={onItemFeaturedChange}
+                onVisibilityChange={onItemVisibilityChange}
+                overDragId={overDragId}
+              />
+            ))}
+          </div>
+        </SortableContext>
+
+        <AddItemInlineForm
+          categoryId={category.id}
+          onSubmit={onAddItem}
+        />
+      </div>
+      {showBottomDropIndicator ? <DropIndicator position="bottom" /> : null}
+    </div>
+  )
+}
+
+function SortableItemRow({
+  activeCategoryId,
+  activeDragId,
+  activeDragType,
+  categoryId,
+  entry,
+  itemIds,
+  onDelete,
+  onFeaturedChange,
+  onVisibilityChange,
+  overDragId,
+}: {
+  activeCategoryId: string | null
+  activeDragId: string | null
+  activeDragType: "category" | "item" | null
+  categoryId: string
+  entry: CategoryItemEntry
+  itemIds: string[]
+  onDelete: (itemId: string) => void | Promise<void>
+  onFeaturedChange: (itemId: string, isFeatured: boolean) => void
+  onVisibilityChange: (
+    itemId: string,
+    visibility: CategoryItemEntry["item"]["visibility"],
+  ) => void
+  overDragId: string | null
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: entry.item.id,
+    data: { type: "item", categoryId, itemId: entry.item.id },
+  })
+
+  const isHidden = entry.item.visibility === "HIDDEN"
+  const isSoldOut = entry.item.visibility === "SOLD_OUT"
+  const itemIndex = itemIds.indexOf(entry.item.id)
+  const activeItemIndex = activeDragId ? itemIds.indexOf(activeDragId) : -1
+  const isSameCategoryDrag = activeDragType === "item" && activeCategoryId === categoryId
+  const showTopDropIndicator =
+    isSameCategoryDrag &&
+    overDragId === entry.item.id &&
+    activeItemIndex > itemIndex
+  const showBottomDropIndicator =
+    isSameCategoryDrag &&
+    overDragId === entry.item.id &&
+    activeItemIndex >= 0 &&
+    activeItemIndex < itemIndex
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+        opacity: isDragging ? 0.55 : isHidden ? 0.58 : 1,
+        position: "relative",
+        border: "1px solid #dde6f1",
+        borderRadius: 14,
+        padding: 14,
+        background: isSoldOut ? "#fff7ed" : "#ffffff",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        gap: 12,
+        boxShadow:
+          isSameCategoryDrag && overDragId === entry.item.id
+            ? "0 0 0 2px rgba(23, 32, 51, 0.12)"
+            : "none",
+      }}
+    >
+      {showTopDropIndicator ? <DropIndicator position="top" inset /> : null}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+        <DragHandleButton attributes={attributes} listeners={listeners} label={`Reorder item ${entry.item.name}`} />
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontWeight: 700 }}>{entry.item.name}</div>
+          <div style={{ fontSize: 13, color: "#5f6f88" }}>
+            {formatPrice(entry.item.variants[0]?.priceCents ?? entry.item.basePriceCents)}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <IconToggleButton
+          active={!isHidden}
+          label={isHidden ? `Show ${entry.item.name}` : `Hide ${entry.item.name}`}
+          onClick={() =>
+            onVisibilityChange(
+              entry.item.id,
+              isHidden ? "AVAILABLE" : "HIDDEN",
+            )
+          }
+        >
+          <EyeIcon crossed={isHidden} />
+        </IconToggleButton>
+
+        <IconToggleButton
+          active={entry.item.isFeatured}
+          label={entry.item.isFeatured ? `Unfeature ${entry.item.name}` : `Feature ${entry.item.name}`}
+          onClick={() => onFeaturedChange(entry.item.id, !entry.item.isFeatured)}
+        >
+          <StarIcon filled={entry.item.isFeatured} />
+        </IconToggleButton>
+
+        <button
+          type="button"
+          onClick={() =>
+            onVisibilityChange(
+              entry.item.id,
+              isSoldOut ? "AVAILABLE" : "SOLD_OUT",
+            )
+          }
+          style={{
+            border: "1px solid",
+            borderColor: isSoldOut ? "#f97316" : "#d7e1ec",
+            borderRadius: 999,
+            padding: "8px 12px",
+            background: isSoldOut ? "#f97316" : "#ffffff",
+            color: isSoldOut ? "#ffffff" : "#172033",
+            fontSize: 13,
+            fontWeight: 700,
+            cursor: "pointer",
+          }}
+        >
+          Sold out
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            if (window.confirm(`Delete ${entry.item.name}?`)) {
+              void Promise.resolve(onDelete(entry.item.id))
+            }
+          }}
+          style={{
+            border: "1px solid #fecaca",
+            borderRadius: 999,
+            padding: "8px 12px",
+            background: "#ffffff",
+            color: "#b42318",
+            fontSize: 13,
+            fontWeight: 700,
+            cursor: "pointer",
+          }}
+        >
+          Delete
+        </button>
+      </div>
+      {showBottomDropIndicator ? <DropIndicator position="bottom" inset /> : null}
+    </div>
+  )
+}
+
+function AddItemInlineForm({
+  categoryId,
+  onSubmit,
+}: {
+  categoryId: string
+  onSubmit: (
+    categoryId: string,
+    input: { name: string; description: string; priceCents: number },
+  ) => void | Promise<void>
+}) {
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState("")
+  const [price, setPrice] = useState("")
+  const [description, setDescription] = useState("")
+
+  async function handleSubmit() {
+    const trimmedName = name.trim()
+    const parsedPrice = Number(price)
+
+    if (!trimmedName || Number.isNaN(parsedPrice) || parsedPrice < 0) {
+      return
+    }
+
+    await onSubmit(categoryId, {
+      name: trimmedName,
+      description: description.trim(),
+      priceCents: Math.round(parsedPrice * 100),
+    })
+
+    setName("")
+    setPrice("")
+    setDescription("")
+    setOpen(false)
+  }
+
+  return (
+    <div
+      style={{
+        borderTop: "1px solid #e2e8f0",
+        paddingTop: 12,
+        display: "grid",
+        gap: 10,
+      }}
+    >
+      {!open ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          style={{
+            ...secondaryButtonStyle,
+            width: "fit-content",
+            padding: "10px 14px",
+            fontWeight: 700,
+          }}
+        >
+          Add item
+        </button>
+      ) : (
+        <>
+          <div style={{ display: "grid", gridTemplateColumns: "1.4fr 0.8fr", gap: 10 }}>
+            <input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Item name"
+              style={inputStyle}
+            />
+            <input
+              value={price}
+              onChange={(event) => setPrice(event.target.value)}
+              placeholder="Price"
+              inputMode="decimal"
+              style={inputStyle}
+            />
+          </div>
+          <textarea
+            value={description}
+            onChange={(event) => setDescription(event.target.value)}
+            placeholder="Description"
+            rows={2}
+            style={{ ...inputStyle, resize: "vertical" }}
+          />
+          <div style={{ display: "flex", gap: 10 }}>
+            <button
+              type="button"
+              onClick={() => void handleSubmit()}
+              style={{
+                border: "none",
+                borderRadius: 12,
+                padding: "10px 14px",
+                background: "#172033",
+                color: "#ffffff",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              Create item
+            </button>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              style={secondaryButtonStyle}
+            >
+              Cancel
+            </button>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function DropIndicator({
+  inset = false,
+  position,
+}: {
+  inset?: boolean
+  position: "top" | "bottom"
+}) {
+  return (
+    <div
+      aria-hidden="true"
+      style={{
+        position: "absolute",
+        [position]: inset ? 6 : -8,
+        left: inset ? 10 : 0,
+        right: inset ? 10 : 0,
+        height: 4,
+        borderRadius: 999,
+        background: "#172033",
+        pointerEvents: "none",
+      }}
+    />
+  )
+}
+
+function DragHandleButton({
+  attributes,
+  label,
+  listeners,
+}: {
+  attributes: ReturnType<typeof useSortable>["attributes"]
+  label: string
+  listeners: ReturnType<typeof useSortable>["listeners"]
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      {...attributes}
+      {...listeners}
+      style={{
+        border: "1px solid #d7e1ec",
+        borderRadius: 10,
+        width: 34,
+        height: 34,
+        display: "grid",
+        placeItems: "center",
+        background: "#ffffff",
+        color: "#61708a",
+        cursor: "grab",
+        flexShrink: 0,
+      }}
+    >
+      <GripIcon />
+    </button>
+  )
+}
+
+function IconToggleButton({
+  active,
+  children,
+  label,
+  onClick,
+}: {
+  active: boolean
+  children: React.ReactNode
+  label: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      onClick={onClick}
+      style={{
+        border: "1px solid",
+        borderColor: active ? "#172033" : "#d7e1ec",
+        borderRadius: 10,
+        width: 34,
+        height: 34,
+        display: "grid",
+        placeItems: "center",
+        background: active ? "#172033" : "#ffffff",
+        color: active ? "#ffffff" : "#61708a",
+        cursor: "pointer",
+        flexShrink: 0,
+      }}
+    >
+      {children}
+    </button>
+  )
+}
+
+function EyeIcon({ crossed = false }: { crossed?: boolean }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6Z" />
+      <circle cx="12" cy="12" r="3" />
+      {crossed ? <path d="M4 4l16 16" /> : null}
+    </svg>
+  )
+}
+
+function StarIcon({ filled = false }: { filled?: boolean }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m12 3 2.75 5.57 6.15.89-4.45 4.33 1.05 6.12L12 17.02 6.5 19.91l1.05-6.12L3.1 9.46l6.15-.89L12 3Z" />
+    </svg>
+  )
+}
+
+function GripIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <circle cx="9" cy="6" r="1.6" />
+      <circle cx="15" cy="6" r="1.6" />
+      <circle cx="9" cy="12" r="1.6" />
+      <circle cx="15" cy="12" r="1.6" />
+      <circle cx="9" cy="18" r="1.6" />
+      <circle cx="15" cy="18" r="1.6" />
+    </svg>
   )
 }
 
@@ -1014,26 +2071,6 @@ function SelectField({
             {option.label}
           </option>
         ))}
-      </select>
-    </label>
-  )
-}
-
-function CategoryVisibilityField({
-  value,
-  onChange,
-}: {
-  value: MenuCategory["visibility"]
-  onChange: (value: MenuCategory["visibility"]) => void
-}) {
-  return (
-    <label style={{ display: "grid", gap: 6 }}>
-      <span style={labelStyle}>Category visibility</span>
-      <select value={value} onChange={(event) => onChange(event.target.value as MenuCategory["visibility"])} style={inputStyle}>
-        <option value="AVAILABLE">Available</option>
-        <option value="SOLD_OUT">Sold out</option>
-        <option value="HIDDEN">Hidden</option>
-        <option value="SCHEDULED">Scheduled</option>
       </select>
     </label>
   )
