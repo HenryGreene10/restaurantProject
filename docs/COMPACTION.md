@@ -1,6 +1,6 @@
 # Project Compaction / Handoff
 
-Last updated: 2026-04-01
+Last updated: 2026-04-02
 
 ## Product Direction
 - Multi-tenant white-label restaurant ordering platform for independent restaurants.
@@ -168,6 +168,14 @@ Current state:
   - item featured state
   - item visibility
 - Preview pane renders the customer storefront using the real menu and current draft settings.
+- Admin AI assistant is now wired to real backend actions from the existing Assistant tab.
+- Assistant command route is `POST /v1/assistant/command`.
+- Assistant currently supports:
+  - item visibility changes
+  - item featured / unfeatured changes
+  - category visibility changes
+- Assistant runs on fresh tenant DB context per request.
+- Assistant uses name resolution before mutation and returns clarification instead of mutating on ambiguous matches.
 
 Current URL when running:
 - `http://127.0.0.1:5174/`
@@ -182,7 +190,7 @@ This is a frontend reprioritization only. It does not change the backend-first f
 
 ## What Is Not Done Yet
 - Hero image upload flow (current admin uses URL input only)
-- Drag-and-drop composition controls (current admin still uses explicit controls and up/down buttons)
+- Drag-and-drop composition controls beyond current category/item ordering
 - Promo section stacking / richer page-builder behavior
 - OTP-gated customer session flow inside storefront checkout
 - Dedicated order confirmation / order status page
@@ -191,19 +199,27 @@ This is a frontend reprioritization only. It does not change the backend-first f
 - Stripe onboarding UI
 - Kitchen UI refinement
 - Loyalty and marketing UI
-- AI assistant actual action execution beyond current stub behavior in admin
+- AI assistant tool expansion beyond visibility / featured mutations
+- AI assistant persistent-panel UX and broader natural-language coverage
 
 ## Current Recommended Next Step
-Move from pickup-only order placement into a resilient customer checkout and status flow.
+Finish QA on the first AI assistant action slice, then expand the assistant and return to the customer checkout/status vertical slice.
 
 Recommended next implementation:
-- Add customer OTP flow into checkout
-- Add dedicated order confirmation / order status page
-- Poll live order status
-- Persist cart/customer draft across refresh
-- Replace simple up/down ordering with drag-and-drop in admin
-- Replace hero image URL input with upload flow
-- Add promo/section blocks as configurable storefront sections
+- QA the existing assistant commands in admin:
+  - `mark Margherita Pizza as sold out`
+  - `feature Garlic Knots`
+  - `hide the Apps category`
+  - ambiguous case like `hide pizza`
+- Expand assistant tools after QA:
+  - theme/hero copy updates
+  - category/item reordering
+  - sold-out / hide/show commands across more phrasing variants
+- After assistant expansion, return to the storefront customer journey:
+  - add customer OTP flow into checkout
+  - add dedicated order confirmation / order status page
+  - poll live order status
+  - persist cart/customer draft across refresh
 
 ## Test / Validation Status
 - Typecheck is passing for:
@@ -211,7 +227,12 @@ Recommended next implementation:
   - `apps/web`
   - `apps/api`
 - API integration coverage exists and passes for changed surfaces when run outside the read-only sandbox.
-- Some older API integration tests are timing out around the hardcoded 10s boundary in this environment. Those are environment-speed failures, not new logic failures in the latest storefront changes.
+- Latest verified assistant/backend/admin checks:
+  - `npm -w packages/ai-assistant run typecheck`
+  - `npm -w apps/api run typecheck`
+  - `npm -w apps/admin run typecheck`
+  - `npm -w apps/api run test`
+- Full API suite passes when run outside the sandbox because `supertest` needs to bind a local listener in this environment.
 
 ## Key Recent Commits
 - `7ab18f5` `docs: add project compaction handoff`
@@ -223,6 +244,7 @@ Recommended next implementation:
 - `67eeba9` `feat(web): turn theme preview into real storefront`
 - `41b19f8` `feat(web): add item customization and cart flow`
 - `bff25a0` `feat(web): add pickup-only checkout flow`
+- `e5d5acf` `feat(admin): improve storefront editing workflow`
 
 ## Run Commands
 API:

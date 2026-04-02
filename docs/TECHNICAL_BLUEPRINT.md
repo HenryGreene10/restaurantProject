@@ -13,6 +13,20 @@
 - packages/ai: Assistant runner + tool interfaces (Phase 2 for model calls).
 - packages/ui: Shared UI primitives with Tailwind + CSS variables.
 
+## Current Reality Check
+- The running codebase uses `apps/*` and `packages/*`, not `services/*`.
+- Backend is Express, not Fastify.
+- `packages/ai-assistant` is now active, not just planned:
+  - route: `POST /v1/assistant/command`
+  - model: `claude-haiku-4-5-20251001`
+  - auth/env: `ANTHROPIC_API_KEY`
+  - current tool set:
+    - `set_item_visibility`
+    - `set_item_featured`
+    - `set_category_visibility`
+  - name resolution and ambiguity handling are already required before mutation
+  - fresh tenant DB context is loaded on every assistant command
+
 ## Proposed Database Schema (Initial)
 See `docs/architecture/SCHEMA_PROPOSAL.md` and review before code.
 

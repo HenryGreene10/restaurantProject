@@ -992,7 +992,16 @@ export const App: React.FC = () => {
                 />
               ) : null}
 
-              {activeTab === "assistant" ? <AssistantPanel /> : null}
+              {activeTab === "assistant" ? (
+                <AssistantPanel
+                  tenantSlug={tenantSlug}
+                  onRefreshTargets={(targets) => {
+                    if (targets.includes("menu")) {
+                      void reloadMenuData()
+                    }
+                  }}
+                />
+              ) : null}
 
               {(activeTab === "branding" || activeTab === "layout" || isThemeDirty || saveMessage) ? (
                 <ThemeSaveBar

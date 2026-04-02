@@ -1,6 +1,21 @@
 import React, { useState } from 'react'
 
-export const AssistantPanel: React.FC = () => {
+type AssistantRefreshTarget = "menu"
+
+type AssistantCommandResponse = {
+  reply: string
+  refresh: AssistantRefreshTarget[]
+  needsClarification?: boolean
+  options?: Array<{
+    id: string
+    label: string
+  }>
+}
+
+export const AssistantPanel: React.FC<{
+  tenantSlug: string
+  onRefreshTargets?: (targets: AssistantRefreshTarget[]) => void
+}> = ({ tenantSlug, onRefreshTargets }) => {
   const [input, setInput] = useState('')
   const [log, setLog] = useState<string[]>([])
 
@@ -10,11 +25,36 @@ export const AssistantPanel: React.FC = () => {
     setLog(l => [...l, `You: ${msg}`])
     setInput('')
     try {
-      const res = await fetch('/v1/assistant/draft', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: msg }) })
-      const data = await res.json()
-      setLog(l => [...l, `Assistant: ${data.reply || 'ok'}`])
-    } catch {
-      setLog(l => [...l, 'Assistant: (stubbed) I will handle that soon.'])
+      const res = await fetch('/api/v1/assistant/command', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-tenant-slug': tenantSlug,
+        },
+        body: JSON.stringify({ message: msg }),
+      })
+      const data = (await res.json()) as AssistantCommandResponse & { error?: string }
+
+      if (!res.ok) {
+        throw new Error(data.error || `Command failed (${res.status})`)
+      }
+
+      setLog(l => {
+        const next = [...l, `Assistant: ${data.reply || 'ok'}`]
+        if (data.needsClarification && data.options?.length) {
+          next.push(`Options: ${data.options.map((option) => option.label).join(' | ')}`)
+        }
+        return next
+      })
+
+      if (data.refresh.length) {
+        onRefreshTargets?.(data.refresh)
+      }
+    } catch (error) {
+      setLog(l => [
+        ...l,
+        `Assistant: ${error instanceof Error ? error.message : 'Request failed.'}`,
+      ])
     }
   }
 

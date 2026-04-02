@@ -14,6 +14,7 @@ const EnvSchema = z
     CUSTOMER_REFRESH_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().default(2592000),
     BASE_DOMAIN: z.string().optional(),
     TENANT_DOMAIN_SUFFIX: z.string().optional(),
+    ANTHROPIC_API_KEY: z.string(),
     TWILIO_ACCOUNT_SID: z.string(),
     TWILIO_AUTH_TOKEN: z.string(),
     TWILIO_VERIFY_SERVICE_SID: z.string(),
