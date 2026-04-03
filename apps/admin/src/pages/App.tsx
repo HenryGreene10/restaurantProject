@@ -15,7 +15,7 @@ import {
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { AnimatePresence, motion } from "framer-motion"
-import { CheckCircle2, Eye, EyeOff, LayoutPanelTop, Palette, Sparkles, Star, Trash2 } from "lucide-react"
+import { CheckCircle2, Eye, EyeOff, ImageIcon, Palette, Sparkles, Star, Trash2 } from "lucide-react"
 
 import { AssistantPanel } from "../assistant/AssistantPanel"
 import { fetchTenantMenu, type MenuCategory, type MenuResponse } from "../lib/menu"
@@ -36,6 +36,7 @@ import { cn } from "@/lib/utils"
 type ThemeDraft = {
   appTitle: string
   tagline: string
+  logoUrl: string
   heroHeadline: string
   heroSubheadline: string
   heroBadgeText: string
@@ -62,25 +63,26 @@ type ThemeDraft = {
 const defaultThemeDraft: ThemeDraft = {
   appTitle: "Restaurant",
   tagline: "Direct ordering, owned by the restaurant.",
+  logoUrl: "",
   heroHeadline: "Neighborhood favorites without marketplace markup.",
   heroSubheadline: "Make repeat visits easier with direct ordering and better menu presentation.",
   heroBadgeText: "Direct ordering",
   promoBannerText: "Give loyal customers a direct-order reward funded by marketplace savings.",
   heroImageUrl: "",
   primaryColor: "#b42318",
-  accentColor: "#f59e0b",
-  backgroundColor: "#f6f1ea",
-  surfaceColor: "#fffaf5",
-  textColor: "#241712",
-  mutedColor: "#7a6257",
-  borderColor: "#e7d8ca",
+  accentColor: "#eca934",
+  backgroundColor: "#faf7f2",
+  surfaceColor: "#fffcf7",
+  textColor: "#271c17",
+  mutedColor: "#745e54",
+  borderColor: "#e8dcd1",
   onPrimary: "#fff7ed",
   bodyFont: "Inter, sans-serif",
   headingFont: "Georgia, serif",
-  radius: 24,
+  radius: 12,
   buttonStyle: "rounded",
-  heroLayout: "immersive",
-  menuCardLayout: "classic",
+  heroLayout: "minimal",
+  menuCardLayout: "photo-first",
   showFeaturedBadges: true,
   showCategoryChips: true,
 }
@@ -95,9 +97,15 @@ function getBrandConfig(menu: MenuResponse) {
   return asRecord(menu.brandConfig?.config) ?? asRecord(nested?.config) ?? nested ?? {}
 }
 
-function getString(config: Record<string, unknown>, key: string) {
-  const value = config[key]
-  return typeof value === "string" && value.trim() ? value : undefined
+function getString(config: Record<string, unknown>, ...keys: string[]) {
+  for (const key of keys) {
+    const value = config[key]
+    if (typeof value === "string" && value.trim()) {
+      return value
+    }
+  }
+
+  return undefined
 }
 
 function buildDraft(menu: MenuResponse): ThemeDraft {
@@ -107,6 +115,7 @@ function buildDraft(menu: MenuResponse): ThemeDraft {
     ...defaultThemeDraft,
     appTitle: getString(config, "appTitle") ?? defaultThemeDraft.appTitle,
     tagline: getString(config, "tagline") ?? defaultThemeDraft.tagline,
+    logoUrl: getString(config, "logoUrl") ?? defaultThemeDraft.logoUrl,
     heroHeadline: getString(config, "heroHeadline") ?? defaultThemeDraft.heroHeadline,
     heroSubheadline: getString(config, "heroSubheadline") ?? defaultThemeDraft.heroSubheadline,
     heroBadgeText: getString(config, "heroBadgeText") ?? defaultThemeDraft.heroBadgeText,
@@ -115,32 +124,23 @@ function buildDraft(menu: MenuResponse): ThemeDraft {
     primaryColor: getString(config, "primaryColor") ?? defaultThemeDraft.primaryColor,
     accentColor: getString(config, "accentColor") ?? defaultThemeDraft.accentColor,
     backgroundColor: getString(config, "backgroundColor") ?? defaultThemeDraft.backgroundColor,
-    surfaceColor: getString(config, "surfaceColor") ?? defaultThemeDraft.surfaceColor,
-    textColor: getString(config, "textColor") ?? defaultThemeDraft.textColor,
-    mutedColor: getString(config, "mutedColor") ?? defaultThemeDraft.mutedColor,
+    surfaceColor: defaultThemeDraft.surfaceColor,
+    textColor: defaultThemeDraft.textColor,
+    mutedColor: defaultThemeDraft.mutedColor,
     borderColor: getString(config, "borderColor") ?? defaultThemeDraft.borderColor,
     onPrimary: getString(config, "onPrimary") ?? defaultThemeDraft.onPrimary,
-    bodyFont: getString(config, "fontFamily") ?? defaultThemeDraft.bodyFont,
+    bodyFont: getString(config, "fontFamily", "bodyFont") ?? defaultThemeDraft.bodyFont,
     headingFont: getString(config, "headingFont") ?? defaultThemeDraft.headingFont,
-    radius: typeof config.radius === "number" ? config.radius : defaultThemeDraft.radius,
-    buttonStyle: config.buttonStyle === "square" ? "square" : defaultThemeDraft.buttonStyle,
-    heroLayout: config.heroLayout === "minimal" ? "minimal" : defaultThemeDraft.heroLayout,
-    menuCardLayout:
-      config.menuCardLayout === "compact" || config.menuCardLayout === "photo-first"
-        ? config.menuCardLayout
-        : defaultThemeDraft.menuCardLayout,
-    showFeaturedBadges:
-      typeof config.showFeaturedBadges === "boolean"
-        ? config.showFeaturedBadges
-        : defaultThemeDraft.showFeaturedBadges,
-    showCategoryChips:
-      typeof config.showCategoryChips === "boolean"
-        ? config.showCategoryChips
-        : defaultThemeDraft.showCategoryChips,
+    radius: defaultThemeDraft.radius,
+    buttonStyle: defaultThemeDraft.buttonStyle,
+    heroLayout: defaultThemeDraft.heroLayout,
+    menuCardLayout: defaultThemeDraft.menuCardLayout,
+    showFeaturedBadges: defaultThemeDraft.showFeaturedBadges,
+    showCategoryChips: defaultThemeDraft.showCategoryChips,
   }
 }
 
-type AdminTab = "branding" | "layout" | "menu" | "assistant"
+type AdminTab = "branding" | "menu" | "assistant"
 type ThemeChangeHandler = <K extends keyof ThemeDraft>(key: K, value: ThemeDraft[K]) => void
 type CategoryItemEntry = MenuCategory["categoryItems"][number]
 
@@ -152,6 +152,7 @@ function themePayload(theme: ThemeDraft) {
   return {
     appTitle: theme.appTitle,
     tagline: theme.tagline,
+    logoUrl: theme.logoUrl,
     heroHeadline: theme.heroHeadline,
     heroSubheadline: theme.heroSubheadline,
     heroBadgeText: theme.heroBadgeText,
@@ -160,20 +161,72 @@ function themePayload(theme: ThemeDraft) {
     primaryColor: theme.primaryColor,
     accentColor: theme.accentColor,
     backgroundColor: theme.backgroundColor,
-    surfaceColor: theme.surfaceColor,
-    textColor: theme.textColor,
-    mutedColor: theme.mutedColor,
+    surfaceColor: defaultThemeDraft.surfaceColor,
+    textColor: defaultThemeDraft.textColor,
+    mutedColor: defaultThemeDraft.mutedColor,
     borderColor: theme.borderColor,
     onPrimary: theme.onPrimary,
     fontFamily: theme.bodyFont,
     headingFont: theme.headingFont,
-    radius: theme.radius,
-    buttonStyle: theme.buttonStyle,
-    heroLayout: theme.heroLayout,
-    menuCardLayout: theme.menuCardLayout,
-    showFeaturedBadges: theme.showFeaturedBadges,
-    showCategoryChips: theme.showCategoryChips,
+    radius: defaultThemeDraft.radius,
+    buttonStyle: defaultThemeDraft.buttonStyle,
+    heroLayout: defaultThemeDraft.heroLayout,
+    menuCardLayout: defaultThemeDraft.menuCardLayout,
+    showFeaturedBadges: defaultThemeDraft.showFeaturedBadges,
+    showCategoryChips: defaultThemeDraft.showCategoryChips,
   }
+}
+
+const FONT_OPTIONS = [
+  { label: "Inter", value: '"Inter", sans-serif' },
+  { label: "Georgia", value: "Georgia, serif" },
+  { label: "Playfair Display", value: '"Playfair Display", serif' },
+  { label: "Lora", value: '"Lora", serif' },
+  { label: "Merriweather", value: '"Merriweather", serif' },
+  { label: "Raleway", value: '"Raleway", sans-serif' },
+  { label: "Montserrat", value: '"Montserrat", sans-serif' },
+  { label: "Nunito", value: '"Nunito", sans-serif' },
+  { label: "DM Sans", value: '"DM Sans", sans-serif' },
+  { label: "DM Serif Display", value: '"DM Serif Display", serif' },
+  { label: "Fraunces", value: '"Fraunces", serif' },
+  { label: "Cabinet Grotesk", value: '"Cabinet Grotesk", sans-serif' },
+  { label: "Plus Jakarta Sans", value: '"Plus Jakarta Sans", sans-serif' },
+  { label: "Libre Baskerville", value: '"Libre Baskerville", serif' },
+  { label: "Cormorant Garamond", value: '"Cormorant Garamond", serif' },
+] as const
+
+function hexToRgba(hex: string, alpha: number) {
+  const normalized = hex.replace("#", "").trim()
+  const expanded =
+    normalized.length === 3
+      ? normalized
+          .split("")
+          .map((char) => `${char}${char}`)
+          .join("")
+      : normalized
+
+  const value = Number.parseInt(expanded, 16)
+  const red = (value >> 16) & 255
+  const green = (value >> 8) & 255
+  const blue = value & 255
+
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`
+}
+
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result)
+        return
+      }
+
+      reject(new Error("Failed to read file"))
+    }
+    reader.onerror = () => reject(new Error("Failed to read file"))
+    reader.readAsDataURL(file)
+  })
 }
 
 function formatPrice(priceCents: number) {
@@ -244,17 +297,16 @@ function previewCategories(categories: MenuCategory[]) {
 }
 
 function previewStyle(theme: ThemeDraft): React.CSSProperties {
-  const radius = `${theme.radius}px`
   return {
     ["--preview-primary" as string]: theme.primaryColor,
     ["--preview-accent" as string]: theme.accentColor,
     ["--preview-background" as string]: theme.backgroundColor,
-    ["--preview-surface" as string]: theme.surfaceColor,
-    ["--preview-text" as string]: theme.textColor,
-    ["--preview-muted" as string]: theme.mutedColor,
+    ["--preview-surface" as string]: defaultThemeDraft.surfaceColor,
+    ["--preview-text" as string]: defaultThemeDraft.textColor,
+    ["--preview-muted" as string]: defaultThemeDraft.mutedColor,
     ["--preview-border" as string]: theme.borderColor,
     ["--preview-on-primary" as string]: theme.onPrimary,
-    ["--preview-radius" as string]: radius,
+    ["--preview-radius" as string]: `${defaultThemeDraft.radius}px`,
     ["--preview-body-font" as string]: theme.bodyFont,
     ["--preview-heading-font" as string]: theme.headingFont,
   } as React.CSSProperties
@@ -287,10 +339,8 @@ function PreviewPane({
   theme: ThemeDraft
   categories: MenuCategory[]
 }) {
-  const cardRadius = theme.buttonStyle === "square" ? 10 : theme.radius
+  const cardRadius = defaultThemeDraft.radius
   const visible = previewCategories(categories)
-  const cardColumns =
-    theme.menuCardLayout === "compact" ? "repeat(2, minmax(0, 1fr))" : "minmax(0, 1fr)"
 
   return (
     <div
@@ -303,7 +353,7 @@ function PreviewPane({
       <div
         style={{
           minHeight: "100%",
-          borderRadius: "calc(var(--preview-radius) + 10px)",
+          borderRadius: "24px",
           background: "var(--preview-background)",
           color: "var(--preview-text)",
           padding: 24,
@@ -313,40 +363,59 @@ function PreviewPane({
         <div
           style={{
             borderRadius: cardRadius,
-            padding: theme.heroLayout === "immersive" ? "32px 28px" : "22px 22px 16px",
-            background:
-              theme.heroImageUrl && theme.heroLayout === "immersive"
-                ? `linear-gradient(135deg, ${theme.primaryColor}bb, ${theme.accentColor}55), url(${theme.heroImageUrl}) center/cover`
-                : theme.heroLayout === "immersive"
-                  ? `linear-gradient(135deg, ${theme.primaryColor}16, ${theme.accentColor}14)`
-                  : "var(--preview-surface)",
+            padding: "22px 22px 16px",
+            background: theme.heroImageUrl
+              ? `linear-gradient(${hexToRgba("#271c17", 0.48)}, ${hexToRgba("#271c17", 0.48)}), url(${theme.heroImageUrl}) center/cover`
+              : `linear-gradient(135deg, ${hexToRgba(theme.primaryColor, 0.14)}, ${hexToRgba(theme.primaryColor, 0.1)}), var(--preview-surface)`,
             border: "1px solid var(--preview-border)",
             display: "grid",
             gap: 18,
           }}
         >
-          <div
-            style={{
-              display: "inline-flex",
-              width: "fit-content",
-              borderRadius: cardRadius,
-              padding: "6px 10px",
-              background: "var(--preview-surface)",
-              border: "1px solid var(--preview-border)",
-              color: "var(--preview-muted)",
-              fontSize: 12,
-            }}
-          >
-            {theme.heroBadgeText}
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start" }}>
+            {theme.logoUrl ? (
+              <div
+                style={{
+                  width: 64,
+                  height: 64,
+                  borderRadius: 12,
+                  border: "1px solid var(--preview-border)",
+                  background: `url(${theme.logoUrl}) center/contain no-repeat, var(--preview-surface)`,
+                  flexShrink: 0,
+                }}
+              />
+            ) : (
+              <div />
+            )}
+            {theme.heroBadgeText.trim() ? (
+              <div
+                style={{
+                  display: "inline-flex",
+                  width: "fit-content",
+                  borderRadius: cardRadius,
+                  padding: "6px 10px",
+                  background: hexToRgba("#fffcf7", 0.84),
+                  border: "1px solid var(--preview-border)",
+                  color: "var(--preview-muted)",
+                  fontSize: 12,
+                }}
+              >
+                {theme.heroBadgeText}
+              </div>
+            ) : (
+              <div />
+            )}
           </div>
           <div style={{ display: "grid", gap: 10 }}>
             <h1
               style={{
                 margin: 0,
                 fontFamily: "var(--preview-heading-font)",
-                fontSize: 38,
-                lineHeight: 1.05,
-                maxWidth: 680,
+                fontSize: 56,
+                lineHeight: 0.95,
+                fontWeight: 700,
+                maxWidth: 760,
+                color: theme.heroImageUrl ? "#fff7ed" : "var(--preview-text)",
               }}
             >
               {theme.heroHeadline}
@@ -354,9 +423,10 @@ function PreviewPane({
             <p
               style={{
                 margin: 0,
-                color: "var(--preview-muted)",
-                maxWidth: 560,
-                lineHeight: 1.55,
+                color: theme.heroImageUrl ? hexToRgba("#fff7ed", 0.84) : "var(--preview-muted)",
+                maxWidth: 620,
+                lineHeight: 1.7,
+                fontSize: 19,
               }}
             >
               {theme.heroSubheadline}
@@ -389,7 +459,7 @@ function PreviewPane({
               marginTop: 16,
               borderRadius: cardRadius,
               border: "1px solid var(--preview-border)",
-              background: `${theme.accentColor}14`,
+              background: "var(--preview-surface)",
               color: "var(--preview-muted)",
               padding: "13px 16px",
               fontSize: 14,
@@ -415,7 +485,8 @@ function PreviewPane({
                   style={{
                     margin: 0,
                     fontFamily: "var(--preview-heading-font)",
-                    fontSize: 24,
+                    fontSize: 30,
+                    fontWeight: 700,
                   }}
                 >
                   {category.name}
@@ -425,7 +496,7 @@ function PreviewPane({
                 </span>
               </div>
 
-              <div style={{ display: "grid", gap: 12, gridTemplateColumns: cardColumns }}>
+              <div style={{ display: "grid", gap: 12 }}>
                 {category.categoryItems.map(({ id, item }) => (
                   <article
                     key={id}
@@ -437,17 +508,16 @@ function PreviewPane({
                       display: "grid",
                       gap: 12,
                       opacity: item.visibility === "SOLD_OUT" ? 0.76 : 1,
-                      gridTemplateColumns:
-                        theme.menuCardLayout === "photo-first" ? "132px minmax(0, 1fr)" : "1fr",
+                      gridTemplateColumns: item.photoUrl ? "132px minmax(0, 1fr)" : "1fr",
                     }}
                   >
-                    {theme.menuCardLayout === "photo-first" ? (
+                    {item.photoUrl ? (
                       <div
                         style={{
                           minHeight: 124,
                           borderRadius: Math.max(12, cardRadius - 8),
                           border: "1px solid var(--preview-border)",
-                          background: `linear-gradient(135deg, ${theme.primaryColor}12, ${theme.accentColor}12)`,
+                          background: `url(${item.photoUrl}) center/cover`,
                         }}
                       />
                     ) : null}
@@ -474,7 +544,8 @@ function PreviewPane({
                               <h3
                                 style={{
                                   margin: 0,
-                                  fontSize: 18,
+                                  fontSize: 20,
+                                  fontWeight: 600,
                                   fontFamily: "var(--preview-heading-font)",
                                 }}
                               >
@@ -484,8 +555,9 @@ function PreviewPane({
                                 <span
                                   style={{
                                     borderRadius: cardRadius,
-                                    border: "1px solid var(--preview-border)",
-                                    color: "var(--preview-muted)",
+                                    border: "1px solid transparent",
+                                    background: "var(--preview-primary)",
+                                    color: "var(--preview-on-primary)",
                                     fontSize: 11,
                                     padding: "4px 8px",
                                   }}
@@ -498,7 +570,7 @@ function PreviewPane({
                                   style={{
                                     borderRadius: cardRadius,
                                     border: "1px solid var(--preview-border)",
-                                    background: `${theme.accentColor}12`,
+                                    background: "var(--preview-surface)",
                                     color: "var(--preview-muted)",
                                     fontSize: 11,
                                     padding: "4px 8px",
@@ -547,22 +619,24 @@ function PreviewPane({
                       </div>
 
                       {item.visibility === "SOLD_OUT" ? (
-                        <div style={{ color: "var(--preview-muted)", fontSize: 14 }}>Sold out today</div>
+                        <div style={{ color: "var(--preview-muted)", fontSize: 14, textAlign: "right" }}>Sold out today</div>
                       ) : (
-                        <button
-                          type="button"
-                          style={{
-                            width: "fit-content",
-                            borderRadius: cardRadius,
-                            border: "1px solid var(--preview-border)",
-                            padding: "10px 14px",
-                            background: "transparent",
-                            color: "var(--preview-text)",
-                            fontWeight: 600,
-                          }}
-                        >
-                          Add
-                        </button>
+                        <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                          <button
+                            type="button"
+                            style={{
+                              width: "fit-content",
+                              borderRadius: cardRadius,
+                              border: "1px solid transparent",
+                              padding: "10px 14px",
+                              background: "var(--preview-primary)",
+                              color: "var(--preview-on-primary)",
+                              fontWeight: 600,
+                            }}
+                          >
+                            Add
+                          </button>
+                        </div>
                       )}
                     </div>
                   </article>
@@ -806,6 +880,9 @@ export const App: React.FC = () => {
                   ...(typeof body.isFeatured === "boolean"
                     ? { isFeatured: body.isFeatured }
                     : {}),
+                  ...(Object.prototype.hasOwnProperty.call(body, "photoUrl")
+                    ? { photoUrl: (body.photoUrl as string | null | undefined) ?? null }
+                    : {}),
                 },
               }
             : entry,
@@ -994,10 +1071,6 @@ export const App: React.FC = () => {
                     <BrandingTab theme={draftTheme} onThemeChange={updateTheme} />
                   ) : null}
 
-                  {activeTab === "layout" ? (
-                    <LayoutTab theme={draftTheme} onThemeChange={updateTheme} />
-                  ) : null}
-
                   {activeTab === "menu" ? (
                     <MenuTab
                       categories={categories}
@@ -1005,12 +1078,19 @@ export const App: React.FC = () => {
                       onAddItem={addItemToCategory}
                       onCategoryVisibilityChange={updateCategoryVisibility}
                       onCategoryReorder={reorderCategories}
-                      onDeleteItem={deleteItemFromMenu}
-                      onItemFeaturedChange={(itemId, isFeatured) =>
-                        void updateItemPresentation(
+                    onDeleteItem={deleteItemFromMenu}
+                    onItemFeaturedChange={(itemId, isFeatured) =>
+                      void updateItemPresentation(
                           itemId,
                           { isFeatured },
                           "Featured state updated.",
+                        )
+                      }
+                      onItemImageChange={(itemId, photoUrl) =>
+                        void updateItemPresentation(
+                          itemId,
+                          { photoUrl },
+                          photoUrl ? "Item image updated." : "Item image removed.",
                         )
                       }
                       onItemReorder={reorderCategoryItem}
@@ -1031,7 +1111,7 @@ export const App: React.FC = () => {
                 </motion.div>
               </AnimatePresence>
 
-              {(activeTab === "branding" || activeTab === "layout" || isThemeDirty || saveMessage) ? (
+              {(activeTab === "branding" || isThemeDirty || saveMessage) ? (
                 <ThemeSaveBar
                   isDirty={isThemeDirty}
                   isLoading={isLoading}
@@ -1073,7 +1153,6 @@ function TabBar({
 }) {
   const tabs: Array<{ id: AdminTab; label: string; icon: React.ReactNode }> = [
     { id: "branding", label: "Branding", icon: <Palette className="h-4 w-4" /> },
-    { id: "layout", label: "Layout", icon: <LayoutPanelTop className="h-4 w-4" /> },
     { id: "menu", label: "Menu", icon: <Sparkles className="h-4 w-4" /> },
     { id: "assistant", label: "AI Assistant", icon: <CheckCircle2 className="h-4 w-4" /> },
   ]
@@ -1111,9 +1190,130 @@ function BrandingTab({
   theme: ThemeDraft
   onThemeChange: ThemeChangeHandler
 }) {
+  async function handleFileChange(
+    key: "logoUrl" | "heroImageUrl",
+    file: File | null,
+  ) {
+    if (!file) {
+      return
+    }
+
+    const nextValue = await readFileAsDataUrl(file)
+    onThemeChange(key, nextValue)
+  }
+
   return (
     <div className="grid gap-5">
       <div className="grid gap-5 lg:grid-cols-2">
+        <FieldShell>
+          <Label htmlFor="logo-upload" className={fieldLabelClassName}>
+            Logo upload
+          </Label>
+          <div className="grid gap-3 rounded-[var(--radius)] border border-border/70 bg-background/70 p-4">
+            <ImageDropZone
+              id="logo-upload"
+              copy="Drop image here or click to upload"
+              onFile={(file) => void handleFileChange("logoUrl", file)}
+            />
+            {theme.logoUrl ? (
+              <div className="flex items-center justify-between gap-3 rounded-[var(--radius)] border border-border/70 bg-card p-3">
+                <div
+                  className="h-14 w-14 rounded-[12px] border border-border bg-center bg-contain bg-no-repeat"
+                  style={{ backgroundImage: `url(${theme.logoUrl})` }}
+                />
+                <Button type="button" variant="ghost" onClick={() => onThemeChange("logoUrl", "")}>
+                  Remove
+                </Button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <ImageIcon className="h-4 w-4" />
+                Upload a square or horizontal logo.
+              </div>
+            )}
+          </div>
+        </FieldShell>
+
+        <FieldShell>
+          <Label htmlFor="banner-upload" className={fieldLabelClassName}>
+            Banner image upload
+          </Label>
+          <div className="grid gap-3 rounded-[var(--radius)] border border-border/70 bg-background/70 p-4">
+            <ImageDropZone
+              id="banner-upload"
+              copy="Drop image here or click to upload"
+              onFile={(file) => void handleFileChange("heroImageUrl", file)}
+            />
+            {theme.heroImageUrl ? (
+              <div className="grid gap-3">
+                <div
+                  className="h-28 rounded-[12px] border border-border bg-center bg-cover"
+                  style={{
+                    backgroundImage: `linear-gradient(rgba(39, 28, 23, 0.44), rgba(39, 28, 23, 0.44)), url(${theme.heroImageUrl})`,
+                  }}
+                />
+                <Button type="button" variant="ghost" className="w-fit" onClick={() => onThemeChange("heroImageUrl", "")}>
+                  Remove
+                </Button>
+              </div>
+            ) : (
+              <div className="text-sm text-muted-foreground">
+                No banner uploaded. The hero will fall back to a subtle brand-color tint.
+              </div>
+            )}
+          </div>
+        </FieldShell>
+
+        <FieldShell>
+          <ColorField
+            label="Brand color"
+            value={theme.primaryColor}
+            onChange={(value) => onThemeChange("primaryColor", value)}
+          />
+        </FieldShell>
+
+        <FieldShell>
+          <ColorField
+            label="Background color"
+            value={theme.backgroundColor}
+            onChange={(value) => onThemeChange("backgroundColor", value)}
+          />
+        </FieldShell>
+
+        <FieldShell>
+          <ColorField
+            label="Card border color"
+            value={theme.borderColor}
+            onChange={(value) => onThemeChange("borderColor", value)}
+          />
+        </FieldShell>
+
+        <FieldShell>
+          <ColorField
+            label="Accent color"
+            value={theme.accentColor}
+            onChange={(value) => onThemeChange("accentColor", value)}
+          />
+        </FieldShell>
+
+        <FieldShell>
+          <SelectField
+            label="Heading font"
+            value={theme.headingFont}
+            onChange={(value) => onThemeChange("headingFont", value)}
+            options={FONT_OPTIONS as unknown as Array<{ label: string; value: string }>}
+          />
+        </FieldShell>
+
+        <FieldShell>
+          <SelectField
+            label="Body/subheadline font"
+            value={theme.bodyFont}
+            onChange={(value) => onThemeChange("bodyFont", value)}
+            options={FONT_OPTIONS as unknown as Array<{ label: string; value: string }>}
+          />
+        </FieldShell>
+
         <FieldShell className="lg:col-span-2">
           <Label htmlFor="hero-headline" className={fieldLabelClassName}>
             Hero headline
@@ -1161,157 +1361,6 @@ function BrandingTab({
             onChange={(event) => onThemeChange("promoBannerText", event.target.value)}
           />
         </FieldShell>
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <ColorField label="Primary" value={theme.primaryColor} onChange={(value) => onThemeChange("primaryColor", value)} />
-        <ColorField label="Accent" value={theme.accentColor} onChange={(value) => onThemeChange("accentColor", value)} />
-        <ColorField label="Background" value={theme.backgroundColor} onChange={(value) => onThemeChange("backgroundColor", value)} />
-        <ColorField label="Surface" value={theme.surfaceColor} onChange={(value) => onThemeChange("surfaceColor", value)} />
-        <ColorField label="Text" value={theme.textColor} onChange={(value) => onThemeChange("textColor", value)} />
-        <ColorField label="Border" value={theme.borderColor} onChange={(value) => onThemeChange("borderColor", value)} />
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <SelectField
-          label="Body font"
-          value={theme.bodyFont}
-          onChange={(value) => onThemeChange("bodyFont", value)}
-          options={[
-            { label: "Inter", value: "Inter, sans-serif" },
-            { label: "System UI", value: "system-ui, sans-serif" },
-            { label: "Arial", value: "Arial, sans-serif" },
-          ]}
-        />
-        <SelectField
-          label="Heading font"
-          value={theme.headingFont}
-          onChange={(value) => onThemeChange("headingFont", value)}
-          options={[
-            { label: "Georgia", value: "Georgia, serif" },
-            { label: "Inter", value: "Inter, sans-serif" },
-            { label: "Times", value: "\"Times New Roman\", serif" },
-          ]}
-        />
-      </div>
-
-      <details className="rounded-[var(--radius)] border border-border/70 bg-background/70 p-4">
-        <summary className="cursor-pointer list-none text-sm font-medium text-foreground">
-          Advanced settings
-        </summary>
-        <div className="mt-4 grid gap-4 lg:grid-cols-2">
-          <FieldShell>
-            <Label htmlFor="app-title" className={fieldLabelClassName}>
-              App title
-            </Label>
-            <Input
-              id="app-title"
-              value={theme.appTitle}
-              onChange={(event) => onThemeChange("appTitle", event.target.value)}
-            />
-          </FieldShell>
-
-          <FieldShell>
-            <Label htmlFor="hero-image-url" className={fieldLabelClassName}>
-              Hero image URL
-            </Label>
-            <Input
-              id="hero-image-url"
-              value={theme.heroImageUrl}
-              onChange={(event) => onThemeChange("heroImageUrl", event.target.value)}
-              placeholder="https://..."
-            />
-          </FieldShell>
-
-          <FieldShell className="lg:col-span-2">
-            <Label htmlFor="tagline" className={fieldLabelClassName}>
-              Tagline
-            </Label>
-            <textarea
-              id="tagline"
-              value={theme.tagline}
-              onChange={(event) => onThemeChange("tagline", event.target.value)}
-              rows={2}
-              className={textareaClassName}
-            />
-          </FieldShell>
-        </div>
-      </details>
-    </div>
-  )
-}
-
-function LayoutTab({
-  theme,
-  onThemeChange,
-}: {
-  theme: ThemeDraft
-  onThemeChange: ThemeChangeHandler
-}) {
-  return (
-    <div className="grid gap-5">
-      <div className="grid gap-4 lg:grid-cols-3">
-        <SelectField
-          label="Button style"
-          value={theme.buttonStyle}
-          onChange={(value) => onThemeChange("buttonStyle", value as ThemeDraft["buttonStyle"])}
-          options={[
-            { label: "Rounded", value: "rounded" },
-            { label: "Square", value: "square" },
-          ]}
-        />
-        <SelectField
-          label="Hero layout"
-          value={theme.heroLayout}
-          onChange={(value) => onThemeChange("heroLayout", value as ThemeDraft["heroLayout"])}
-          options={[
-            { label: "Immersive", value: "immersive" },
-            { label: "Minimal", value: "minimal" },
-          ]}
-        />
-        <SelectField
-          label="Menu card layout"
-          value={theme.menuCardLayout}
-          onChange={(value) => onThemeChange("menuCardLayout", value as ThemeDraft["menuCardLayout"])}
-          options={[
-            { label: "Classic", value: "classic" },
-            { label: "Compact grid", value: "compact" },
-            { label: "Photo-first", value: "photo-first" },
-          ]}
-        />
-      </div>
-
-      <FieldShell>
-        <div className="flex items-center justify-between gap-3">
-          <Label htmlFor="radius" className={fieldLabelClassName}>
-            Card radius
-          </Label>
-          <span className="text-sm text-muted-foreground">{theme.radius}px</span>
-        </div>
-        <input
-          id="radius"
-          type="range"
-          min={8}
-          max={32}
-          step={2}
-          value={theme.radius}
-          onChange={(event) => onThemeChange("radius", Number(event.target.value))}
-          className="accent-primary"
-        />
-      </FieldShell>
-
-      <div className="grid gap-3 rounded-[var(--radius)] border border-border/70 bg-background/70 p-4">
-        <ToggleRow
-          checked={theme.showFeaturedBadges}
-          label="Show featured item badges"
-          onChange={(checked) => onThemeChange("showFeaturedBadges", checked)}
-        />
-        <Separator />
-        <ToggleRow
-          checked={theme.showCategoryChips}
-          label="Show category chips in the hero"
-          onChange={(checked) => onThemeChange("showCategoryChips", checked)}
-        />
       </div>
     </div>
   )
@@ -1364,6 +1413,7 @@ function MenuTab({
   onCategoryVisibilityChange,
   onDeleteItem,
   onItemFeaturedChange,
+  onItemImageChange,
   onItemReorder,
   onItemVisibilityChange,
 }: {
@@ -1377,6 +1427,7 @@ function MenuTab({
   onCategoryVisibilityChange: (categoryId: string, visibility: MenuCategory["visibility"]) => void
   onDeleteItem: (itemId: string) => void | Promise<void>
   onItemFeaturedChange: (itemId: string, isFeatured: boolean) => void
+  onItemImageChange: (itemId: string, photoUrl: string | null) => void | Promise<void>
   onItemReorder: (categoryId: string, nextItemIds: string[]) => void
   onItemVisibilityChange: (
     itemId: string,
@@ -1477,6 +1528,7 @@ function MenuTab({
                 onCategoryVisibilityChange={onCategoryVisibilityChange}
                 onDeleteItem={onDeleteItem}
                 onItemFeaturedChange={onItemFeaturedChange}
+                onItemImageChange={onItemImageChange}
                 onItemVisibilityChange={onItemVisibilityChange}
                 overDragId={overDragId}
               />
@@ -1498,6 +1550,7 @@ function SortableCategoryCard({
   onCategoryVisibilityChange,
   onDeleteItem,
   onItemFeaturedChange,
+  onItemImageChange,
   onItemVisibilityChange,
   overDragId,
 }: {
@@ -1513,6 +1566,7 @@ function SortableCategoryCard({
   onCategoryVisibilityChange: (categoryId: string, visibility: MenuCategory["visibility"]) => void
   onDeleteItem: (itemId: string) => void | Promise<void>
   onItemFeaturedChange: (itemId: string, isFeatured: boolean) => void
+  onItemImageChange: (itemId: string, photoUrl: string | null) => void | Promise<void>
   onItemVisibilityChange: (
     itemId: string,
     visibility: CategoryItemEntry["item"]["visibility"],
@@ -1609,6 +1663,7 @@ function SortableCategoryCard({
                     itemIds={itemIds}
                     onDelete={onDeleteItem}
                     onFeaturedChange={onItemFeaturedChange}
+                    onImageChange={onItemImageChange}
                     onVisibilityChange={onItemVisibilityChange}
                     overDragId={overDragId}
                   />
@@ -1636,6 +1691,7 @@ function SortableItemRow({
   itemIds,
   onDelete,
   onFeaturedChange,
+  onImageChange,
   onVisibilityChange,
   overDragId,
 }: {
@@ -1647,6 +1703,7 @@ function SortableItemRow({
   itemIds: string[]
   onDelete: (itemId: string) => void | Promise<void>
   onFeaturedChange: (itemId: string, isFeatured: boolean) => void
+  onImageChange: (itemId: string, photoUrl: string | null) => void | Promise<void>
   onVisibilityChange: (
     itemId: string,
     visibility: CategoryItemEntry["item"]["visibility"],
@@ -1694,26 +1751,53 @@ function SortableItemRow({
       <motion.div layout>
         <div
           className={cn(
-            "flex items-center justify-between gap-3 rounded-[var(--radius)] border border-border/70 bg-background px-3 py-3",
+            "grid gap-3 rounded-[var(--radius)] border border-border/70 bg-background px-3 py-3",
             isSoldOut ? "bg-accent/10" : "",
             isSameCategoryDrag && overDragId === entry.item.id ? "ring-2 ring-ring/20" : "",
           )}
         >
-          <div className="flex min-w-0 items-center gap-3">
+          <div className="grid gap-3 sm:grid-cols-[auto_48px_minmax(0,1fr)] sm:items-start">
             <DragHandleButton
               attributes={attributes}
               listeners={listeners}
               label={`Reorder item ${entry.item.name}`}
             />
+            <div className="h-12 w-12 shrink-0 rounded-[10px] border border-border bg-background bg-center bg-cover">
+              {entry.item.photoUrl ? (
+                <div
+                  className="h-full w-full rounded-[10px] bg-cover bg-center"
+                  style={{ backgroundImage: `url(${entry.item.photoUrl})` }}
+                />
+              ) : null}
+            </div>
             <div className="min-w-0">
-              <div className="truncate font-medium text-foreground">{entry.item.name}</div>
-              <div className="text-sm text-muted-foreground">
+              <div className="font-medium text-foreground">{entry.item.name}</div>
+              <div className="mt-1 text-sm text-muted-foreground">
                 {formatPrice(entry.item.variants[0]?.priceCents ?? entry.item.basePriceCents)}
               </div>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-end gap-2">
+          <div className="flex flex-wrap items-center gap-2 sm:pl-[84px]">
+            <ImageDropZone
+              id={`item-image-${entry.item.id}`}
+              compact
+              copy={entry.item.photoUrl ? "Replace image" : "Add image"}
+              onFile={(file) =>
+                void readFileAsDataUrl(file).then((value) => onImageChange(entry.item.id, value))
+              }
+            />
+            {entry.item.photoUrl ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => onImageChange(entry.item.id, null)}
+              >
+                Remove image
+              </Button>
+            ) : null}
+
             <IconToggleButton
               active={!isHidden}
               label={isHidden ? `Show ${entry.item.name}` : `Hide ${entry.item.name}`}
@@ -1951,6 +2035,63 @@ function FieldShell({
   )
 }
 
+function ImageDropZone({
+  compact = false,
+  copy,
+  id,
+  onFile,
+}: {
+  compact?: boolean
+  copy: string
+  id: string
+  onFile: (file: File) => void
+}) {
+  const [isDragging, setIsDragging] = useState(false)
+
+  function handleFiles(files: FileList | null) {
+    const file = files?.[0]
+    if (file) {
+      onFile(file)
+    }
+  }
+
+  return (
+    <label
+      htmlFor={id}
+      className={cn(
+        "relative flex cursor-pointer items-center justify-center rounded-[var(--radius)] border border-dashed border-border bg-background/80 text-center text-sm text-muted-foreground transition-colors hover:bg-background",
+        compact ? "min-h-12 px-3 py-2" : "min-h-28 px-4 py-6",
+        isDragging ? "border-primary bg-primary/10 text-foreground" : "",
+      )}
+      onDragOver={(event) => {
+        event.preventDefault()
+        setIsDragging(true)
+      }}
+      onDragLeave={(event) => {
+        event.preventDefault()
+        setIsDragging(false)
+      }}
+      onDrop={(event) => {
+        event.preventDefault()
+        setIsDragging(false)
+        handleFiles(event.dataTransfer.files)
+      }}
+    >
+      <input
+        id={id}
+        type="file"
+        accept="image/*"
+        className="sr-only"
+        onChange={(event) => handleFiles(event.target.files)}
+      />
+      <div className="grid gap-1">
+        <div className="font-medium text-foreground">{copy}</div>
+        {!compact ? <div>PNG, JPG, or WebP</div> : null}
+      </div>
+    </label>
+  )
+}
+
 function ColorField({
   label,
   value,
@@ -1998,28 +2139,6 @@ function SelectField({
         ))}
       </select>
     </FieldShell>
-  )
-}
-
-function ToggleRow({
-  checked,
-  label,
-  onChange,
-}: {
-  checked: boolean
-  label: string
-  onChange: (checked: boolean) => void
-}) {
-  return (
-    <label className="flex items-center justify-between gap-4 text-sm text-foreground">
-      <span>{label}</span>
-      <input
-        type="checkbox"
-        checked={checked}
-        onChange={(event) => onChange(event.target.checked)}
-        className="h-4 w-4 accent-primary"
-      />
-    </label>
   )
 }
 

@@ -36,6 +36,7 @@ export function normalizeApiTheme(data: MenuResponse, tenantSlug: string): Brand
     description:
       pickString(config, "tagline", "description") ??
       "Live brand config loaded from the API.",
+    logoUrl: pickString(config, "logoUrl") ?? "",
     heroHeadline:
       pickString(config, "heroHeadline") ??
       pickString(config, "appTitle", "name") ??

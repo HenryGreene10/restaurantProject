@@ -2,6 +2,7 @@ export type BrandTheme = {
   name: string
   appTitle: string
   description: string
+  logoUrl: string
   heroHeadline: string
   heroSubheadline: string
   heroBadgeText: string

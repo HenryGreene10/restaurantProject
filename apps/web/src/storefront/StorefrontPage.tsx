@@ -35,6 +35,24 @@ function itemPrice(item: MenuItem) {
   return item.variants.find((variant) => variant.isDefault)?.priceCents ?? item.basePriceCents
 }
 
+function hexToRgba(hex: string, alpha: number) {
+  const normalized = hex.replace("#", "").trim()
+  const expanded =
+    normalized.length === 3
+      ? normalized
+          .split("")
+          .map((char) => `${char}${char}`)
+          .join("")
+      : normalized
+
+  const value = Number.parseInt(expanded, 16)
+  const red = (value >> 16) & 255
+  const green = (value >> 8) & 255
+  const blue = value & 255
+
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`
+}
+
 function visibleCategories(categories: MenuCategory[]) {
   return categories
     .filter((category) => category.visibility !== "HIDDEN")
@@ -94,12 +112,7 @@ export function StorefrontPage({
     [categories],
   )
 
-  const menuCardColumns =
-    theme.menuCardLayout === "compact"
-      ? "md:grid-cols-2"
-      : theme.menuCardLayout === "photo-first"
-        ? "lg:grid-cols-2"
-        : ""
+  const menuCardColumns = "lg:grid-cols-2"
 
   useEffect(() => {
     if (customerSession.customerPhone && !customerPhone.trim()) {
@@ -172,7 +185,7 @@ export function StorefrontPage({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.24, ease: "easeOut" }}
     >
-      <div className="mx-auto flex max-w-7xl flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8 lg:gap-10">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8 lg:gap-10">
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius)] border border-border/80 bg-card px-5 py-4 text-sm text-muted-foreground shadow-sm">
           <div className="flex items-center gap-2">
             <ShieldCheck className="h-4 w-4" />
@@ -188,31 +201,44 @@ export function StorefrontPage({
 
         <section className="overflow-hidden rounded-[var(--radius)] border border-border/80 bg-card shadow-sm">
           <div
-            className="px-6 py-14 sm:px-8 lg:px-10 lg:py-20"
+            className="flex min-h-[200px] max-h-[200px] items-end px-5 py-10 sm:px-8 sm:py-14 lg:min-h-[320px] lg:max-h-[320px] lg:px-10 lg:py-16"
             style={{
-              background:
-                theme.heroImageUrl && theme.heroLayout === "immersive"
-                  ? `${theme.heroGradient}, url(${theme.heroImageUrl}) center/cover`
-                  : theme.heroGradient,
+              background: theme.heroImageUrl
+                ? `linear-gradient(${hexToRgba("#271c17", 0.52)}, ${hexToRgba("#271c17", 0.52)}), url(${theme.heroImageUrl}) center/cover`
+                : `linear-gradient(135deg, ${hexToRgba(theme.palette.primary, 0.14)}, ${hexToRgba(theme.palette.primary, 0.1)})`,
             }}
           >
             <div className="max-w-3xl space-y-6">
-              <Badge
-                variant="outline"
-                className="inline-flex border-border/80 bg-card/80 px-3 py-1 text-sm text-muted-foreground backdrop-blur"
-              >
-                <Sparkles className="h-4 w-4" />
-                {theme.heroBadgeText}
-              </Badge>
+              {theme.logoUrl ? (
+                <div
+                  className="h-16 w-16 rounded-[12px] border border-border/70 bg-card/90 bg-contain bg-center bg-no-repeat shadow-sm"
+                  style={{ backgroundImage: `url(${theme.logoUrl})` }}
+                />
+              ) : null}
+              {theme.heroBadgeText.trim() ? (
+                <Badge
+                  variant="outline"
+                  className="inline-flex border-border/80 bg-card/85 px-3 py-1 text-sm text-muted-foreground backdrop-blur"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  {theme.heroBadgeText}
+                </Badge>
+              ) : null}
 
               <div className="space-y-4">
                 <h1
-                  className="max-w-3xl text-4xl leading-tight text-foreground sm:text-5xl lg:text-6xl"
-                  style={{ fontFamily: "var(--font-heading)" }}
+                  className="max-w-4xl text-4xl leading-[0.96] font-bold sm:text-5xl lg:text-7xl"
+                  style={{
+                    fontFamily: "var(--font-heading)",
+                    color: theme.heroImageUrl ? "#fff7ed" : undefined,
+                  }}
                 >
                   {theme.heroHeadline}
                 </h1>
-                <p className="max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
+                <p
+                  className="max-w-3xl text-[1.1rem] leading-8 sm:text-[1.2rem]"
+                  style={{ color: theme.heroImageUrl ? hexToRgba("#fff7ed", 0.84) : undefined }}
+                >
                   {theme.heroSubheadline}
                 </p>
               </div>
@@ -248,7 +274,7 @@ export function StorefrontPage({
                 <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
                   Featured
                 </div>
-                <h2 className="mt-2 text-3xl text-foreground" style={{ fontFamily: "var(--font-heading)" }}>
+                <h2 className="mt-2 text-4xl font-bold text-foreground" style={{ fontFamily: "var(--font-heading)" }}>
                   Most popular right now
                 </h2>
               </div>
@@ -272,7 +298,7 @@ export function StorefrontPage({
           {categories.map((category) => (
             <div key={category.id} id={`category-${category.id}`} className="space-y-5">
               <div className="flex items-center justify-between gap-4">
-                <h2 className="text-3xl text-foreground" style={{ fontFamily: "var(--font-heading)" }}>
+                <h2 className="text-4xl font-bold text-foreground" style={{ fontFamily: "var(--font-heading)" }}>
                   {category.name}
                 </h2>
                 <div className="text-sm text-muted-foreground">{category.categoryItems.length} items</div>
@@ -350,7 +376,7 @@ function MenuItemCard({
   featured?: boolean
   onCustomize: () => void
 }) {
-  const isPhotoFirst = themeMode === "photo-first"
+  const isPhotoFirst = Boolean(item.photoUrl)
   const isCompact = themeMode === "compact"
   const meta = [
     item.prepTimeMinutes ? `${item.prepTimeMinutes} min prep` : null,
@@ -366,34 +392,43 @@ function MenuItemCard({
         size={isCompact ? "sm" : "default"}
         className={[
           "border border-border/80 bg-card shadow-sm",
-          isPhotoFirst ? "grid grid-cols-[132px_minmax(0,1fr)] gap-0 overflow-hidden" : "",
+          isPhotoFirst ? "grid grid-cols-1 gap-0 overflow-hidden sm:grid-cols-[minmax(132px,168px)_minmax(0,1fr)]" : "",
           item.visibility === "SOLD_OUT" ? "opacity-70" : "",
         ].join(" ")}
       >
-        {isPhotoFirst ? <div className="min-h-full bg-brand-hero" /> : null}
+        {isPhotoFirst ? (
+          <div
+            className="aspect-[4/3] min-h-[180px] bg-cover bg-center sm:min-h-full"
+            style={{ backgroundImage: `url(${item.photoUrl})` }}
+          />
+        ) : null}
 
         <div className="flex flex-col">
           <CardHeader className={isPhotoFirst ? "px-5 pt-5" : ""}>
-            <div className="flex items-start justify-between gap-4">
-              <div className="space-y-3">
+            <div className="space-y-3">
+              <div className="flex items-start justify-between gap-4">
                 {badgeLabel ? (
                   <Badge
                     variant="outline"
-                    className="border-border bg-background text-muted-foreground"
+                    className={
+                      featured && item.visibility !== "SOLD_OUT"
+                        ? "border-primary/20 bg-primary text-primary-foreground"
+                        : "border-border bg-background text-muted-foreground"
+                    }
                   >
                     {badgeLabel}
                   </Badge>
                 ) : null}
-                <div className="flex items-start justify-between gap-6">
-                  <h3
-                    className={isCompact ? "text-lg text-foreground" : "text-xl text-foreground"}
-                    style={{ fontFamily: "var(--font-heading)" }}
-                  >
-                    {item.name}
-                  </h3>
-                  <div className="shrink-0 text-base font-semibold text-foreground">
-                    {formatPrice(itemPrice(item))}
-                  </div>
+              </div>
+              <div className="flex items-start justify-between gap-6">
+                <h3
+                  className={isCompact ? "text-xl font-semibold text-foreground" : "text-2xl font-semibold text-foreground"}
+                  style={{ fontFamily: "var(--font-heading)" }}
+                >
+                  {item.name}
+                </h3>
+                <div className="shrink-0 text-base font-semibold text-foreground">
+                  {formatPrice(itemPrice(item))}
                 </div>
               </div>
             </div>
@@ -411,11 +446,11 @@ function MenuItemCard({
             ) : null}
           </CardContent>
 
-          <CardFooter className={isPhotoFirst ? "px-5 pb-5 pt-0" : "pt-0"}>
+          <CardFooter className={isPhotoFirst ? "justify-end px-5 pb-5 pt-0" : "justify-end pt-0"}>
             {item.visibility === "SOLD_OUT" ? (
               <div className="text-sm text-muted-foreground">Sold out today</div>
             ) : (
-              <Button variant="outline" onClick={onCustomize}>
+              <Button onClick={onCustomize}>
                 Add
                 <ChevronRight className="h-4 w-4" />
               </Button>
