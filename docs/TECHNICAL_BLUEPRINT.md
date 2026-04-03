@@ -25,7 +25,21 @@
     - `set_item_featured`
     - `set_category_visibility`
   - name resolution and ambiguity handling are already required before mutation
+  - resolver now uses fuzzy matching via `fuse.js`
+  - delete/remove phrasing is intentionally mapped to hide, not permanent deletion
   - fresh tenant DB context is loaded on every assistant command
+- `apps/web` is now a real storefront, not just a theme playground:
+  - checkout includes OTP verification
+  - customer order status page exists at `/orders/:orderId`
+  - cart + checkout draft persistence exists
+  - tenant slug is still resolved from frontend state today, not URL path
+- `apps/admin` is now a real operator surface:
+  - manual storefront controls + preview are live
+  - assistant is a persistent chat surface in the dashboard layout
+- Existing kitchen backend feed already exists:
+  - `GET /v1/kitchen/orders`
+  - `PATCH /admin/orders/:orderId/status`
+- `apps/kiosk` already exists as a minimal scaffold and is the recommended place for the kitchen dashboard instead of adding kitchen UI into `apps/web`
 
 ## Proposed Database Schema (Initial)
 See `docs/architecture/SCHEMA_PROPOSAL.md` and review before code.
@@ -40,3 +54,12 @@ See `docs/architecture/SCHEMA_PROPOSAL.md` and review before code.
 7) Kitchen screen remains operationally standardized for now and follows after admin customization flows.
 
 Gate: Vertical Slice DoD must pass before proceeding.
+
+## Updated Near-Term Build Order
+1) Keep the current admin/storefront/customer-order loop stable and finish QA.
+2) Build the tablet-first kitchen dashboard in `apps/kiosk` using the already-existing kitchen feed and status transition routes.
+3) Move customer and kitchen tenant resolution toward URL-based slug handling rather than frontend-only defaults.
+4) Finish go-live work:
+   - payment UI
+   - deployment/env hardening
+   - operational QA

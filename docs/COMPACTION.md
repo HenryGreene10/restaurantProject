@@ -1,6 +1,6 @@
 # Project Compaction / Handoff
 
-Last updated: 2026-04-02
+Last updated: 2026-04-03
 
 ## Product Direction
 - Multi-tenant white-label restaurant ordering platform for independent restaurants.
@@ -72,9 +72,13 @@ Last updated: 2026-04-02
 
 ### Orders
 - `POST /v1/orders`
+- `GET /v1/orders/:orderId`
 - `PATCH /admin/orders/:orderId/status`
+- `GET /v1/kitchen/orders`
 - Order item name snapshots are resolved from the real `MenuItem` at order creation.
 - Customer must resolve or be created before order persistence.
+- Customer-authenticated order creation is supported with bearer token + tenant match enforcement.
+- Customer-authenticated order lookup is supported for the dedicated status page.
 - Order status state machine is enforced in a shared service, not in route handlers.
 - Valid transitions:
   - `PENDING -> CONFIRMED | CANCELLED`
@@ -125,18 +129,22 @@ Current state:
   - sticky cart summary
   - cart drawer
   - pickup-only checkout step
+  - OTP phone verification inside checkout
   - delivery shown as "coming soon"
   - real `POST /v1/orders` submission
-  - success banner after order placement
+  - dedicated `/orders/:orderId` status page
+  - live order-status polling
+  - cart/customer draft persistence across refresh
+  - session restore via customer refresh token flow
 
 Limitations:
-- no OTP auth integrated into checkout yet
-- no persistent cart across refresh yet
-- no dedicated order-status page yet
 - no payment UI yet
+- tenant slug is still store-driven in the frontend, not URL-driven yet
+- default local tenant is still `joes-pizza`
 
 Current URL when running:
 - `http://127.0.0.1:5173/`
+- tenant resolution in `apps/web` currently comes from the Zustand theme store, not the pathname
 
 ### `apps/admin`
 Purpose:
@@ -147,28 +155,25 @@ Current state:
 - Uses live tenant menu data
 - Saves persisted brand config through the API
 - Controls available now:
-  - app title
-  - tagline
+  - logo upload
+  - banner upload
   - hero headline
   - hero subheadline
   - hero badge text
   - promo banner text
-  - hero image URL
-  - color palette
-  - body/heading font
-  - button style
-  - hero layout
-  - menu card layout
-  - card radius
-  - featured badge visibility
-  - category chip visibility
+  - primary brand color
+  - light-only background color
+  - body font
+  - heading font
   - category order
   - category visibility
   - item order inside category
   - item featured state
   - item visibility
+  - item sold-out state
+  - item image upload
 - Preview pane renders the customer storefront using the real menu and current draft settings.
-- Admin AI assistant is now wired to real backend actions from the existing Assistant tab.
+- Admin AI assistant is now a persistent chat panel in the dashboard layout, not a tab.
 - Assistant command route is `POST /v1/assistant/command`.
 - Assistant currently supports:
   - item visibility changes
@@ -176,9 +181,25 @@ Current state:
   - category visibility changes
 - Assistant runs on fresh tenant DB context per request.
 - Assistant uses name resolution before mutation and returns clarification instead of mutating on ambiguous matches.
+- Assistant name resolution now uses fuzzy matching (`fuse.js`) to tolerate common typos.
+- Assistant maps delete/remove phrasing to hide rather than permanent deletion.
+- Current desktop layout is:
+  - left: manual controls
+  - right top: compact assistant panel
+  - right bottom: live storefront preview
 
 Current URL when running:
 - `http://127.0.0.1:5174/`
+
+### `apps/kiosk`
+Purpose:
+- Kitchen / fulfillment surface
+
+Current state:
+- Minimal scaffold exists already in `apps/kiosk`
+- Existing backend kitchen feed route already exists at `GET /v1/kitchen/orders`
+- Existing status transition route for kitchen progression remains `PATCH /admin/orders/:orderId/status`
+- Full tablet-grade kitchen dashboard is not built yet
 
 ## Frontend Priority Reorder
 This is the intentional UI sequence now:
@@ -189,49 +210,47 @@ This is the intentional UI sequence now:
 This is a frontend reprioritization only. It does not change the backend-first foundation work already completed.
 
 ## What Is Not Done Yet
-- Hero image upload flow (current admin uses URL input only)
 - Drag-and-drop composition controls beyond current category/item ordering
 - Promo section stacking / richer page-builder behavior
-- OTP-gated customer session flow inside storefront checkout
-- Dedicated order confirmation / order status page
-- Cart persistence across refresh
 - Payment UI / Stripe checkout integration for the storefront
 - Stripe onboarding UI
-- Kitchen UI refinement
+- Kitchen dashboard implementation in `apps/kiosk`
 - Loyalty and marketing UI
 - AI assistant tool expansion beyond visibility / featured mutations
-- AI assistant persistent-panel UX and broader natural-language coverage
+- AI assistant broader natural-language coverage for theme updates and reorder actions
+- URL-based tenant resolution in `apps/web` and future kitchen UI
 
 ## Current Recommended Next Step
-Finish QA on the first AI assistant action slice, then expand the assistant and return to the customer checkout/status vertical slice.
+Build the kitchen dashboard in `apps/kiosk`, then tighten tenant resolution and go-live readiness for the customer/order loop.
 
 Recommended next implementation:
-- QA the existing assistant commands in admin:
-  - `mark Margherita Pizza as sold out`
-  - `feature Garlic Knots`
-  - `hide the Apps category`
-  - ambiguous case like `hide pizza`
-- Expand assistant tools after QA:
-  - theme/hero copy updates
-  - category/item reordering
-  - sold-out / hide/show commands across more phrasing variants
-- After assistant expansion, return to the storefront customer journey:
-  - add customer OTP flow into checkout
-  - add dedicated order confirmation / order status page
-  - poll live order status
-  - persist cart/customer draft across refresh
+1. Kitchen dashboard in `apps/kiosk`:
+  - show active tenant orders newest first
+  - tablet-first card UI
+  - 10s polling
+  - status progression buttons using existing backend transitions
+2. Tenant resolution cleanup:
+  - move `apps/web` off the hardcoded Zustand tenant default toward URL-driven slug resolution
+  - apply the same pattern to kiosk
+3. Go-live checkout completion:
+  - payment UI / Stripe checkout
+  - kitchen/operator QA
+  - deployment/environment hardening
 
 ## Test / Validation Status
 - Typecheck is passing for:
   - `apps/admin`
   - `apps/web`
   - `apps/api`
+- `packages/ai-assistant`
 - API integration coverage exists and passes for changed surfaces when run outside the read-only sandbox.
 - Latest verified assistant/backend/admin checks:
   - `npm -w packages/ai-assistant run typecheck`
   - `npm -w apps/api run typecheck`
   - `npm -w apps/admin run typecheck`
   - `npm -w apps/api run test`
+- `apps/web` build passes locally in this environment.
+- `apps/admin` production build has intermittently hung at Vite's `transforming...` step in this environment without emitting a concrete error; typecheck is clean.
 - Full API suite passes when run outside the sandbox because `supertest` needs to bind a local listener in this environment.
 
 ## Key Recent Commits
@@ -245,6 +264,11 @@ Recommended next implementation:
 - `41b19f8` `feat(web): add item customization and cart flow`
 - `bff25a0` `feat(web): add pickup-only checkout flow`
 - `e5d5acf` `feat(admin): improve storefront editing workflow`
+- `4249f8b` `feat(ai): wire assistant menu actions`
+- `74ff387` `feat(ui): polish storefront and admin surfaces`
+- `363a598` `feat(ui): refine storefront branding and media`
+- `6f0a3eb` `feat(ui): improve admin assistant and storefront flows`
+- `17f9c7b` `feat(api): add customer order status lookup`
 
 ## Run Commands
 API:
