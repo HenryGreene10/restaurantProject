@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { motion } from "framer-motion"
-import { ChevronRight, ShieldCheck, Sparkles } from "lucide-react"
+import { AnimatePresence, motion } from "framer-motion"
+import { ArrowRight, ChefHat, ShieldCheck, Sparkles, UtensilsCrossed } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -12,7 +12,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Separator } from "@/components/ui/separator"
+import { Skeleton } from "@/components/ui/skeleton"
+import { cn } from "@/lib/utils"
 import { createPickupOrder } from "../lib/orders"
 import { fetchTenantMenu } from "../lib/menu"
 import type { MenuCategory, MenuItem } from "../lib/menu"
@@ -62,7 +63,6 @@ function visibleCategories(categories: MenuCategory[]) {
         (entry) => entry.item.visibility !== "HIDDEN",
       ),
     }))
-    .filter((category) => category.categoryItems.length > 0)
 }
 
 export function StorefrontPage({
@@ -77,6 +77,7 @@ export function StorefrontPage({
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null)
   const [cartOpen, setCartOpen] = useState(false)
   const [submittingOrder, setSubmittingOrder] = useState(false)
+  const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null)
   const cartItems = useCartStore((state) => state.items)
   const addItem = useCartStore((state) => state.addItem)
   const removeItem = useCartStore((state) => state.removeItem)
@@ -112,7 +113,44 @@ export function StorefrontPage({
     [categories],
   )
 
-  const menuCardColumns = "lg:grid-cols-2"
+  const hasVisibleItems = categories.some((category) => category.categoryItems.length > 0)
+  const showLoadingSkeletons = source === "api" && !menuQuery.data && (menuQuery.isLoading || isThemeLoading)
+
+  useEffect(() => {
+    if (!categories.length) {
+      setActiveCategoryId(null)
+      return
+    }
+
+    setActiveCategoryId((current) => current ?? categories[0]?.id ?? null)
+
+    const sections = categories
+      .map((category) => document.getElementById(`category-${category.id}`))
+      .filter((section): section is HTMLElement => Boolean(section))
+
+    if (!sections.length) {
+      return
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((left, right) => right.intersectionRatio - left.intersectionRatio)[0]
+
+        if (!visible) return
+
+        setActiveCategoryId(visible.target.id.replace("category-", ""))
+      },
+      {
+        rootMargin: "-20% 0px -55% 0px",
+        threshold: [0.2, 0.45, 0.7],
+      },
+    )
+
+    sections.forEach((section) => observer.observe(section))
+    return () => observer.disconnect()
+  }, [categories])
 
   useEffect(() => {
     if (customerSession.customerPhone && !customerPhone.trim()) {
@@ -178,154 +216,226 @@ export function StorefrontPage({
     }
   }
 
+  function scrollToCategory(categoryId: string) {
+    document.getElementById(`category-${categoryId}`)?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    })
+    setActiveCategoryId(categoryId)
+  }
+
   return (
     <motion.main
       className="min-h-screen bg-background text-foreground"
-      initial={{ opacity: 0, y: 12 }}
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.24, ease: "easeOut" }}
     >
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8 lg:gap-10">
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-[var(--radius)] border border-border/80 bg-card px-5 py-4 text-sm text-muted-foreground shadow-sm">
-          <div className="flex items-center gap-2">
-            <ShieldCheck className="h-4 w-4" />
-            Live storefront for tenant <span className="font-semibold text-foreground">{tenantSlug}</span>
-          </div>
-          <div className="flex items-center gap-4 text-sm">
-            <span>Source: {source === "api" ? "Saved admin config" : "Preset preview"}</span>
-            <Badge variant="outline" className="border-border bg-background text-muted-foreground">
-              Direct ordering
-            </Badge>
-          </div>
-        </div>
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-8">
+        <Card className="border-border/80 bg-card shadow-sm">
+          <CardContent className="flex flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6">
+            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <ShieldCheck className="h-4 w-4" />
+              <span>
+                Live storefront for tenant{" "}
+                <span className="font-semibold text-foreground">{tenantSlug}</span>
+              </span>
+            </div>
+            <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <span>Source: {source === "api" ? "Saved admin config" : "Preset preview"}</span>
+              <Badge variant="outline" className="border-border bg-background text-muted-foreground">
+                Direct ordering
+              </Badge>
+            </div>
+          </CardContent>
+        </Card>
 
-        <section className="overflow-hidden rounded-[var(--radius)] border border-border/80 bg-card shadow-sm">
-          <div
-            className="flex min-h-[200px] max-h-[200px] items-end px-5 py-10 sm:px-8 sm:py-14 lg:min-h-[320px] lg:max-h-[320px] lg:px-10 lg:py-16"
-            style={{
-              background: theme.heroImageUrl
-                ? `linear-gradient(${hexToRgba("#271c17", 0.52)}, ${hexToRgba("#271c17", 0.52)}), url(${theme.heroImageUrl}) center/cover`
-                : `linear-gradient(135deg, ${hexToRgba(theme.palette.primary, 0.14)}, ${hexToRgba(theme.palette.primary, 0.1)})`,
-            }}
-          >
-            <div className="max-w-3xl space-y-6">
-              {theme.logoUrl ? (
+        <AnimatePresence mode="wait">
+          {showLoadingSkeletons ? (
+            <motion.div
+              key="storefront-skeletons"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18 }}
+              className="grid gap-8"
+            >
+              <StorefrontLoadingSkeleton />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="storefront-content"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="grid gap-8"
+            >
+              <section className="overflow-hidden rounded-[var(--radius)] border border-border/80 bg-card shadow-sm">
                 <div
-                  className="h-16 w-16 rounded-[12px] border border-border/70 bg-card/90 bg-contain bg-center bg-no-repeat shadow-sm"
-                  style={{ backgroundImage: `url(${theme.logoUrl})` }}
-                />
-              ) : null}
-              {theme.heroBadgeText.trim() ? (
-                <Badge
-                  variant="outline"
-                  className="inline-flex border-border/80 bg-card/85 px-3 py-1 text-sm text-muted-foreground backdrop-blur"
-                >
-                  <Sparkles className="h-4 w-4" />
-                  {theme.heroBadgeText}
-                </Badge>
-              ) : null}
-
-              <div className="space-y-4">
-                <h1
-                  className="max-w-4xl text-4xl leading-[0.96] font-bold sm:text-5xl lg:text-7xl"
+                  className="flex min-h-[200px] items-end px-4 py-8 sm:px-6 sm:py-12 lg:min-h-[320px] lg:px-8 lg:py-12"
                   style={{
-                    fontFamily: "var(--font-heading)",
-                    color: theme.heroImageUrl ? "#fff7ed" : undefined,
+                    background: theme.heroImageUrl
+                      ? `linear-gradient(${hexToRgba(theme.palette.text, 0.56)}, ${hexToRgba(theme.palette.text, 0.56)}), url(${theme.heroImageUrl}) center/cover`
+                      : `linear-gradient(135deg, ${hexToRgba(theme.palette.primary, 0.15)}, ${hexToRgba(theme.palette.primary, 0.1)}), ${theme.palette.surface}`,
                   }}
                 >
-                  {theme.heroHeadline}
-                </h1>
-                <p
-                  className="max-w-3xl text-[1.1rem] leading-8 sm:text-[1.2rem]"
-                  style={{ color: theme.heroImageUrl ? hexToRgba("#fff7ed", 0.84) : undefined }}
-                >
-                  {theme.heroSubheadline}
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
+                  <div className="grid max-w-4xl gap-6">
+                    {theme.logoUrl ? (
+                      <div
+                        className="h-16 w-16 rounded-[12px] border border-border/80 bg-card/90 bg-contain bg-center bg-no-repeat shadow-sm"
+                        style={{ backgroundImage: `url(${theme.logoUrl})` }}
+                      />
+                    ) : null}
 
-        {theme.promoBannerText ? (
-          <section className="rounded-[var(--radius)] border border-border/80 bg-card px-5 py-4 shadow-sm">
-            <p className="text-sm leading-6 text-muted-foreground">{theme.promoBannerText}</p>
-          </section>
-        ) : null}
+                    {theme.heroBadgeText.trim() ? (
+                      <Badge
+                        variant="outline"
+                        className="w-fit border-border/80 bg-card/90 px-4 py-2 text-sm text-muted-foreground backdrop-blur"
+                      >
+                        <Sparkles className="h-4 w-4" />
+                        {theme.heroBadgeText}
+                      </Badge>
+                    ) : null}
 
-        {theme.showCategoryChips && categories.length > 0 ? (
-          <section className="flex flex-wrap gap-2.5">
-            {categories.map((category) => (
-              <Badge
-                key={category.id}
-                asChild
-                variant="outline"
-                className="border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground shadow-sm"
-              >
-                <a href={`#category-${category.id}`}>{category.name}</a>
-              </Badge>
-            ))}
-          </section>
-        ) : null}
-
-        {featuredItems.length > 0 ? (
-          <section className="space-y-5">
-            <div className="flex items-end justify-between gap-4">
-              <div>
-                <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                  Featured
+                    <div className="grid gap-4">
+                      <h1
+                        className="max-w-4xl font-bold leading-[0.95]"
+                        style={{
+                          fontFamily: "var(--font-heading)",
+                          fontSize: "clamp(3rem, 7vw, 5.5rem)",
+                          color: theme.heroImageUrl ? theme.palette.primaryForeground : undefined,
+                        }}
+                      >
+                        {theme.heroHeadline}
+                      </h1>
+                      <p
+                        className="max-w-3xl leading-8"
+                        style={{
+                          fontSize: "clamp(1.1rem, 2.8vw, 1.2rem)",
+                          color: theme.heroImageUrl ? hexToRgba(theme.palette.primaryForeground, 0.84) : theme.palette.muted,
+                        }}
+                      >
+                        {theme.heroSubheadline}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-                <h2 className="mt-2 text-4xl font-bold text-foreground" style={{ fontFamily: "var(--font-heading)" }}>
-                  Most popular right now
-                </h2>
-              </div>
-            </div>
+              </section>
 
-            <div className={`grid gap-5 ${menuCardColumns}`}>
-              {featuredItems.map((item) => (
-                <MenuItemCard
-                  key={`featured-${item.id}`}
-                  item={item}
-                  themeMode={theme.menuCardLayout}
-                  featured
-                  onCustomize={() => setSelectedItem(item)}
+              {theme.promoBannerText ? (
+                <Card className="border-border/80 bg-card shadow-sm">
+                  <CardContent className="px-4 py-4 sm:px-6">
+                    <p className="text-sm leading-6 text-muted-foreground">{theme.promoBannerText}</p>
+                  </CardContent>
+                </Card>
+              ) : null}
+
+              {categories.length > 0 ? (
+                <div className="sticky top-0 z-20 -mx-4 border-y border-border/70 bg-background/95 px-4 py-4 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
+                  <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    <div className="flex w-max min-w-full gap-2">
+                      {categories.map((category) => (
+                        <Button
+                          key={category.id}
+                          type="button"
+                          variant={activeCategoryId === category.id ? "default" : "outline"}
+                          className={cn(
+                            "min-h-11 rounded-full px-4",
+                            activeCategoryId === category.id
+                              ? "shadow-sm"
+                              : "bg-card text-foreground hover:bg-card",
+                          )}
+                          onClick={() => scrollToCategory(category.id)}
+                        >
+                          {category.name}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+
+              {featuredItems.length > 0 ? (
+                <section className="grid gap-6">
+                  <div className="flex items-end justify-between gap-4">
+                    <div className="grid gap-2">
+                      <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                        Featured
+                      </div>
+                      <h2
+                        className="text-3xl font-bold text-foreground sm:text-4xl"
+                        style={{ fontFamily: "var(--font-heading)" }}
+                      >
+                        Most popular right now
+                      </h2>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                    {featuredItems.map((item) => (
+                      <MenuItemCard
+                        key={`featured-${item.id}`}
+                        item={item}
+                        featured
+                        onCustomize={() => setSelectedItem(item)}
+                      />
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+
+              {!categories.length || !hasVisibleItems ? (
+                <EmptyStateCard
+                  icon={UtensilsCrossed}
+                  title="Menu coming soon"
+                  description="This storefront is getting ready for service. Check back soon for the full menu."
                 />
-              ))}
-            </div>
-          </section>
-        ) : null}
+              ) : (
+                <section className="grid gap-12">
+                  {categories.map((category) => (
+                    <section key={category.id} id={`category-${category.id}`} className="scroll-mt-28 grid gap-6">
+                      <div className="flex items-end justify-between gap-4">
+                        <div className="grid gap-2">
+                          <h2
+                            className="text-3xl font-bold text-foreground sm:text-4xl"
+                            style={{ fontFamily: "var(--font-heading)" }}
+                          >
+                            {category.name}
+                          </h2>
+                          <div className="text-sm text-muted-foreground">
+                            {category.categoryItems.length} item{category.categoryItems.length === 1 ? "" : "s"}
+                          </div>
+                        </div>
+                      </div>
 
-        <section className="space-y-12">
-          {categories.map((category) => (
-            <div key={category.id} id={`category-${category.id}`} className="space-y-5">
-              <div className="flex items-center justify-between gap-4">
-                <h2 className="text-4xl font-bold text-foreground" style={{ fontFamily: "var(--font-heading)" }}>
-                  {category.name}
-                </h2>
-                <div className="text-sm text-muted-foreground">{category.categoryItems.length} items</div>
-              </div>
-
-              <div className={`grid gap-5 ${menuCardColumns}`}>
-                {category.categoryItems.map((entry) => (
-                  <MenuItemCard
-                    key={entry.id}
-                    item={entry.item}
-                    themeMode={theme.menuCardLayout}
-                    onCustomize={() => setSelectedItem(entry.item)}
-                  />
-                ))}
-              </div>
-            </div>
-          ))}
-        </section>
-
-        {(isThemeLoading || menuQuery.isLoading) && source === "api" ? (
-          <div className="rounded-[var(--radius)] border border-dashed border-border bg-card px-5 py-4 text-sm text-muted-foreground">
-            Loading tenant storefront…
-          </div>
-        ) : null}
+                      {category.categoryItems.length > 0 ? (
+                        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                          {category.categoryItems.map((entry) => (
+                            <MenuItemCard
+                              key={entry.id}
+                              item={entry.item}
+                              onCustomize={() => setSelectedItem(entry.item)}
+                            />
+                          ))}
+                        </div>
+                      ) : (
+                        <EmptyStateCard
+                          icon={ChefHat}
+                          title="No items available in this category"
+                          description="The kitchen team has this section hidden for now. Check another category."
+                        />
+                      )}
+                    </section>
+                  ))}
+                </section>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {themeError || menuQuery.error ? (
-          <div className="rounded-[var(--radius)] border border-destructive/20 bg-destructive/10 px-5 py-4 text-sm text-foreground">
+          <div className="rounded-[var(--radius)] border border-destructive/20 bg-destructive/10 px-4 py-4 text-sm text-foreground sm:px-6">
             {themeError ?? (menuQuery.error instanceof Error ? menuQuery.error.message : "Failed to load storefront")}
           </div>
         ) : null}
@@ -367,19 +477,16 @@ export function StorefrontPage({
 
 function MenuItemCard({
   item,
-  themeMode,
   featured = false,
   onCustomize,
 }: {
   item: MenuItem
-  themeMode: "classic" | "compact" | "photo-first"
   featured?: boolean
   onCustomize: () => void
 }) {
   const isPhotoFirst = Boolean(item.photoUrl)
-  const isCompact = themeMode === "compact"
   const meta = [
-    item.prepTimeMinutes ? `${item.prepTimeMinutes} min prep` : null,
+    item.tags[0] ?? null,
     item.itemModifierGroups.length > 0 ? "Customizable" : null,
     item.variants.length > 1 ? `${item.variants.length} sizes` : null,
   ].filter(Boolean)
@@ -387,77 +494,154 @@ function MenuItemCard({
     item.visibility === "SOLD_OUT" ? "Sold out" : featured ? "Featured" : null
 
   return (
-    <motion.div whileTap={{ scale: 0.985 }} transition={{ duration: 0.12, ease: "easeOut" }}>
+    <motion.div whileTap={{ scale: 0.988 }} transition={{ duration: 0.12, ease: "easeOut" }}>
       <Card
-        size={isCompact ? "sm" : "default"}
-        className={[
-          "border border-border/80 bg-card shadow-sm",
-          isPhotoFirst ? "grid grid-cols-1 gap-0 overflow-hidden sm:grid-cols-[minmax(132px,168px)_minmax(0,1fr)]" : "",
-          item.visibility === "SOLD_OUT" ? "opacity-70" : "",
-        ].join(" ")}
+        className={cn(
+          "overflow-hidden border-border/80 bg-card shadow-sm",
+          isPhotoFirst && "grid grid-cols-1 gap-0 sm:grid-cols-[minmax(10rem,12rem)_minmax(0,1fr)]",
+          item.visibility === "SOLD_OUT" && "opacity-70",
+        )}
       >
         {isPhotoFirst ? (
           <div
-            className="aspect-[4/3] min-h-[180px] bg-cover bg-center sm:min-h-full"
+            className="aspect-[4/3] w-full bg-cover bg-center sm:h-full sm:min-h-[12rem] sm:aspect-auto"
             style={{ backgroundImage: `url(${item.photoUrl})` }}
           />
         ) : null}
 
-        <div className="flex flex-col">
-          <CardHeader className={isPhotoFirst ? "px-5 pt-5" : ""}>
-            <div className="space-y-3">
-              <div className="flex items-start justify-between gap-4">
+        <div className="flex min-w-0 flex-1 flex-col">
+          <CardHeader className="grid gap-4 px-4 pt-4 sm:px-6 sm:pt-6">
+            <div className="flex items-start justify-between gap-4">
+              <h3
+                className="min-w-0 flex-1 text-xl font-bold text-foreground sm:text-2xl"
+                style={{ fontFamily: "var(--font-heading)" }}
+              >
+                {item.name}
+              </h3>
+              <div className="shrink-0 text-base font-semibold text-foreground sm:text-lg">
+                {formatPrice(itemPrice(item))}
+              </div>
+            </div>
+
+            {item.description ? (
+              <p className="text-sm leading-6 text-muted-foreground">{item.description}</p>
+            ) : null}
+
+            {badgeLabel || meta.length > 0 ? (
+              <div className="flex flex-wrap items-center gap-2">
                 {badgeLabel ? (
                   <Badge
                     variant="outline"
                     className={
                       featured && item.visibility !== "SOLD_OUT"
-                        ? "border-primary/20 bg-primary text-primary-foreground"
+                        ? "border-primary/20 bg-primary/10 text-foreground"
                         : "border-border bg-background text-muted-foreground"
                     }
                   >
                     {badgeLabel}
                   </Badge>
                 ) : null}
+                {meta.slice(0, 1).map((tag) => (
+                  <span key={tag} className="text-sm text-muted-foreground">
+                    {tag}
+                  </span>
+                ))}
               </div>
-              <div className="flex items-start justify-between gap-6">
-                <h3
-                  className={isCompact ? "text-xl font-semibold text-foreground" : "text-2xl font-semibold text-foreground"}
-                  style={{ fontFamily: "var(--font-heading)" }}
-                >
-                  {item.name}
-                </h3>
-                <div className="shrink-0 text-base font-semibold text-foreground">
-                  {formatPrice(itemPrice(item))}
-                </div>
-              </div>
-            </div>
+            ) : null}
           </CardHeader>
 
-          <CardContent className={isPhotoFirst ? "px-5" : ""}>
-            {item.description ? (
-              <p className="text-sm leading-6 text-muted-foreground">{item.description}</p>
-            ) : null}
-            {meta.length > 0 ? (
-              <>
-                <Separator className="my-4" />
-                <div className="text-sm text-muted-foreground">{meta.join(" · ")}</div>
-              </>
-            ) : null}
-          </CardContent>
-
-          <CardFooter className={isPhotoFirst ? "justify-end px-5 pb-5 pt-0" : "justify-end pt-0"}>
+          <CardFooter className="justify-end px-4 pb-4 pt-0 sm:px-6 sm:pb-6">
             {item.visibility === "SOLD_OUT" ? (
               <div className="text-sm text-muted-foreground">Sold out today</div>
             ) : (
-              <Button onClick={onCustomize}>
+              <Button className="min-h-11" onClick={onCustomize}>
                 Add
-                <ChevronRight className="h-4 w-4" />
+                <ArrowRight className="h-4 w-4" />
               </Button>
             )}
           </CardFooter>
         </div>
       </Card>
     </motion.div>
+  )
+}
+
+function EmptyStateCard({
+  icon: Icon,
+  title,
+  description,
+}: {
+  icon: typeof UtensilsCrossed
+  title: string
+  description: string
+}) {
+  return (
+    <Card className="border-dashed border-border/80 bg-card shadow-sm">
+      <CardContent className="flex min-h-48 flex-col items-center justify-center gap-4 px-6 py-12 text-center">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full border border-border bg-background text-muted-foreground">
+          <Icon className="h-5 w-5" />
+        </div>
+        <div className="grid gap-2">
+          <h3 className="text-xl font-semibold text-foreground" style={{ fontFamily: "var(--font-heading)" }}>
+            {title}
+          </h3>
+          <p className="mx-auto max-w-md text-sm leading-6 text-muted-foreground">{description}</p>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function StorefrontLoadingSkeleton() {
+  return (
+    <>
+      <Card className="overflow-hidden border-border/80 bg-card shadow-sm">
+        <CardContent className="grid min-h-[200px] gap-6 px-4 py-8 sm:px-6 sm:py-12 lg:min-h-[320px] lg:px-8 lg:py-12">
+          <Skeleton className="h-16 w-16 rounded-[12px]" />
+          <div className="grid gap-4">
+            <Skeleton className="h-8 w-32 rounded-full" />
+            <Skeleton className="h-16 w-full max-w-3xl" />
+            <Skeleton className="h-8 w-full max-w-2xl" />
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-8">
+        <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex w-max min-w-full gap-2">
+            {Array.from({ length: 5 }).map((_, index) => (
+              <Skeleton key={index} className="h-11 w-28 rounded-full" />
+            ))}
+          </div>
+        </div>
+
+        <section className="grid gap-6">
+          <div className="grid gap-4">
+            <Skeleton className="h-10 w-48" />
+            <Skeleton className="h-5 w-28" />
+          </div>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <Card key={index} className="overflow-hidden border-border/80 bg-card shadow-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-[minmax(10rem,12rem)_minmax(0,1fr)]">
+                  <Skeleton className="aspect-[4/3] w-full sm:h-full sm:min-h-[12rem] sm:aspect-auto" />
+                  <CardContent className="grid gap-4 px-4 py-4 sm:px-6 sm:py-6">
+                    <div className="flex items-center justify-between gap-4">
+                      <Skeleton className="h-6 w-40" />
+                      <Skeleton className="h-5 w-16" />
+                    </div>
+                    <div className="grid gap-2">
+                      <Skeleton className="h-4 w-full" />
+                      <Skeleton className="h-4 w-4/5" />
+                    </div>
+                    <Skeleton className="h-8 w-20 rounded-full" />
+                  </CardContent>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </section>
+      </div>
+    </>
   )
 }

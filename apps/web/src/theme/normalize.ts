@@ -23,12 +23,65 @@ function pickString(config: LooseConfig | null, ...keys: string[]) {
   return undefined
 }
 
+function parseHexColor(hex: string) {
+  const normalized = hex.replace("#", "").trim()
+  const expanded =
+    normalized.length === 3
+      ? normalized
+          .split("")
+          .map((char) => `${char}${char}`)
+          .join("")
+      : normalized
+
+  const value = Number.parseInt(expanded, 16)
+
+  return {
+    red: (value >> 16) & 255,
+    green: (value >> 8) & 255,
+    blue: value & 255,
+  }
+}
+
+function toHexColor(red: number, green: number, blue: number) {
+  return `#${[red, green, blue]
+    .map((value) => Math.max(0, Math.min(255, Math.round(value))).toString(16).padStart(2, "0"))
+    .join("")}`
+}
+
+function mixHexColors(base: string, overlay: string, alpha: number) {
+  const background = parseHexColor(base)
+  const foreground = parseHexColor(overlay)
+
+  return toHexColor(
+    background.red * (1 - alpha) + foreground.red * alpha,
+    background.green * (1 - alpha) + foreground.green * alpha,
+    background.blue * (1 - alpha) + foreground.blue * alpha,
+  )
+}
+
+function clampToLightBackground(hex: string) {
+  const { red, green, blue } = parseHexColor(hex)
+  const brightestChannel = Math.max(red, green, blue)
+  const minimumChannel = Math.max(224, 244 - Math.round(brightestChannel * 0.08))
+
+  return toHexColor(
+    Math.max(red, minimumChannel),
+    Math.max(green, minimumChannel),
+    Math.max(blue, minimumChannel),
+  )
+}
+
 export function normalizeApiTheme(data: MenuResponse, tenantSlug: string): BrandTheme {
   const nestedBrand = asRecord(data.brand)
   const config =
     asRecord(data.brandConfig?.config) ??
     asRecord(nestedBrand?.config) ??
     nestedBrand
+  const background =
+    clampToLightBackground(
+      pickString(config, "backgroundColor") ?? cleanMinimalTheme.palette.background,
+    )
+  const primary = pickString(config, "primaryColor") ?? cleanMinimalTheme.palette.primary
 
   return {
     name: pickString(config, "appTitle", "name") ?? tenantSlug,
@@ -49,16 +102,16 @@ export function normalizeApiTheme(data: MenuResponse, tenantSlug: string): Brand
     heroImageUrl: pickString(config, "heroImageUrl") ?? "",
     tenantSlug,
     palette: {
-      background: pickString(config, "backgroundColor") ?? cleanMinimalTheme.palette.background,
+      background,
       surface: pickString(config, "surfaceColor", "cardColor") ?? cleanMinimalTheme.palette.surface,
       text: pickString(config, "textColor") ?? cleanMinimalTheme.palette.text,
       muted: pickString(config, "mutedColor") ?? cleanMinimalTheme.palette.muted,
-      border: pickString(config, "borderColor") ?? cleanMinimalTheme.palette.border,
-      primary: pickString(config, "primaryColor") ?? cleanMinimalTheme.palette.primary,
+      border: pickString(config, "borderColor") ?? mixHexColors(background, primary, 0.24),
+      primary,
       primaryForeground:
         pickString(config, "onPrimary", "primaryForegroundColor") ??
         cleanMinimalTheme.palette.primaryForeground,
-      accent: pickString(config, "accentColor") ?? cleanMinimalTheme.palette.accent,
+      accent: pickString(config, "accentColor") ?? mixHexColors(background, primary, 0.18),
     },
     typography: {
       bodyFont: pickString(config, "fontFamily", "bodyFont") ?? cleanMinimalTheme.typography.bodyFont,

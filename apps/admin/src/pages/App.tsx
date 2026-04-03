@@ -15,7 +15,7 @@ import {
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { AnimatePresence, motion } from "framer-motion"
-import { CheckCircle2, Eye, EyeOff, ImageIcon, Palette, Sparkles, Star, Trash2 } from "lucide-react"
+import { Eye, EyeOff, ImageIcon, Palette, Sparkles, Star, Trash2 } from "lucide-react"
 
 import { AssistantPanel } from "../assistant/AssistantPanel"
 import { fetchTenantMenu, type MenuCategory, type MenuResponse } from "../lib/menu"
@@ -110,6 +110,10 @@ function getString(config: Record<string, unknown>, ...keys: string[]) {
 
 function buildDraft(menu: MenuResponse): ThemeDraft {
   const config = getBrandConfig(menu)
+  const primaryColor = getString(config, "primaryColor") ?? defaultThemeDraft.primaryColor
+  const backgroundColor = clampToLightBackground(
+    getString(config, "backgroundColor") ?? defaultThemeDraft.backgroundColor,
+  )
 
   return {
     ...defaultThemeDraft,
@@ -121,13 +125,13 @@ function buildDraft(menu: MenuResponse): ThemeDraft {
     heroBadgeText: getString(config, "heroBadgeText") ?? defaultThemeDraft.heroBadgeText,
     promoBannerText: getString(config, "promoBannerText") ?? defaultThemeDraft.promoBannerText,
     heroImageUrl: getString(config, "heroImageUrl") ?? defaultThemeDraft.heroImageUrl,
-    primaryColor: getString(config, "primaryColor") ?? defaultThemeDraft.primaryColor,
-    accentColor: getString(config, "accentColor") ?? defaultThemeDraft.accentColor,
-    backgroundColor: getString(config, "backgroundColor") ?? defaultThemeDraft.backgroundColor,
+    primaryColor,
+    accentColor: derivedAccentColor(primaryColor),
+    backgroundColor,
     surfaceColor: defaultThemeDraft.surfaceColor,
     textColor: defaultThemeDraft.textColor,
     mutedColor: defaultThemeDraft.mutedColor,
-    borderColor: getString(config, "borderColor") ?? defaultThemeDraft.borderColor,
+    borderColor: derivedBorderColor(primaryColor, backgroundColor),
     onPrimary: getString(config, "onPrimary") ?? defaultThemeDraft.onPrimary,
     bodyFont: getString(config, "fontFamily", "bodyFont") ?? defaultThemeDraft.bodyFont,
     headingFont: getString(config, "headingFont") ?? defaultThemeDraft.headingFont,
@@ -140,7 +144,8 @@ function buildDraft(menu: MenuResponse): ThemeDraft {
   }
 }
 
-type AdminTab = "branding" | "menu" | "assistant"
+type AdminTab = "branding" | "menu"
+type AdminShellView = "assistant" | "controls" | "preview"
 type ThemeChangeHandler = <K extends keyof ThemeDraft>(key: K, value: ThemeDraft[K]) => void
 type CategoryItemEntry = MenuCategory["categoryItems"][number]
 
@@ -149,6 +154,10 @@ function areThemesEqual(left: ThemeDraft, right: ThemeDraft) {
 }
 
 function themePayload(theme: ThemeDraft) {
+  const backgroundColor = clampToLightBackground(theme.backgroundColor)
+  const accentColor = derivedAccentColor(theme.primaryColor)
+  const borderColor = derivedBorderColor(theme.primaryColor, backgroundColor)
+
   return {
     appTitle: theme.appTitle,
     tagline: theme.tagline,
@@ -159,12 +168,12 @@ function themePayload(theme: ThemeDraft) {
     promoBannerText: theme.promoBannerText,
     heroImageUrl: theme.heroImageUrl,
     primaryColor: theme.primaryColor,
-    accentColor: theme.accentColor,
-    backgroundColor: theme.backgroundColor,
+    accentColor,
+    backgroundColor,
     surfaceColor: defaultThemeDraft.surfaceColor,
     textColor: defaultThemeDraft.textColor,
     mutedColor: defaultThemeDraft.mutedColor,
-    borderColor: theme.borderColor,
+    borderColor,
     onPrimary: theme.onPrimary,
     fontFamily: theme.bodyFont,
     headingFont: theme.headingFont,
@@ -211,6 +220,62 @@ function hexToRgba(hex: string, alpha: number) {
   const blue = value & 255
 
   return `rgba(${red}, ${green}, ${blue}, ${alpha})`
+}
+
+function parseHexColor(hex: string) {
+  const normalized = hex.replace("#", "").trim()
+  const expanded =
+    normalized.length === 3
+      ? normalized
+          .split("")
+          .map((char) => `${char}${char}`)
+          .join("")
+      : normalized
+
+  const value = Number.parseInt(expanded, 16)
+
+  return {
+    red: (value >> 16) & 255,
+    green: (value >> 8) & 255,
+    blue: value & 255,
+  }
+}
+
+function toHexColor(red: number, green: number, blue: number) {
+  return `#${[red, green, blue]
+    .map((value) => Math.max(0, Math.min(255, Math.round(value))).toString(16).padStart(2, "0"))
+    .join("")}`
+}
+
+function mixHexColors(base: string, overlay: string, alpha: number) {
+  const background = parseHexColor(base)
+  const foreground = parseHexColor(overlay)
+
+  return toHexColor(
+    background.red * (1 - alpha) + foreground.red * alpha,
+    background.green * (1 - alpha) + foreground.green * alpha,
+    background.blue * (1 - alpha) + foreground.blue * alpha,
+  )
+}
+
+function clampToLightBackground(hex: string) {
+  const { red, green, blue } = parseHexColor(hex)
+  const brightestChannel = Math.max(red, green, blue)
+  const minimumChannel = Math.max(224, 244 - Math.round(brightestChannel * 0.08))
+
+  return toHexColor(
+    Math.max(red, minimumChannel),
+    Math.max(green, minimumChannel),
+    Math.max(blue, minimumChannel),
+  )
+}
+
+function derivedAccentColor(primaryColor: string) {
+  return mixHexColors(defaultThemeDraft.backgroundColor, primaryColor, 0.18)
+}
+
+function derivedBorderColor(primaryColor: string, backgroundColor: string) {
+  return mixHexColors(backgroundColor, primaryColor, 0.24)
 }
 
 function readFileAsDataUrl(file: File) {
@@ -297,14 +362,18 @@ function previewCategories(categories: MenuCategory[]) {
 }
 
 function previewStyle(theme: ThemeDraft): React.CSSProperties {
+  const backgroundColor = clampToLightBackground(theme.backgroundColor)
+  const accentColor = derivedAccentColor(theme.primaryColor)
+  const borderColor = derivedBorderColor(theme.primaryColor, backgroundColor)
+
   return {
     ["--preview-primary" as string]: theme.primaryColor,
-    ["--preview-accent" as string]: theme.accentColor,
-    ["--preview-background" as string]: theme.backgroundColor,
+    ["--preview-accent" as string]: accentColor,
+    ["--preview-background" as string]: backgroundColor,
     ["--preview-surface" as string]: defaultThemeDraft.surfaceColor,
     ["--preview-text" as string]: defaultThemeDraft.textColor,
     ["--preview-muted" as string]: defaultThemeDraft.mutedColor,
-    ["--preview-border" as string]: theme.borderColor,
+    ["--preview-border" as string]: borderColor,
     ["--preview-on-primary" as string]: theme.onPrimary,
     ["--preview-radius" as string]: `${defaultThemeDraft.radius}px`,
     ["--preview-body-font" as string]: theme.bodyFont,
@@ -661,6 +730,7 @@ export const App: React.FC = () => {
   const [menuActionMessage, setMenuActionMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<AdminTab>("branding")
+  const [activeShellView, setActiveShellView] = useState<AdminShellView>("assistant")
 
   useEffect(() => {
     let cancelled = false
@@ -999,9 +1069,122 @@ export const App: React.FC = () => {
     }
   }
 
+  const controlsPanel = (
+    <div className="grid gap-6">
+      <SectionCard
+        title="Tenant and storefront"
+        subtitle="Use the live tenant menu as the preview data source."
+      >
+        <div className="grid gap-5">
+          <div className="grid gap-2">
+            <Label htmlFor="tenant-slug" className="text-sm text-muted-foreground">
+              Tenant slug
+            </Label>
+            <Input
+              id="tenant-slug"
+              value={tenantSlug}
+              onChange={(event) => setTenantSlug(event.target.value)}
+            />
+          </div>
+
+          <div className="grid gap-3 rounded-[var(--radius)] border border-border/70 bg-background/70 p-4">
+            <StatusRow label="Status" value={isLoading ? "Loading" : error ? "Error" : "Loaded"} />
+            <StatusRow label="Categories" value={String(categories.length)} />
+            <StatusRow label="Featured items" value={String(featuredCount)} />
+            {error ? (
+              <div className="text-sm text-destructive">{error}</div>
+            ) : null}
+          </div>
+        </div>
+      </SectionCard>
+
+      <SectionCard
+        title="Storefront controls"
+        subtitle="Draft edits update the preview instantly. Save persists them to the backend."
+      >
+        <div className="grid gap-5">
+          <TabBar activeTab={activeTab} onChange={setActiveTab} />
+
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
+              className="grid gap-5"
+            >
+              {activeTab === "branding" ? (
+                <BrandingTab theme={draftTheme} onThemeChange={updateTheme} />
+              ) : null}
+
+              {activeTab === "menu" ? (
+                <MenuTab
+                  categories={categories}
+                  menuActionMessage={menuActionMessage}
+                  onAddItem={addItemToCategory}
+                  onCategoryVisibilityChange={updateCategoryVisibility}
+                  onCategoryReorder={reorderCategories}
+                  onDeleteItem={deleteItemFromMenu}
+                  onItemFeaturedChange={(itemId, isFeatured) =>
+                    void updateItemPresentation(
+                      itemId,
+                      { isFeatured },
+                      "Featured state updated.",
+                    )
+                  }
+                  onItemImageChange={(itemId, photoUrl) =>
+                    void updateItemPresentation(
+                      itemId,
+                      { photoUrl },
+                      photoUrl ? "Item image updated." : "Item image removed.",
+                    )
+                  }
+                  onItemReorder={reorderCategoryItem}
+                  onItemVisibilityChange={updateItemVisibility}
+                />
+              ) : null}
+            </motion.div>
+          </AnimatePresence>
+
+          {(activeTab === "branding" || isThemeDirty || saveMessage) ? (
+            <ThemeSaveBar
+              isDirty={isThemeDirty}
+              isLoading={isLoading}
+              isSaving={isSaving}
+              onSave={() => void saveTheme()}
+              saveMessage={saveMessage}
+            />
+          ) : null}
+        </div>
+      </SectionCard>
+    </div>
+  )
+
+  const previewPanel = (
+    <SectionCard
+      title="Live storefront preview"
+      subtitle="Uses the tenant's real menu data and the current dashboard draft settings."
+    >
+      <PreviewPane theme={draftTheme} categories={categories} />
+    </SectionCard>
+  )
+
+  const assistantPanel = (
+    <AssistantPanel
+      className="h-[250px]"
+      tenantSlug={tenantSlug}
+      onRefreshTargets={(targets) => {
+        if (targets.includes("menu")) {
+          void reloadMenuData(true)
+        }
+      }}
+    />
+  )
+
   return (
     <motion.main
-      className="mx-auto flex w-full max-w-[1560px] flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8"
+      className="mx-auto flex min-h-screen w-full max-w-[1680px] flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.22, ease: "easeOut" }}
@@ -1022,114 +1205,30 @@ export const App: React.FC = () => {
         </div>
       </header>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(360px,0.38fr)_minmax(0,0.62fr)] xl:items-start">
-        <div className="grid gap-6">
-          <SectionCard
-            title="Tenant and storefront"
-            subtitle="Use the live tenant menu as the preview data source."
-          >
-            <div className="grid gap-5">
-              <div className="grid gap-2">
-                <Label htmlFor="tenant-slug" className="text-sm text-muted-foreground">
-                  Tenant slug
-                </Label>
-                <Input
-                  id="tenant-slug"
-                  value={tenantSlug}
-                  onChange={(event) => setTenantSlug(event.target.value)}
-                />
-              </div>
+      <div className="flex flex-wrap gap-2 min-[1200px]:hidden">
+        <ShellViewBar activeView={activeShellView} onChange={setActiveShellView} />
+      </div>
 
-              <div className="grid gap-3 rounded-[var(--radius)] border border-border/70 bg-background/70 p-4">
-                <StatusRow label="Status" value={isLoading ? "Loading" : error ? "Error" : "Loaded"} />
-                <StatusRow label="Categories" value={String(categories.length)} />
-                <StatusRow label="Featured items" value={String(featuredCount)} />
-                {error ? (
-                  <div className="text-sm text-destructive">{error}</div>
-                ) : null}
-              </div>
+      <div className="flex-1 min-h-0">
+        <div className="hidden h-full min-h-0 gap-6 min-[1200px]:grid min-[1200px]:grid-cols-[340px_minmax(0,1fr)]">
+          <div className="min-h-0 overflow-y-auto pr-1">
+            {controlsPanel}
+          </div>
+          <div className="grid min-h-0 grid-rows-[250px_minmax(0,1fr)] gap-4">
+            <div className="min-h-0">
+              {assistantPanel}
             </div>
-          </SectionCard>
-
-          <SectionCard
-            title="Storefront controls"
-            subtitle="Draft edits update the preview instantly. Save persists them to the backend."
-          >
-            <div className="grid gap-5">
-              <TabBar activeTab={activeTab} onChange={setActiveTab} />
-
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.div
-                  key={activeTab}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.18, ease: "easeOut" }}
-                  className="grid gap-5"
-                >
-                  {activeTab === "branding" ? (
-                    <BrandingTab theme={draftTheme} onThemeChange={updateTheme} />
-                  ) : null}
-
-                  {activeTab === "menu" ? (
-                    <MenuTab
-                      categories={categories}
-                      menuActionMessage={menuActionMessage}
-                      onAddItem={addItemToCategory}
-                      onCategoryVisibilityChange={updateCategoryVisibility}
-                      onCategoryReorder={reorderCategories}
-                    onDeleteItem={deleteItemFromMenu}
-                    onItemFeaturedChange={(itemId, isFeatured) =>
-                      void updateItemPresentation(
-                          itemId,
-                          { isFeatured },
-                          "Featured state updated.",
-                        )
-                      }
-                      onItemImageChange={(itemId, photoUrl) =>
-                        void updateItemPresentation(
-                          itemId,
-                          { photoUrl },
-                          photoUrl ? "Item image updated." : "Item image removed.",
-                        )
-                      }
-                      onItemReorder={reorderCategoryItem}
-                      onItemVisibilityChange={updateItemVisibility}
-                    />
-                  ) : null}
-
-                  {activeTab === "assistant" ? (
-                    <AssistantPanel
-                      tenantSlug={tenantSlug}
-                      onRefreshTargets={(targets) => {
-                        if (targets.includes("menu")) {
-                          void reloadMenuData()
-                        }
-                      }}
-                    />
-                  ) : null}
-                </motion.div>
-              </AnimatePresence>
-
-              {(activeTab === "branding" || isThemeDirty || saveMessage) ? (
-                <ThemeSaveBar
-                  isDirty={isThemeDirty}
-                  isLoading={isLoading}
-                  isSaving={isSaving}
-                  onSave={() => void saveTheme()}
-                  saveMessage={saveMessage}
-                />
-              ) : null}
+            <div className="min-h-0 overflow-y-auto border-t border-border/60 pt-4">
+              {previewPanel}
             </div>
-          </SectionCard>
+          </div>
         </div>
 
-        <SectionCard
-          title="Live storefront preview"
-          subtitle="Uses the tenant's real menu data and the current dashboard draft settings."
-        >
-          <PreviewPane theme={draftTheme} categories={categories} />
-        </SectionCard>
+        <div className="grid gap-6 min-[1200px]:hidden">
+          {activeShellView === "assistant" ? assistantPanel : null}
+          {activeShellView === "controls" ? controlsPanel : null}
+          {activeShellView === "preview" ? previewPanel : null}
+        </div>
       </div>
     </motion.main>
   )
@@ -1144,6 +1243,45 @@ function StatusRow({ label, value }: { label: string; value: string }) {
   )
 }
 
+function ShellViewBar({
+  activeView,
+  onChange,
+}: {
+  activeView: AdminShellView
+  onChange: (value: AdminShellView) => void
+}) {
+  const views: Array<{ id: AdminShellView; label: string }> = [
+    { id: "assistant", label: "Assistant" },
+    { id: "controls", label: "Controls" },
+    { id: "preview", label: "Preview" },
+  ]
+
+  return (
+    <div className="flex w-full flex-wrap gap-2 rounded-[var(--radius)] border border-border/70 bg-background/70 p-2">
+      {views.map((view) => {
+        const isActive = activeView === view.id
+
+        return (
+          <Button
+            key={view.id}
+            type="button"
+            variant={isActive ? "secondary" : "ghost"}
+            onClick={() => onChange(view.id)}
+            className={cn(
+              "min-h-11 flex-1 rounded-[calc(var(--radius)-8px)] px-4 text-sm sm:flex-none",
+              isActive
+                ? "border border-border/70 bg-card text-foreground shadow-sm"
+                : "text-muted-foreground",
+            )}
+          >
+            {view.label}
+          </Button>
+        )
+      })}
+    </div>
+  )
+}
+
 function TabBar({
   activeTab,
   onChange,
@@ -1154,7 +1292,6 @@ function TabBar({
   const tabs: Array<{ id: AdminTab; label: string; icon: React.ReactNode }> = [
     { id: "branding", label: "Branding", icon: <Palette className="h-4 w-4" /> },
     { id: "menu", label: "Menu", icon: <Sparkles className="h-4 w-4" /> },
-    { id: "assistant", label: "AI Assistant", icon: <CheckCircle2 className="h-4 w-4" /> },
   ]
 
   return (
@@ -1276,24 +1413,9 @@ function BrandingTab({
           <ColorField
             label="Background color"
             value={theme.backgroundColor}
-            onChange={(value) => onThemeChange("backgroundColor", value)}
+            onChange={(value) => onThemeChange("backgroundColor", clampToLightBackground(value))}
           />
-        </FieldShell>
-
-        <FieldShell>
-          <ColorField
-            label="Card border color"
-            value={theme.borderColor}
-            onChange={(value) => onThemeChange("borderColor", value)}
-          />
-        </FieldShell>
-
-        <FieldShell>
-          <ColorField
-            label="Accent color"
-            value={theme.accentColor}
-            onChange={(value) => onThemeChange("accentColor", value)}
-          />
+          <p className="mt-2 text-sm text-muted-foreground">Light backgrounds only.</p>
         </FieldShell>
 
         <FieldShell>

@@ -27,11 +27,11 @@ export function CustomerOtpStep({
 }: CustomerOtpStepProps) {
   return (
     <Card size="sm" className="gap-4 border border-border/80 bg-card shadow-sm">
-      <CardHeader className="gap-3">
+      <CardHeader className="gap-4">
         <Badge variant="outline" className="border-border bg-background text-muted-foreground">
           Verify phone
         </Badge>
-        <div className="space-y-1">
+        <div className="space-y-2">
           <CardTitle style={{ fontFamily: "var(--font-heading)" }}>Enter your code</CardTitle>
           <p className="text-sm text-muted-foreground">
             Code sent to <span className="font-medium text-foreground">{phone}</span>.
@@ -52,17 +52,18 @@ export function CustomerOtpStep({
         </div>
 
         {errorMessage ? (
-          <div className="rounded-[var(--radius)] border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-foreground">
+          <div className="rounded-[var(--radius)] border border-destructive/20 bg-destructive/10 px-4 py-4 text-sm text-foreground">
             {errorMessage}
           </div>
         ) : null}
 
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-4">
           <Button
             type="button"
             variant="outline"
             disabled={sending || verifying}
             onClick={onResend}
+            className="min-h-11"
           >
             {sending ? "Resending…" : "Resend code"}
           </Button>
@@ -71,6 +72,7 @@ export function CustomerOtpStep({
             variant="ghost"
             disabled={sending || verifying}
             onClick={onEditPhone}
+            className="min-h-11"
           >
             Edit phone number
           </Button>

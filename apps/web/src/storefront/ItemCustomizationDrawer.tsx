@@ -165,7 +165,7 @@ export function ItemCustomizationDrawer({
       {open && item ? (
         <>
           <motion.div
-            className="fixed inset-0 z-40 bg-slate-950/40 backdrop-blur-[2px]"
+            className="fixed inset-0 z-40 bg-foreground/20 backdrop-blur-[2px]"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -173,13 +173,13 @@ export function ItemCustomizationDrawer({
           />
 
           <motion.aside
-            className="fixed inset-y-0 right-0 z-50 flex w-full max-w-xl flex-col overflow-y-auto border-l border-brand-border bg-brand-surface shadow-2xl"
+            className="fixed inset-y-0 right-0 z-50 flex w-full max-w-xl flex-col overflow-y-auto border-l border-border bg-card shadow-2xl"
             initial={{ x: "100%" }}
             animate={{ x: 0 }}
             exit={{ x: "100%" }}
             transition={{ type: "spring", stiffness: 280, damping: 28 }}
           >
-            <div className="flex items-center justify-between border-b border-border px-6 py-5">
+            <div className="flex items-center justify-between border-b border-border px-4 py-4 sm:px-6 sm:py-6">
               <div>
                 <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
                   Customize item
@@ -198,7 +198,7 @@ export function ItemCustomizationDrawer({
               </Button>
             </div>
 
-            <div className="flex-1 space-y-6 px-6 py-6">
+            <div className="flex-1 space-y-6 px-4 py-4 sm:px-6 sm:py-6">
               {item.description ? (
                 <p className="max-w-2xl text-sm leading-6 text-muted-foreground">{item.description}</p>
               ) : null}
@@ -211,7 +211,7 @@ export function ItemCustomizationDrawer({
                     </Badge>
                     <div className="text-sm text-muted-foreground">Pick the size that fits this order.</div>
                   </div>
-                  <div className="grid gap-3">
+                  <div className="grid gap-4">
                     {item.variants.map((variant) => {
                       const active = selectedVariant?.id === variant.id
                       return (
@@ -230,7 +230,7 @@ export function ItemCustomizationDrawer({
                           <span>
                             <span className="block font-semibold">{variant.name}</span>
                             {variant.isDefault ? (
-                              <span className="mt-1 block text-sm text-muted-foreground">Default</span>
+                              <span className="mt-2 block text-sm text-muted-foreground">Default</span>
                             ) : null}
                           </span>
                           <span className="font-semibold">{formatPrice(variant.priceCents)}</span>
@@ -255,7 +255,7 @@ export function ItemCustomizationDrawer({
                     </p>
                   </div>
 
-                  <div className="grid gap-3">
+                  <div className="grid gap-4">
                     {itemGroup.group.options.map((option) => {
                       const selected =
                         selectedOptions[itemGroup.group.id]?.includes(option.id) ?? false
@@ -292,7 +292,7 @@ export function ItemCustomizationDrawer({
                 </section>
               ))}
 
-              <section className="space-y-3">
+              <section className="space-y-4">
                 <div className="space-y-2">
                   <Badge variant="outline" className="border-border bg-background text-muted-foreground">
                     Notes
@@ -305,11 +305,11 @@ export function ItemCustomizationDrawer({
                   onChange={(event) => setNotes(event.target.value)}
                   rows={3}
                   placeholder="Add any special instructions for the kitchen"
-                  className="min-h-24 w-full rounded-[var(--radius)] border border-input bg-background px-4 py-3 text-sm text-foreground shadow-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30"
+                  className="min-h-24 w-full rounded-[var(--radius)] border border-input bg-background px-4 py-4 text-sm text-foreground shadow-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30"
                 />
               </section>
 
-              <section className="space-y-3">
+              <section className="space-y-4">
                 <Badge variant="outline" className="border-border bg-background text-muted-foreground">
                   Quantity
                 </Badge>
@@ -335,7 +335,7 @@ export function ItemCustomizationDrawer({
               </section>
 
               {validationErrors.length > 0 ? (
-                <div className="rounded-[var(--radius)] border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-foreground">
+                <div className="rounded-[var(--radius)] border border-destructive/20 bg-destructive/10 px-4 py-4 text-sm text-foreground">
                   {validationErrors.map((error) => (
                     <div key={error}>{error}</div>
                   ))}
@@ -343,22 +343,22 @@ export function ItemCustomizationDrawer({
               ) : null}
             </div>
 
-            <div className="border-t border-border bg-card px-6 py-5">
-              <div className="space-y-3">
-              <div className="flex items-center justify-between text-sm text-muted-foreground">
-                <span>Total</span>
-                <span className="text-lg font-semibold text-foreground">
-                  {formatPrice(unitPriceCents * quantity)}
-                </span>
-              </div>
-              <Separator />
-              <Button
-                className="w-full justify-center"
-                disabled={!canSubmit}
-                onClick={handleAdd}
-              >
-                Add to cart
-              </Button>
+            <div className="border-t border-border bg-card px-4 py-4 sm:px-6 sm:py-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                  <span>Total</span>
+                  <span className="text-lg font-semibold text-foreground">
+                    {formatPrice(unitPriceCents * quantity)}
+                  </span>
+                </div>
+                <Separator />
+                <Button
+                  className="min-h-11 w-full justify-center"
+                  disabled={!canSubmit}
+                  onClick={handleAdd}
+                >
+                  Add to cart
+                </Button>
               </div>
             </div>
           </motion.aside>

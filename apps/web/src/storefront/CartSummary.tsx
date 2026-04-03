@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion"
-import { Minus, Plus, ShoppingBag, Trash2, X } from "lucide-react"
+import { Minus, Plus, ShoppingBag, Trash2, UtensilsCrossed, X } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 
 import { Badge } from "@/components/ui/badge"
@@ -183,14 +183,14 @@ export function CartSummary({
   return (
     <>
       {itemCount > 0 ? (
-        <div className="fixed inset-x-4 bottom-4 z-30 md:inset-x-auto md:right-6 md:w-[380px]">
+        <div className="fixed inset-x-4 bottom-4 z-30 md:inset-x-auto md:right-6 md:w-full md:max-w-md">
           <Card className="gap-0 border border-border/80 bg-card py-0 shadow-xl">
-            <CardContent className="flex items-center justify-between gap-4 px-5 py-4">
-              <div className="flex items-center gap-3">
+            <CardContent className="flex items-center justify-between gap-4 px-4 py-4 sm:px-6">
+              <div className="flex items-center gap-4">
                 <div className="rounded-[var(--radius)] border border-border bg-background p-2 text-primary">
                   <ShoppingBag className="h-5 w-5" />
                 </div>
-                <div className="space-y-0.5">
+                <div className="space-y-2">
                   <div className="text-sm font-semibold text-foreground">
                     {itemCount} item{itemCount === 1 ? "" : "s"} in cart
                   </div>
@@ -199,7 +199,7 @@ export function CartSummary({
                   </div>
                 </div>
               </div>
-              <Button onClick={onOpen}>View cart</Button>
+              <Button className="min-h-11" onClick={onOpen}>View cart</Button>
             </CardContent>
           </Card>
         </div>
@@ -209,7 +209,7 @@ export function CartSummary({
         {open ? (
           <>
             <motion.div
-              className="fixed inset-0 z-40 bg-slate-950/40 backdrop-blur-[2px]"
+              className="fixed inset-0 z-40 bg-foreground/20 backdrop-blur-[2px]"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -217,13 +217,13 @@ export function CartSummary({
             />
 
             <motion.aside
-              className="fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col border-l border-brand-border bg-brand-surface shadow-2xl"
+              className="fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col border-l border-border bg-card shadow-2xl"
               initial={{ x: "100%" }}
               animate={{ x: 0 }}
               exit={{ x: "100%" }}
               transition={{ type: "spring", stiffness: 280, damping: 28 }}
             >
-              <div className="flex items-center justify-between border-b border-border px-6 py-5">
+              <div className="flex items-center justify-between border-b border-border px-4 py-4 sm:px-6 sm:py-6">
                 <div>
                   <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
                     {checkoutMode ? "Pickup checkout" : "Cart"}
@@ -242,11 +242,21 @@ export function CartSummary({
                 </Button>
               </div>
 
-              <div className="flex-1 space-y-5 overflow-y-auto px-6 py-6">
+              <div className="flex-1 space-y-6 overflow-y-auto px-4 py-4 sm:px-6 sm:py-6">
                 {items.length === 0 ? (
                   <Card size="sm" className="border border-dashed border-border bg-background shadow-none">
-                    <CardContent className="px-4 py-4 text-sm text-muted-foreground">
-                    Your cart is empty.
+                    <CardContent className="flex min-h-48 flex-col items-center justify-center gap-4 px-6 py-12 text-center">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full border border-border bg-card text-muted-foreground">
+                        <UtensilsCrossed className="h-5 w-5" />
+                      </div>
+                      <div className="grid gap-2">
+                        <div className="text-xl font-semibold text-foreground" style={{ fontFamily: "var(--font-heading)" }}>
+                          Your cart is empty
+                        </div>
+                        <div className="text-sm leading-6 text-muted-foreground">
+                          Add a few favorites to start your pickup order.
+                        </div>
+                      </div>
                     </CardContent>
                   </Card>
                 ) : null}
@@ -258,15 +268,15 @@ export function CartSummary({
                         size="sm"
                         className="gap-4 border border-border/80 bg-card shadow-sm"
                       >
-                        <CardContent className="space-y-4 px-4 py-4">
+                        <CardContent className="space-y-4 px-4 py-4 sm:px-6 sm:py-6">
                         <div className="flex items-start justify-between gap-4">
                           <div>
                             <div className="font-semibold text-foreground">{item.name}</div>
-                            <div className="mt-1 text-sm text-muted-foreground">
+                            <div className="mt-2 text-sm text-muted-foreground">
                               {item.variantName ?? "Standard"}
                             </div>
                             {item.modifiers.length > 0 ? (
-                              <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                              <div className="mt-4 flex flex-wrap gap-2 text-xs text-muted-foreground">
                                 {item.modifiers.map((modifier) => (
                                   <Badge
                                     key={`${item.lineId}-${modifier.optionId}`}
@@ -298,7 +308,7 @@ export function CartSummary({
                           </div>
                         </div>
 
-                        <div className="inline-flex items-center gap-2 rounded-[var(--radius)] border border-border bg-background px-2 py-2">
+                        <div className="inline-flex min-h-11 items-center gap-2 rounded-[var(--radius)] border border-border bg-background px-2 py-2">
                           <Button
                             type="button"
                             variant="ghost"
@@ -321,7 +331,7 @@ export function CartSummary({
                       </Card>
                     ))
                   : (
-                    <div className="space-y-5">
+                    <div className="space-y-6">
                       <Card size="sm" className="gap-4 border border-border/80 bg-card shadow-sm">
                         <CardHeader className="gap-2">
                           <Badge variant="outline" className="border-border bg-background text-muted-foreground">
@@ -329,16 +339,16 @@ export function CartSummary({
                           </Badge>
                           <CardTitle style={{ fontFamily: "var(--font-heading)" }}>Pickup</CardTitle>
                         </CardHeader>
-                        <CardContent className="grid gap-3">
-                          <div className="rounded-[var(--radius)] border border-primary/20 bg-primary/10 px-4 py-3">
+                        <CardContent className="grid gap-4">
+                          <div className="rounded-[var(--radius)] border border-primary/20 bg-primary/10 px-4 py-4">
                             <div className="font-semibold text-foreground">Pickup</div>
-                            <div className="mt-1 text-sm text-muted-foreground">
+                            <div className="mt-2 text-sm text-muted-foreground">
                               Pickup is live now.
                             </div>
                           </div>
-                          <div className="rounded-[var(--radius)] border border-dashed border-border px-4 py-3">
+                          <div className="rounded-[var(--radius)] border border-dashed border-border px-4 py-4">
                             <div className="font-semibold text-foreground">Delivery</div>
-                            <div className="mt-1 text-sm text-muted-foreground">
+                            <div className="mt-2 text-sm text-muted-foreground">
                               Coming soon.
                             </div>
                           </div>
@@ -372,11 +382,11 @@ export function CartSummary({
                             />
                           </div>
                           {isPhoneVerified ? (
-                            <div className="rounded-[var(--radius)] border border-primary/20 bg-primary/10 px-4 py-3 text-sm text-foreground">
-                              Phone verified for this checkout.
-                            </div>
-                          ) : customerSession.isRestoring ? (
-                            <div className="rounded-[var(--radius)] border border-border bg-background px-4 py-3 text-sm text-muted-foreground">
+                          <div className="rounded-[var(--radius)] border border-primary/20 bg-primary/10 px-4 py-4 text-sm text-foreground">
+                            Phone verified for this checkout.
+                          </div>
+                        ) : customerSession.isRestoring ? (
+                            <div className="rounded-[var(--radius)] border border-border bg-background px-4 py-4 text-sm text-muted-foreground">
                               Restoring saved customer session…
                             </div>
                           ) : null}
@@ -387,7 +397,7 @@ export function CartSummary({
                               value={orderNotes}
                               onChange={(event) => onOrderNotesChange(event.target.value)}
                               rows={3}
-                              className="min-h-24 w-full rounded-[var(--radius)] border border-input bg-background px-4 py-3 text-sm text-foreground shadow-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30"
+                              className="min-h-24 w-full rounded-[var(--radius)] border border-input bg-background px-4 py-4 text-sm text-foreground shadow-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30"
                               placeholder="Optional note for pickup"
                             />
                           </div>
@@ -419,14 +429,14 @@ export function CartSummary({
                           </Badge>
                           <CardTitle style={{ fontFamily: "var(--font-heading)" }}>What you’re ordering</CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-3">
+                        <CardContent className="space-y-4">
                           {items.map((item) => (
                             <div key={item.lineId} className="flex items-start justify-between gap-4 text-sm">
                               <div>
                                 <div className="font-medium text-foreground">
                                   {item.quantity} × {item.name}
                                 </div>
-                                <div className="mt-1 text-xs text-muted-foreground">
+                                <div className="mt-2 text-xs text-muted-foreground">
                                   {item.variantName ?? "Standard"}
                                 </div>
                               </div>
@@ -439,8 +449,8 @@ export function CartSummary({
                   )}
               </div>
 
-              <div className="border-t border-border bg-card px-6 py-5">
-                <div className="space-y-3">
+              <div className="border-t border-border bg-card px-4 py-4 sm:px-6 sm:py-6">
+                <div className="space-y-4">
                 <div className="flex items-center justify-between text-sm text-muted-foreground">
                   <span>Subtotal</span>
                   <span className="font-semibold text-foreground">{formatPrice(subtotal)}</span>
@@ -465,23 +475,23 @@ export function CartSummary({
                 </div>
                 <Separator />
                 {formError ? (
-                  <div className="rounded-[var(--radius)] border border-destructive/20 bg-destructive/10 px-3 py-2 text-sm text-foreground">
+                  <div className="rounded-[var(--radius)] border border-destructive/20 bg-destructive/10 px-4 py-4 text-sm text-foreground">
                     {formError}
                   </div>
                 ) : null}
                 {!checkoutMode ? (
                   <Button
-                    className="w-full justify-center"
+                    className="min-h-11 w-full justify-center"
                     disabled={!canContinue}
                     onClick={() => setCheckoutMode(true)}
                   >
                     Continue to pickup checkout
                   </Button>
                 ) : (
-                  <div className="grid gap-3">
+                  <div className="grid gap-4">
                     {isPhoneVerified ? (
                       <Button
-                        className="w-full justify-center"
+                        className="min-h-11 w-full justify-center"
                         disabled={!canSubmit}
                         onClick={() => void handleCheckoutSubmit()}
                       >
@@ -489,7 +499,7 @@ export function CartSummary({
                       </Button>
                     ) : otpSent ? (
                       <Button
-                        className="w-full justify-center"
+                        className="min-h-11 w-full justify-center"
                         disabled={!canVerifyCode}
                         onClick={() => void handleVerifyOtp()}
                       >
@@ -497,7 +507,7 @@ export function CartSummary({
                       </Button>
                     ) : (
                       <Button
-                        className="w-full justify-center"
+                        className="min-h-11 w-full justify-center"
                         disabled={!canSendCode}
                         onClick={() => void handleRequestOtp()}
                       >

@@ -1,3 +1,4 @@
+import Fuse from "fuse.js"
 import type { AssistantOption } from "../types.js"
 
 type EntityType = "item" | "category"
@@ -35,6 +36,7 @@ export type EntityMatch =
 type Candidate = {
   id: string
   label: string
+  normalizedLabel: string
 }
 
 function normalize(value: string) {
@@ -64,6 +66,7 @@ function buildCategoryCandidates(categories: MenuCategory[]): Candidate[] {
   return categories.map((category) => ({
     id: category.id,
     label: category.name,
+    normalizedLabel: normalize(category.name),
   }))
 }
 
@@ -73,31 +76,10 @@ function buildItemCandidates(categories: MenuCategory[]): Candidate[] {
       category.categoryItems.map(({ item }) => ({
         id: item.id,
         label: item.name,
+        normalizedLabel: normalize(item.name),
       })),
     ),
   )
-}
-
-function matchingCandidates(candidates: Candidate[], query: string) {
-  const normalizedQuery = normalize(query)
-  const queryTokens = tokens(query)
-
-  const exact = candidates.filter((candidate) => normalize(candidate.label) === normalizedQuery)
-  if (exact.length > 0) {
-    return exact
-  }
-
-  const partial = candidates.filter((candidate) => {
-    const normalizedLabel = normalize(candidate.label)
-    if (normalizedLabel.includes(normalizedQuery) || normalizedQuery.includes(normalizedLabel)) {
-      return true
-    }
-
-    const labelTokens = tokens(candidate.label)
-    return queryTokens.every((token) => labelTokens.includes(token))
-  })
-
-  return partial
 }
 
 export function findMenuEntities(input: {
@@ -118,9 +100,74 @@ export function findMenuEntities(input: {
     input.entityType === "category"
       ? buildCategoryCandidates(input.categories)
       : buildItemCandidates(input.categories)
-  const matches = matchingCandidates(candidates, query)
+  const normalizedQuery = normalize(query)
+  const exactMatches = candidates.filter((candidate) => candidate.normalizedLabel === normalizedQuery)
 
-  if (matches.length === 0) {
+  if (exactMatches.length === 1) {
+    return {
+      kind: "exact_match",
+      entityType: input.entityType,
+      id: exactMatches[0].id,
+      label: exactMatches[0].label,
+    }
+  }
+
+  if (exactMatches.length > 1) {
+    return {
+      kind: "ambiguous_match",
+      entityType: input.entityType,
+      query,
+      options: exactMatches.map((candidate) => ({
+        id: candidate.id,
+        label: candidate.label,
+      })),
+    }
+  }
+
+  const queryTokens = tokens(query)
+  const containsMatches = candidates.filter((candidate) => {
+    if (candidate.normalizedLabel.includes(normalizedQuery) || normalizedQuery.includes(candidate.normalizedLabel)) {
+      return true
+    }
+
+    const labelTokens = tokens(candidate.label)
+    return queryTokens.every((token) => labelTokens.includes(token))
+  })
+
+  if (containsMatches.length === 1) {
+    return {
+      kind: "exact_match",
+      entityType: input.entityType,
+      id: containsMatches[0].id,
+      label: containsMatches[0].label,
+    }
+  }
+
+  if (containsMatches.length > 1) {
+    return {
+      kind: "ambiguous_match",
+      entityType: input.entityType,
+      query,
+      options: containsMatches.map((candidate) => ({
+        id: candidate.id,
+        label: candidate.label,
+      })),
+    }
+  }
+
+  const fuse = new Fuse(candidates, {
+    includeScore: true,
+    shouldSort: true,
+    threshold: 0.34,
+    ignoreLocation: true,
+    minMatchCharLength: 2,
+    keys: ["label", "normalizedLabel"],
+  })
+  const fuzzyMatches = fuse
+    .search(normalizedQuery, { limit: 5 })
+    .filter((match) => (match.score ?? 1) <= 0.34)
+
+  if (fuzzyMatches.length === 0) {
     return {
       kind: "not_found",
       entityType: input.entityType,
@@ -128,14 +175,19 @@ export function findMenuEntities(input: {
     }
   }
 
-  if (matches.length > 1) {
+  const bestMatch = fuzzyMatches[0]
+  const nearBestMatches = fuzzyMatches.filter(
+    (match) => (match.score ?? 1) - (bestMatch.score ?? 1) <= 0.06,
+  )
+
+  if (nearBestMatches.length > 1) {
     return {
       kind: "ambiguous_match",
       entityType: input.entityType,
       query,
-      options: matches.map((candidate) => ({
-        id: candidate.id,
-        label: candidate.label,
+      options: nearBestMatches.map((match) => ({
+        id: match.item.id,
+        label: match.item.label,
       })),
     }
   }
@@ -143,7 +195,7 @@ export function findMenuEntities(input: {
   return {
     kind: "exact_match",
     entityType: input.entityType,
-    id: matches[0].id,
-    label: matches[0].label,
+    id: bestMatch.item.id,
+    label: bestMatch.item.label,
   }
 }
