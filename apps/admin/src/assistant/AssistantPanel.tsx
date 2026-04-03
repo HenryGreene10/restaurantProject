@@ -1,14 +1,19 @@
 import React, { useEffect, useMemo, useRef, useState } from "react"
 import { AnimatePresence, motion } from "framer-motion"
-import { Bot, CheckCircle2, Sparkles, UserRound } from "lucide-react"
+import { Bot, CheckCircle2, ChefHat, Sparkles, UserRound } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
 
 type AssistantRefreshTarget = "menu"
+
+type AssistantHistoryMessage = {
+  role: "user" | "assistant"
+  content: string
+}
 
 type AssistantCommandResponse = {
   reply: string
@@ -31,7 +36,10 @@ type ChatMessage = {
 }
 
 const WELCOME_MESSAGE =
-  "Hi! I'm your restaurant assistant. Tell me what you'd like to change — I can update your menu, mark items as sold out, reorder categories, change your hero headline, and more."
+  "Hi! I'm your restaurant assistant. Tell me what you'd like to change — I can add categories and items, update prices, edit descriptions, mark items as sold out, and update your hero headline, badge, or promo banner."
+
+const FRIENDLY_ERROR_MESSAGE =
+  "Something went wrong — please try again or rephrase your request."
 
 function storageKey(tenantSlug: string) {
   return `restaurant-assistant:${tenantSlug}`
@@ -48,6 +56,16 @@ function createMessage(
     content,
     options,
   }
+}
+
+function toHistory(messages: ChatMessage[]): AssistantHistoryMessage[] {
+  return messages.flatMap((message) => {
+    if (message.role === "confirmation") {
+      return []
+    }
+
+    return [{ role: message.role, content: message.content }]
+  })
 }
 
 export const AssistantPanel: React.FC<{
@@ -101,6 +119,7 @@ export const AssistantPanel: React.FC<{
     if (!message || isSending) return
 
     const userMessage = createMessage("user", message)
+    const nextHistory = toHistory(messages)
     setMessages((current) => [...current, userMessage])
     setInput("")
     setIsSending(true)
@@ -112,31 +131,36 @@ export const AssistantPanel: React.FC<{
           "Content-Type": "application/json",
           "x-tenant-slug": tenantSlug,
         },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({
+          message,
+          history: nextHistory,
+        }),
       })
-      const data = (await response.json()) as AssistantCommandResponse & { error?: string }
+      const data = (await response
+        .json()
+        .catch(() => null)) as (AssistantCommandResponse & { error?: string }) | null
 
       if (!response.ok) {
-        throw new Error(data.error || `Command failed (${response.status})`)
+        throw new Error(data?.error || `Command failed (${response.status})`)
       }
 
       const nextMessages: ChatMessage[] = [
-        createMessage("assistant", data.reply || "Done.", data.options),
+        createMessage("assistant", data?.reply || "Done.", data?.options),
       ]
 
-      if (!data.needsClarification && data.refresh.length > 0) {
-        await onRefreshTargets?.(data.refresh)
-        nextMessages.push(createMessage("confirmation", `✓ ${data.reply || "Change applied."}`))
+      if (!data?.needsClarification && (data?.refresh?.length ?? 0) > 0) {
+        await onRefreshTargets?.(data?.refresh ?? [])
+        nextMessages.push(
+          createMessage("confirmation", `✓ ${data?.reply || "Change applied."}`),
+        )
       }
 
       setMessages((current) => [...current, ...nextMessages])
     } catch (error) {
+      console.error("Assistant request failed", error)
       setMessages((current) => [
         ...current,
-        createMessage(
-          "assistant",
-          error instanceof Error ? error.message : "Request failed.",
-        ),
+        createMessage("assistant", FRIENDLY_ERROR_MESSAGE),
       ])
     } finally {
       setIsSending(false)
@@ -151,19 +175,12 @@ export const AssistantPanel: React.FC<{
   }
 
   return (
-    <Card className={cn("flex h-full min-h-0 flex-col gap-0 border border-border/80 bg-card py-0 shadow-sm", className)}>
-      <CardHeader className="gap-4 border-b border-border/70 px-5 py-5">
-        <div className="flex items-start justify-between gap-4">
-          <div className="grid gap-2">
-            <Badge variant="outline" className="w-fit border-border bg-background text-muted-foreground">
-              AI Assistant
-            </Badge>
-            <div className="grid gap-1">
-              <CardTitle className="text-xl">Live restaurant assistant</CardTitle>
-              <p className="text-sm leading-6 text-muted-foreground">
-                Natural-language storefront control with immediate menu refresh.
-              </p>
-            </div>
+    <Card className={cn("flex h-full min-h-0 max-h-full flex-col gap-0 border border-border bg-card py-0 shadow-xl", className)}>
+      <CardHeader className="border-b border-border px-5 py-3 pr-14">
+        <div className="flex items-center justify-between gap-3 text-sm">
+          <div className="flex items-center gap-2 text-foreground">
+            <ChefHat className="h-4 w-4 text-primary" />
+            <span className="font-medium">Restaurant Assistant</span>
           </div>
           <div className="text-sm text-muted-foreground">{tenantSlug}</div>
         </div>
@@ -183,7 +200,7 @@ export const AssistantPanel: React.FC<{
                   className={cn("flex", isUser ? "justify-end" : "justify-start")}
                 >
                   {isConfirmation ? (
-                    <div className="w-full rounded-[var(--radius)] border border-border/70 bg-background/70 p-4">
+                    <div className="w-full rounded-[var(--radius)] border border-border bg-background p-4">
                       <div className="flex items-center gap-3 text-sm text-foreground">
                         <CheckCircle2 className="h-4 w-4 text-primary" />
                         <span>{message.content}</span>
@@ -208,8 +225,8 @@ export const AssistantPanel: React.FC<{
                         className={cn(
                           "grid gap-3 rounded-[var(--radius)] border px-4 py-4 text-sm leading-6 shadow-sm",
                           isUser
-                            ? "border-primary/20 bg-primary/10 text-foreground"
-                            : "border-border/70 bg-card text-foreground",
+                            ? "border-primary/30 bg-background text-foreground"
+                            : "border-border bg-card text-foreground",
                         )}
                       >
                         <div>{message.content}</div>
@@ -246,7 +263,7 @@ export const AssistantPanel: React.FC<{
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border bg-background text-muted-foreground">
                       <Sparkles className="h-4 w-4" />
                     </div>
-                    <div className="rounded-[var(--radius)] border border-border/70 bg-card px-4 py-4 shadow-sm">
+                    <div className="rounded-[var(--radius)] border border-border bg-card px-4 py-4 shadow-sm">
                       <LoadingDots />
                     </div>
                   </div>
@@ -268,8 +285,7 @@ export const AssistantPanel: React.FC<{
               rows={4}
               className="min-h-28 w-full resize-none rounded-[var(--radius)] border border-input bg-background px-4 py-4 text-sm text-foreground shadow-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30"
             />
-            <div className="flex items-center justify-between gap-4">
-              <p className="text-sm text-muted-foreground">Press Enter to send. Shift+Enter adds a new line.</p>
+            <div className="flex items-center justify-end gap-4">
               <Button className="min-h-11" disabled={isSending || !input.trim()} onClick={() => void send()}>
                 Send
               </Button>

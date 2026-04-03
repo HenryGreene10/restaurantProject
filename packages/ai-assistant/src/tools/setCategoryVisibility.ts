@@ -4,6 +4,7 @@ import type { AssistantTool } from "./types.js"
 const inputSchema = z.object({
   categoryId: z.string().min(1),
   visibility: z.enum(["AVAILABLE", "HIDDEN"]),
+  requestStyle: z.enum(["standard", "delete_alias"]).optional(),
 })
 
 export const setCategoryVisibilityTool: AssistantTool<z.infer<typeof inputSchema>> = {
@@ -20,7 +21,9 @@ export const setCategoryVisibilityTool: AssistantTool<z.infer<typeof inputSchema
     return {
       reply:
         input.visibility === "HIDDEN"
-          ? `Hid the ${category.name} category.`
+          ? input.requestStyle === "delete_alias"
+            ? `I've hidden the ${category.name} category from your menu. I can't permanently delete categories through chat — hiding keeps them recoverable if you need them back.`
+            : `Hid the ${category.name} category.`
           : `Made the ${category.name} category visible.`,
       changes: [
         {

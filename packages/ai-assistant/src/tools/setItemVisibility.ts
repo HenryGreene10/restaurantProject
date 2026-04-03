@@ -4,6 +4,7 @@ import type { AssistantTool } from "./types.js"
 const inputSchema = z.object({
   itemId: z.string().min(1),
   visibility: z.enum(["AVAILABLE", "SOLD_OUT", "HIDDEN"]),
+  requestStyle: z.enum(["standard", "delete_alias"]).optional(),
 })
 
 export const setItemVisibilityTool: AssistantTool<z.infer<typeof inputSchema>> = {
@@ -22,7 +23,9 @@ export const setItemVisibilityTool: AssistantTool<z.infer<typeof inputSchema>> =
         input.visibility === "SOLD_OUT"
           ? `Marked ${item.name} as sold out.`
           : input.visibility === "HIDDEN"
-            ? `Hid ${item.name} from the storefront.`
+            ? input.requestStyle === "delete_alias"
+              ? `I've hidden ${item.name} from your menu. I can't permanently delete items through chat — hiding keeps it recoverable if you need it back.`
+              : `Hid ${item.name} from the storefront.`
             : `Made ${item.name} available again.`,
       changes: [
         {

@@ -1,5 +1,6 @@
 import type { Request, Response } from "express"
 import { runAssistantCommand } from "./service/runAssistantCommand.js"
+import type { AssistantHistoryMessage } from "./types.js"
 
 type AssistantRequest = Request & {
   tenant?: {
@@ -17,8 +18,35 @@ function messageFromBody(body: unknown) {
   return typeof message === "string" ? message.trim() : ""
 }
 
+function historyFromBody(body: unknown): AssistantHistoryMessage[] {
+  if (!body || typeof body !== "object") {
+    return []
+  }
+
+  const history = (body as Record<string, unknown>).history
+  if (!Array.isArray(history)) {
+    return []
+  }
+
+  return history.flatMap((entry) => {
+    if (!entry || typeof entry !== "object") {
+      return []
+    }
+
+    const role = (entry as Record<string, unknown>).role
+    const content = (entry as Record<string, unknown>).content
+
+    if ((role === "user" || role === "assistant") && typeof content === "string" && content.trim()) {
+      return [{ role, content: content.trim() } satisfies AssistantHistoryMessage]
+    }
+
+    return []
+  })
+}
+
 export async function assistantCommandHandler(req: AssistantRequest, res: Response) {
   const message = messageFromBody(req.body)
+  const history = historyFromBody(req.body)
   if (!message) {
     return res.status(400).json({ error: "missing message" })
   }
@@ -38,6 +66,7 @@ export async function assistantCommandHandler(req: AssistantRequest, res: Respon
       tenantSlug: req.tenant.slug,
       restaurantId: req.tenant.id,
       message,
+      history,
     })
 
     return res.json(response)

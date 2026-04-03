@@ -6,6 +6,8 @@ type MenuCategory = {
     item: {
       id: string
       name: string
+      description?: string | null
+      basePriceCents?: number
       visibility: string
       isFeatured: boolean
     }
@@ -35,7 +37,7 @@ export function buildAssistantContext(input: BuildAssistantContextInput) {
 
   const categoryLines = input.categories.map((category) => {
     const itemLines = category.categoryItems.map(({ item }) =>
-      `  - item ${item.id} | ${item.name} | visibility=${item.visibility} | featured=${item.isFeatured}`,
+      `  - item ${item.id} | ${item.name} | price=${item.basePriceCents ?? 0} | description=${item.description ?? ""} | visibility=${item.visibility} | featured=${item.isFeatured}`,
     )
 
     return [

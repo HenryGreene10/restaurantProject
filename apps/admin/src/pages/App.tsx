@@ -145,7 +145,7 @@ function buildDraft(menu: MenuResponse): ThemeDraft {
 }
 
 type AdminTab = "branding" | "menu"
-type AdminShellView = "assistant" | "controls" | "preview"
+type AdminShellView = "assistant" | "controls"
 type ThemeChangeHandler = <K extends keyof ThemeDraft>(key: K, value: ThemeDraft[K]) => void
 type CategoryItemEntry = MenuCategory["categoryItems"][number]
 
@@ -765,15 +765,6 @@ export const App: React.FC = () => {
   }, [tenantSlug])
 
   const categories = menuData?.categories ?? []
-  const featuredCount = useMemo(
-    () =>
-      categories.reduce(
-        (count, category) =>
-          count + category.categoryItems.filter((entry) => entry.item.isFeatured).length,
-        0,
-      ),
-    [categories],
-  )
   const isThemeDirty = useMemo(
     () => !areThemesEqual(savedTheme, draftTheme),
     [draftTheme, savedTheme],
@@ -1072,8 +1063,8 @@ export const App: React.FC = () => {
   const controlsPanel = (
     <div className="grid gap-6">
       <SectionCard
-        title="Tenant and storefront"
-        subtitle="Use the live tenant menu as the preview data source."
+        title="Storefront controls"
+        subtitle="Draft edits update the preview instantly. Save persists them to the backend."
       >
         <div className="grid gap-5">
           <div className="grid gap-2">
@@ -1087,22 +1078,12 @@ export const App: React.FC = () => {
             />
           </div>
 
-          <div className="grid gap-3 rounded-[var(--radius)] border border-border/70 bg-background/70 p-4">
-            <StatusRow label="Status" value={isLoading ? "Loading" : error ? "Error" : "Loaded"} />
-            <StatusRow label="Categories" value={String(categories.length)} />
-            <StatusRow label="Featured items" value={String(featuredCount)} />
-            {error ? (
-              <div className="text-sm text-destructive">{error}</div>
-            ) : null}
-          </div>
-        </div>
-      </SectionCard>
+          {error ? (
+            <div className="rounded-[var(--radius)] border border-destructive/20 bg-destructive/10 px-4 py-4 text-sm text-destructive">
+              {error}
+            </div>
+          ) : null}
 
-      <SectionCard
-        title="Storefront controls"
-        subtitle="Draft edits update the preview instantly. Save persists them to the backend."
-      >
-        <div className="grid gap-5">
           <TabBar activeTab={activeTab} onChange={setActiveTab} />
 
           <AnimatePresence mode="wait" initial={false}>
@@ -1172,7 +1153,7 @@ export const App: React.FC = () => {
 
   const assistantPanel = (
     <AssistantPanel
-      className="h-[250px]"
+      className="h-full"
       tenantSlug={tenantSlug}
       onRefreshTargets={(targets) => {
         if (targets.includes("menu")) {
@@ -1184,7 +1165,7 @@ export const App: React.FC = () => {
 
   return (
     <motion.main
-      className="mx-auto flex min-h-screen w-full max-w-[1680px] flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8"
+      className="mx-auto flex h-[100dvh] min-h-[100dvh] w-full max-w-[1680px] flex-col gap-6 overflow-hidden px-4 py-6 sm:px-6 lg:px-8"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.22, ease: "easeOut" }}
@@ -1205,41 +1186,38 @@ export const App: React.FC = () => {
         </div>
       </header>
 
-      <div className="flex flex-wrap gap-2 min-[1200px]:hidden">
+      <div className="flex flex-wrap gap-2 md:hidden">
         <ShellViewBar activeView={activeShellView} onChange={setActiveShellView} />
       </div>
 
       <div className="flex-1 min-h-0">
-        <div className="hidden h-full min-h-0 gap-6 min-[1200px]:grid min-[1200px]:grid-cols-[340px_minmax(0,1fr)]">
+        <div className="hidden h-full min-h-0 gap-6 min-[1100px]:grid min-[1100px]:grid-cols-[320px_420px_minmax(0,1fr)]">
+          <div className="min-h-0 overflow-hidden">
+            {assistantPanel}
+          </div>
           <div className="min-h-0 overflow-y-auto pr-1">
             {controlsPanel}
           </div>
-          <div className="grid min-h-0 grid-rows-[250px_minmax(0,1fr)] gap-4">
-            <div className="min-h-0">
-              {assistantPanel}
-            </div>
-            <div className="min-h-0 overflow-y-auto border-t border-border/60 pt-4">
-              {previewPanel}
-            </div>
+          <div className="min-h-0 overflow-y-auto">
+            {previewPanel}
           </div>
         </div>
 
-        <div className="grid gap-6 min-[1200px]:hidden">
+        <div className="hidden h-full min-h-0 gap-6 md:grid min-[1100px]:hidden md:grid-cols-[320px_minmax(0,1fr)]">
+          <div className="min-h-0 overflow-hidden">
+            {assistantPanel}
+          </div>
+          <div className="min-h-0 overflow-y-auto">
+            {controlsPanel}
+          </div>
+        </div>
+
+        <div className="grid h-full min-h-0 gap-6 md:hidden">
           {activeShellView === "assistant" ? assistantPanel : null}
           {activeShellView === "controls" ? controlsPanel : null}
-          {activeShellView === "preview" ? previewPanel : null}
         </div>
       </div>
     </motion.main>
-  )
-}
-
-function StatusRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-3 text-sm">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-medium text-foreground">{value}</span>
-    </div>
   )
 }
 
@@ -1253,7 +1231,6 @@ function ShellViewBar({
   const views: Array<{ id: AdminShellView; label: string }> = [
     { id: "assistant", label: "Assistant" },
     { id: "controls", label: "Controls" },
-    { id: "preview", label: "Preview" },
   ]
 
   return (
@@ -1341,7 +1318,7 @@ function BrandingTab({
 
   return (
     <div className="grid gap-5">
-      <div className="grid gap-5 lg:grid-cols-2">
+      <div className="grid gap-5">
         <FieldShell>
           <Label htmlFor="logo-upload" className={fieldLabelClassName}>
             Logo upload
@@ -1350,24 +1327,17 @@ function BrandingTab({
             <ImageDropZone
               id="logo-upload"
               copy="Drop image here or click to upload"
+              imageUrl={theme.logoUrl}
+              imagePresentation="contain"
+              onRemove={() => onThemeChange("logoUrl", "")}
               onFile={(file) => void handleFileChange("logoUrl", file)}
             />
-            {theme.logoUrl ? (
-              <div className="flex items-center justify-between gap-3 rounded-[var(--radius)] border border-border/70 bg-card p-3">
-                <div
-                  className="h-14 w-14 rounded-[12px] border border-border bg-center bg-contain bg-no-repeat"
-                  style={{ backgroundImage: `url(${theme.logoUrl})` }}
-                />
-                <Button type="button" variant="ghost" onClick={() => onThemeChange("logoUrl", "")}>
-                  Remove
-                </Button>
-              </div>
-            ) : (
+            {!theme.logoUrl ? (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <ImageIcon className="h-4 w-4" />
                 Upload a square or horizontal logo.
               </div>
-            )}
+            ) : null}
           </div>
         </FieldShell>
 
@@ -1379,25 +1349,17 @@ function BrandingTab({
             <ImageDropZone
               id="banner-upload"
               copy="Drop image here or click to upload"
+              imageUrl={theme.heroImageUrl}
+              imagePresentation="cover"
+              overlayImage
+              onRemove={() => onThemeChange("heroImageUrl", "")}
               onFile={(file) => void handleFileChange("heroImageUrl", file)}
             />
-            {theme.heroImageUrl ? (
-              <div className="grid gap-3">
-                <div
-                  className="h-28 rounded-[12px] border border-border bg-center bg-cover"
-                  style={{
-                    backgroundImage: `linear-gradient(rgba(39, 28, 23, 0.44), rgba(39, 28, 23, 0.44)), url(${theme.heroImageUrl})`,
-                  }}
-                />
-                <Button type="button" variant="ghost" className="w-fit" onClick={() => onThemeChange("heroImageUrl", "")}>
-                  Remove
-                </Button>
-              </div>
-            ) : (
+            {!theme.heroImageUrl ? (
               <div className="text-sm text-muted-foreground">
                 No banner uploaded. The hero will fall back to a subtle brand-color tint.
               </div>
-            )}
+            ) : null}
           </div>
         </FieldShell>
 
@@ -1436,7 +1398,7 @@ function BrandingTab({
           />
         </FieldShell>
 
-        <FieldShell className="lg:col-span-2">
+        <FieldShell>
           <Label htmlFor="hero-headline" className={fieldLabelClassName}>
             Hero headline
           </Label>
@@ -1449,7 +1411,7 @@ function BrandingTab({
           />
         </FieldShell>
 
-        <FieldShell className="lg:col-span-2">
+        <FieldShell>
           <Label htmlFor="hero-subheadline" className={fieldLabelClassName}>
             Hero subheadline
           </Label>
@@ -1884,14 +1846,17 @@ function SortableItemRow({
               listeners={listeners}
               label={`Reorder item ${entry.item.name}`}
             />
-            <div className="h-12 w-12 shrink-0 rounded-[10px] border border-border bg-background bg-center bg-cover">
-              {entry.item.photoUrl ? (
-                <div
-                  className="h-full w-full rounded-[10px] bg-cover bg-center"
-                  style={{ backgroundImage: `url(${entry.item.photoUrl})` }}
-                />
-              ) : null}
-            </div>
+            <ImageDropZone
+              id={`item-image-${entry.item.id}`}
+              compact
+              copy="Add image"
+              imageUrl={entry.item.photoUrl ?? undefined}
+              imagePresentation="cover"
+              onRemove={() => void onImageChange(entry.item.id, null)}
+              onFile={(file) =>
+                void readFileAsDataUrl(file).then((value) => onImageChange(entry.item.id, value))
+              }
+            />
             <div className="min-w-0">
               <div className="font-medium text-foreground">{entry.item.name}</div>
               <div className="mt-1 text-sm text-muted-foreground">
@@ -1901,25 +1866,6 @@ function SortableItemRow({
           </div>
 
           <div className="flex flex-wrap items-center gap-2 sm:pl-[84px]">
-            <ImageDropZone
-              id={`item-image-${entry.item.id}`}
-              compact
-              copy={entry.item.photoUrl ? "Replace image" : "Add image"}
-              onFile={(file) =>
-                void readFileAsDataUrl(file).then((value) => onImageChange(entry.item.id, value))
-              }
-            />
-            {entry.item.photoUrl ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => onImageChange(entry.item.id, null)}
-              >
-                Remove image
-              </Button>
-            ) : null}
-
             <IconToggleButton
               active={!isHidden}
               label={isHidden ? `Show ${entry.item.name}` : `Hide ${entry.item.name}`}
@@ -2161,11 +2107,19 @@ function ImageDropZone({
   compact = false,
   copy,
   id,
+  imagePresentation = "cover",
+  imageUrl,
+  onRemove,
+  overlayImage = false,
   onFile,
 }: {
   compact?: boolean
   copy: string
   id: string
+  imagePresentation?: "contain" | "cover"
+  imageUrl?: string
+  onRemove?: () => void
+  overlayImage?: boolean
   onFile: (file: File) => void
 }) {
   const [isDragging, setIsDragging] = useState(false)
@@ -2181,8 +2135,15 @@ function ImageDropZone({
     <label
       htmlFor={id}
       className={cn(
-        "relative flex cursor-pointer items-center justify-center rounded-[var(--radius)] border border-dashed border-border bg-background/80 text-center text-sm text-muted-foreground transition-colors hover:bg-background",
-        compact ? "min-h-12 px-3 py-2" : "min-h-28 px-4 py-6",
+        "relative flex cursor-pointer items-center justify-center overflow-hidden rounded-[var(--radius)] border text-center text-sm text-muted-foreground transition-colors",
+        imageUrl
+          ? compact
+            ? "h-12 w-12 border-border bg-background"
+            : "min-h-28 border-border bg-card"
+          : "border-dashed border-border bg-background/80 hover:bg-background",
+        compact ? "px-3 py-2" : "px-4 py-6",
+        !imageUrl && compact ? "min-h-12" : "",
+        !imageUrl && !compact ? "min-h-28" : "",
         isDragging ? "border-primary bg-primary/10 text-foreground" : "",
       )}
       onDragOver={(event) => {
@@ -2206,10 +2167,45 @@ function ImageDropZone({
         className="sr-only"
         onChange={(event) => handleFiles(event.target.files)}
       />
-      <div className="grid gap-1">
-        <div className="font-medium text-foreground">{copy}</div>
-        {!compact ? <div>PNG, JPG, or WebP</div> : null}
-      </div>
+      {imageUrl ? (
+        <>
+          <div
+            className={cn(
+              "absolute inset-0",
+              imagePresentation === "contain" ? "bg-contain bg-center bg-no-repeat" : "bg-cover bg-center",
+            )}
+            style={{
+              backgroundImage: overlayImage
+                ? `linear-gradient(rgba(39, 28, 23, 0.44), rgba(39, 28, 23, 0.44)), url(${imageUrl})`
+                : `url(${imageUrl})`,
+            }}
+          />
+          {!compact ? (
+            <div className="absolute inset-x-0 bottom-0 bg-background/90 px-3 py-2 text-xs text-foreground">
+              Click or drop to replace
+            </div>
+          ) : null}
+          {onRemove ? (
+            <button
+              type="button"
+              className="absolute right-2 top-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background text-foreground shadow-sm"
+              onClick={(event) => {
+                event.preventDefault()
+                event.stopPropagation()
+                onRemove()
+              }}
+              aria-label="Remove image"
+            >
+              ×
+            </button>
+          ) : null}
+        </>
+      ) : (
+        <div className="grid gap-1">
+          <div className="font-medium text-foreground">{copy}</div>
+          {!compact ? <div>PNG, JPG, or WebP</div> : null}
+        </div>
+      )}
     </label>
   )
 }
@@ -2226,12 +2222,12 @@ function ColorField({
   return (
     <FieldShell>
       <Label className={fieldLabelClassName}>{label}</Label>
-      <div className="grid grid-cols-[54px_minmax(0,1fr)] items-center gap-3">
+      <div className="grid gap-3">
         <input
           type="color"
           value={value}
           onChange={(event) => onChange(event.target.value)}
-          className="h-10 w-[54px] rounded-[var(--radius)] border border-input bg-background p-1"
+          className="h-12 w-full rounded-[var(--radius)] border border-input bg-background p-1"
         />
         <Input value={value} onChange={(event) => onChange(event.target.value)} />
       </div>
