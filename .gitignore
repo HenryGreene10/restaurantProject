@@ -12,3 +12,4 @@ coverage
 .vercel
 .svelte-kit
 .aws-sam
+.codex

@@ -5,6 +5,15 @@ const mockFindTenantByHost = vi.fn()
 const mockFindTenantBySlug = vi.fn()
 const mockFindOrderById = vi.fn()
 const mockUpdateOrderStatus = vi.fn()
+const mockVerifyCustomerAccessToken = vi.fn()
+
+vi.mock('@repo/auth', async () => {
+  const actual = await vi.importActual<typeof import('@repo/auth')>('@repo/auth')
+  return {
+    ...actual,
+    verifyCustomerAccessToken: mockVerifyCustomerAccessToken,
+  }
+})
 
 vi.mock('@repo/data-access', () => ({
   createTenantScope: (restaurantId: string) => ({ restaurantId }),
@@ -37,6 +46,13 @@ describe('order status integration', () => {
     mockFindTenantBySlug.mockResolvedValue({
       id: 'rest_1',
       slug: 'demo'
+    })
+    mockVerifyCustomerAccessToken.mockReturnValue({
+      sub: 'cust_1',
+      customerId: 'cust_1',
+      restaurantId: 'rest_1',
+      phone: '+15555550123',
+      type: 'customer-access'
     })
   })
 
@@ -87,5 +103,100 @@ describe('order status integration', () => {
       'PREPARING',
       'admin_1'
     )
+  })
+
+  it('returns the customer order when the access token matches the order owner', async () => {
+    await import('./setup')
+    const { createApp } = await import('../app')
+
+    mockFindOrderById.mockResolvedValue({
+      id: 'order_1',
+      customerId: 'cust_1',
+      orderNumber: 42,
+      status: 'PREPARING',
+      paymentStatus: 'PENDING',
+      fulfillmentType: 'PICKUP',
+      subtotalCents: 1200,
+      taxCents: 100,
+      discountCents: 0,
+      totalCents: 1300,
+      notes: 'Extra napkins',
+      pickupTime: null,
+      createdAt: new Date('2026-04-01T12:00:00.000Z'),
+      updatedAt: new Date('2026-04-01T12:05:00.000Z'),
+      customerNameSnapshot: 'Casey',
+      customerPhoneSnapshot: '+15555550123',
+      items: [
+        {
+          id: 'item_1',
+          name: 'Pepperoni Slice',
+          variantName: null,
+          quantity: 2,
+          unitPriceCents: 600,
+          linePriceCents: 1200,
+          notes: null,
+          modifierSelections: []
+        }
+      ],
+      statusEvents: [
+        {
+          id: 'event_1',
+          fromStatus: null,
+          toStatus: 'PENDING',
+          source: 'customer',
+          createdAt: new Date('2026-04-01T12:00:00.000Z')
+        }
+      ]
+    })
+
+    const response = await request(createApp())
+      .get('/v1/orders/order_1')
+      .set('x-tenant-slug', 'demo')
+      .set('Authorization', 'Bearer access_123')
+
+    expect(response.status).toBe(200)
+    expect(mockVerifyCustomerAccessToken).toHaveBeenCalledTimes(1)
+    expect(response.body).toMatchObject({
+      id: 'order_1',
+      orderNumber: 42,
+      status: 'PREPARING',
+      customerNameSnapshot: 'Casey'
+    })
+  })
+
+  it('rejects customer order lookup when the order belongs to another customer', async () => {
+    await import('./setup')
+    const { createApp } = await import('../app')
+
+    mockFindOrderById.mockResolvedValue({
+      id: 'order_1',
+      customerId: 'cust_other',
+      orderNumber: 42,
+      status: 'PREPARING',
+      paymentStatus: 'PENDING',
+      fulfillmentType: 'PICKUP',
+      subtotalCents: 1200,
+      taxCents: 100,
+      discountCents: 0,
+      totalCents: 1300,
+      notes: null,
+      pickupTime: null,
+      createdAt: new Date('2026-04-01T12:00:00.000Z'),
+      updatedAt: new Date('2026-04-01T12:05:00.000Z'),
+      customerNameSnapshot: 'Casey',
+      customerPhoneSnapshot: '+15555550123',
+      items: [],
+      statusEvents: []
+    })
+
+    const response = await request(createApp())
+      .get('/v1/orders/order_1')
+      .set('x-tenant-slug', 'demo')
+      .set('Authorization', 'Bearer access_123')
+
+    expect(response.status).toBe(403)
+    expect(response.body).toEqual({
+      error: 'Order does not belong to this customer'
+    })
   })
 })
