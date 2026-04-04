@@ -1,6 +1,7 @@
 import express from 'express'
 import morgan from 'morgan'
 import cors from 'cors'
+import { requireClerkAuth } from './middleware/clerk-auth.js'
 import { tenantMiddleware } from './middleware/tenant.js'
 import { registerHealthRoutes } from './routes/health.js'
 import { registerMenuRoutes } from './routes/menu.js'
@@ -22,6 +23,8 @@ export function createApp() {
   app.use(tenantMiddleware)
   registerCustomerAuthRoutes(app)
   registerMenuRoutes(app)
+  app.use('/admin', requireClerkAuth)
+  app.use('/v1/assistant/command', requireClerkAuth)
   registerAdminBrandRoutes(app)
   registerAdminMenuRoutes(app)
   registerOrderRoutes(app)

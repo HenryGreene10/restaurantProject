@@ -5,6 +5,7 @@ import { Bot, CheckCircle2, ChefHat, Sparkles, UserRound } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import type { ClerkTokenGetter } from "@/lib/api"
 import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
 
@@ -71,8 +72,9 @@ function toHistory(messages: ChatMessage[]): AssistantHistoryMessage[] {
 export const AssistantPanel: React.FC<{
   className?: string
   tenantSlug: string
+  getToken: ClerkTokenGetter
   onRefreshTargets?: (targets: AssistantRefreshTarget[]) => void | Promise<void>
-}> = ({ className, tenantSlug, onRefreshTargets }) => {
+}> = ({ className, tenantSlug, getToken, onRefreshTargets }) => {
   const [input, setInput] = useState("")
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [isInitialized, setIsInitialized] = useState(false)
@@ -125,9 +127,15 @@ export const AssistantPanel: React.FC<{
     setIsSending(true)
 
     try {
+      const token = await getToken()
+      if (!token) {
+        throw new Error("Missing Clerk token")
+      }
+
       const response = await fetch("/api/v1/assistant/command", {
         method: "POST",
         headers: {
+          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
           "x-tenant-slug": tenantSlug,
         },

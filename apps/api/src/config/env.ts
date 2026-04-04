@@ -15,6 +15,7 @@ const EnvSchema = z
     BASE_DOMAIN: z.string().optional(),
     TENANT_DOMAIN_SUFFIX: z.string().optional(),
     ANTHROPIC_API_KEY: z.string(),
+    CLERK_SECRET_KEY: z.string(),
     TWILIO_ACCOUNT_SID: z.string(),
     TWILIO_AUTH_TOKEN: z.string(),
     TWILIO_VERIFY_SERVICE_SID: z.string(),

@@ -1,3 +1,5 @@
+import { adminFetchJson, type ClerkTokenGetter } from "./api"
+
 export type MenuVariant = {
   id: string
   name: string
@@ -60,18 +62,9 @@ export type MenuResponse = {
   categories: MenuCategory[]
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api"
-
-export async function fetchTenantMenu(tenantSlug: string) {
-  const response = await fetch(`${API_BASE_URL}/menu`, {
-    headers: {
-      "x-tenant-slug": tenantSlug,
-    },
+export async function fetchTenantMenu(tenantSlug: string, getToken: ClerkTokenGetter) {
+  return adminFetchJson<MenuResponse>("/menu", {
+    tenantSlug,
+    getToken,
   })
-
-  if (!response.ok) {
-    throw new Error(`Failed to load menu (${response.status})`)
-  }
-
-  return (await response.json()) as MenuResponse
 }

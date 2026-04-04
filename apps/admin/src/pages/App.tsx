@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react"
+import { UserButton, useAuth, useUser } from "@clerk/react"
 import {
   DndContext,
   PointerSensor,
@@ -19,6 +20,7 @@ import { Eye, EyeOff, ImageIcon, Palette, Sparkles, Star, Trash2 } from "lucide-
 
 import { AssistantPanel } from "../assistant/AssistantPanel"
 import { fetchTenantMenu, type MenuCategory, type MenuResponse } from "../lib/menu"
+import { adminFetchJson } from "../lib/api"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -301,54 +303,13 @@ function formatPrice(priceCents: number) {
   }).format(priceCents / 100)
 }
 
-async function patchAdminJson<T>(tenantSlug: string, path: string, body: unknown) {
-  const response = await fetch(`/api${path}`, {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-      "x-tenant-slug": tenantSlug,
-    },
-    body: JSON.stringify(body),
-  })
-
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { error?: string } | null
-    throw new Error(payload?.error ?? `Request failed (${response.status})`)
+function tenantSlugFromMetadata(value: unknown) {
+  if (typeof value !== "string") {
+    return null
   }
 
-  return response.json() as Promise<T>
-}
-
-async function postAdminJson<T>(tenantSlug: string, path: string, body: unknown) {
-  const response = await fetch(`/api${path}`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-tenant-slug": tenantSlug,
-    },
-    body: JSON.stringify(body),
-  })
-
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { error?: string } | null
-    throw new Error(payload?.error ?? `Request failed (${response.status})`)
-  }
-
-  return response.json() as Promise<T>
-}
-
-async function deleteAdmin(tenantSlug: string, path: string) {
-  const response = await fetch(`/api${path}`, {
-    method: "DELETE",
-    headers: {
-      "x-tenant-slug": tenantSlug,
-    },
-  })
-
-  if (!response.ok) {
-    const payload = (await response.json().catch(() => null)) as { error?: string } | null
-    throw new Error(payload?.error ?? `Request failed (${response.status})`)
-  }
+  const nextValue = value.trim()
+  return nextValue.length > 0 ? nextValue : null
 }
 
 function previewCategories(categories: MenuCategory[]) {
@@ -720,7 +681,10 @@ function PreviewPane({
 }
 
 export const App: React.FC = () => {
-  const [tenantSlug, setTenantSlug] = useState("joes-pizza")
+  const { getToken } = useAuth()
+  const { isLoaded, user } = useUser()
+  const tenantSlug = tenantSlugFromMetadata(user?.publicMetadata?.tenantSlug)
+  const linkedTenantSlug = tenantSlug ?? ""
   const [menuData, setMenuData] = useState<MenuResponse | null>(null)
   const [savedTheme, setSavedTheme] = useState<ThemeDraft>(defaultThemeDraft)
   const [draftTheme, setDraftTheme] = useState<ThemeDraft>(defaultThemeDraft)
@@ -732,7 +696,46 @@ export const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<AdminTab>("branding")
   const [activeShellView, setActiveShellView] = useState<AdminShellView>("assistant")
 
+  async function patchAdminJson<T>(path: string, body: unknown) {
+    return adminFetchJson<T>(path, {
+      method: "PATCH",
+      tenantSlug: linkedTenantSlug,
+      getToken,
+      body,
+    })
+  }
+
+  async function postAdminJson<T>(path: string, body: unknown) {
+    return adminFetchJson<T>(path, {
+      method: "POST",
+      tenantSlug: linkedTenantSlug,
+      getToken,
+      body,
+    })
+  }
+
+  async function deleteAdmin(path: string) {
+    await adminFetchJson<void>(path, {
+      method: "DELETE",
+      tenantSlug: linkedTenantSlug,
+      getToken,
+    })
+  }
+
   useEffect(() => {
+    if (!isLoaded) {
+      return
+    }
+
+    if (!tenantSlug) {
+      setIsLoading(false)
+      setMenuData(null)
+      setSavedTheme(defaultThemeDraft)
+      setDraftTheme(defaultThemeDraft)
+      setError(null)
+      return
+    }
+
     let cancelled = false
 
     async function load() {
@@ -742,7 +745,7 @@ export const App: React.FC = () => {
       setMenuActionMessage(null)
 
       try {
-        const menu = await fetchTenantMenu(tenantSlug)
+        const menu = await fetchTenantMenu(linkedTenantSlug, getToken)
         if (cancelled) return
         const nextTheme = buildDraft(menu)
         setMenuData(menu)
@@ -762,7 +765,49 @@ export const App: React.FC = () => {
     return () => {
       cancelled = true
     }
-  }, [tenantSlug])
+  }, [getToken, isLoaded, linkedTenantSlug, tenantSlug])
+
+  if (!isLoaded) {
+    return (
+      <main className="flex min-h-[100dvh] items-center justify-center bg-background px-6 py-10">
+        <div className="text-sm text-muted-foreground">Loading admin…</div>
+      </main>
+    )
+  }
+
+  if (!tenantSlug) {
+    return (
+      <motion.main
+        className="mx-auto flex min-h-[100dvh] w-full max-w-[960px] flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8"
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.22, ease: "easeOut" }}
+      >
+        <header className="flex items-start justify-between gap-4">
+          <div className="grid gap-3">
+            <Badge variant="outline" className="w-fit border-border bg-background text-muted-foreground">
+              Restaurant admin dashboard
+            </Badge>
+            <div className="grid gap-2">
+              <h1 className="font-heading text-4xl text-foreground sm:text-5xl">
+                Storefront customization
+              </h1>
+              <p className="max-w-3xl text-base leading-7 text-muted-foreground">
+                Your account needs a restaurant link before the admin tools can load.
+              </p>
+            </div>
+          </div>
+          <UserButton />
+        </header>
+
+        <SectionCard title="Account setup" subtitle="Restaurant access is managed through Clerk user metadata.">
+          <div className="rounded-[var(--radius)] border border-destructive/20 bg-destructive/10 px-4 py-4 text-sm text-destructive">
+            Your account is not linked to a restaurant. Contact support.
+          </div>
+        </SectionCard>
+      </motion.main>
+    )
+  }
 
   const categories = menuData?.categories ?? []
   const isThemeDirty = useMemo(
@@ -791,7 +836,11 @@ export const App: React.FC = () => {
   }
 
   const reloadMenuData = async (syncTheme = false) => {
-    const refreshedMenu = await fetchTenantMenu(tenantSlug)
+    if (!tenantSlug) {
+      throw new Error("Your account is not linked to a restaurant. Contact support.")
+    }
+
+    const refreshedMenu = await fetchTenantMenu(linkedTenantSlug, getToken)
     setMenuData(refreshedMenu)
     if (syncTheme) {
       const nextTheme = buildDraft(refreshedMenu)
@@ -802,23 +851,16 @@ export const App: React.FC = () => {
   }
 
   const saveTheme = async () => {
+    if (!tenantSlug) {
+      setSaveMessage("Your account is not linked to a restaurant. Contact support.")
+      return
+    }
+
     setIsSaving(true)
     setSaveMessage(null)
 
     try {
-      const response = await fetch("/api/admin/brand-config", {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          "x-tenant-slug": tenantSlug,
-        },
-        body: JSON.stringify(themePayload(draftTheme)),
-      })
-
-      if (!response.ok) {
-        const payload = (await response.json().catch(() => null)) as { error?: string } | null
-        throw new Error(payload?.error ?? `Failed to save theme (${response.status})`)
-      }
+      await patchAdminJson("/admin/brand-config", themePayload(draftTheme))
 
       await reloadMenuData(true)
       setSaveMessage("Storefront settings saved.")
@@ -844,7 +886,7 @@ export const App: React.FC = () => {
       setMenuActionMessage("Saving category order…")
       await Promise.all(
         reordered.map((category, index) =>
-          patchAdminJson(tenantSlug, `/admin/menu/categories/${category.id}`, {
+          patchAdminJson(`/admin/menu/categories/${category.id}`, {
             sortOrder: index,
           }),
         ),
@@ -873,7 +915,7 @@ export const App: React.FC = () => {
 
     try {
       setMenuActionMessage("Saving category visibility…")
-      await patchAdminJson(tenantSlug, `/admin/menu/categories/${categoryId}/availability`, {
+      await patchAdminJson(`/admin/menu/categories/${categoryId}/availability`, {
         visibility,
       })
       await reloadMenuData()
@@ -912,7 +954,7 @@ export const App: React.FC = () => {
 
     try {
       setMenuActionMessage("Saving item order…")
-      await patchAdminJson(tenantSlug, `/admin/menu/categories/${categoryId}/items/reorder`, {
+      await patchAdminJson(`/admin/menu/categories/${categoryId}/items/reorder`, {
         itemIds: nextItemIds,
       })
       await reloadMenuData()
@@ -953,7 +995,7 @@ export const App: React.FC = () => {
 
     try {
       setMenuActionMessage("Saving item settings…")
-      await patchAdminJson(tenantSlug, `/admin/menu/items/${itemId}`, body)
+      await patchAdminJson(`/admin/menu/items/${itemId}`, body)
       await reloadMenuData()
       setMenuActionMessage(successMessage)
     } catch (nextError) {
@@ -992,7 +1034,7 @@ export const App: React.FC = () => {
             ? "Marking item sold out…"
             : "Updating item visibility…",
       )
-      await patchAdminJson(tenantSlug, `/admin/menu/items/${itemId}/availability`, { visibility })
+      await patchAdminJson(`/admin/menu/items/${itemId}/availability`, { visibility })
       await reloadMenuData()
       setMenuActionMessage(
         visibility === "HIDDEN"
@@ -1016,7 +1058,7 @@ export const App: React.FC = () => {
 
     try {
       setMenuActionMessage("Adding item…")
-      const created = await postAdminJson<{ id: string }>(tenantSlug, "/admin/menu/items", {
+      const created = await postAdminJson<{ id: string }>("/admin/menu/items", {
         name: input.name,
         description: input.description || null,
         basePriceCents: input.priceCents,
@@ -1029,7 +1071,7 @@ export const App: React.FC = () => {
         categoryIds: [categoryId],
       })
 
-      await patchAdminJson(tenantSlug, `/admin/menu/categories/${categoryId}/items/reorder`, {
+      await patchAdminJson(`/admin/menu/categories/${categoryId}/items/reorder`, {
         itemIds: [...category.categoryItems.map((entry) => entry.item.id), created.id],
       })
 
@@ -1051,7 +1093,7 @@ export const App: React.FC = () => {
 
     try {
       setMenuActionMessage("Deleting item…")
-      await deleteAdmin(tenantSlug, `/admin/menu/items/${itemId}`)
+      await deleteAdmin(`/admin/menu/items/${itemId}`)
       await reloadMenuData()
       setMenuActionMessage("Item deleted.")
     } catch (nextError) {
@@ -1068,14 +1110,12 @@ export const App: React.FC = () => {
       >
         <div className="grid gap-5">
           <div className="grid gap-2">
-            <Label htmlFor="tenant-slug" className="text-sm text-muted-foreground">
-              Tenant slug
+            <Label className="text-sm text-muted-foreground">
+              Linked restaurant
             </Label>
-            <Input
-              id="tenant-slug"
-              value={tenantSlug}
-              onChange={(event) => setTenantSlug(event.target.value)}
-            />
+            <div className="rounded-[var(--radius)] border border-border/70 bg-background px-4 py-3 text-sm text-foreground">
+              {linkedTenantSlug}
+            </div>
           </div>
 
           {error ? (
@@ -1154,7 +1194,8 @@ export const App: React.FC = () => {
   const assistantPanel = (
     <AssistantPanel
       className="h-full"
-      tenantSlug={tenantSlug}
+      getToken={getToken}
+      tenantSlug={linkedTenantSlug}
       onRefreshTargets={(targets) => {
         if (targets.includes("menu")) {
           void reloadMenuData(true)
@@ -1171,18 +1212,23 @@ export const App: React.FC = () => {
       transition={{ duration: 0.22, ease: "easeOut" }}
     >
       <header className="grid gap-4">
-        <Badge variant="outline" className="w-fit border-border bg-background text-muted-foreground">
-          Restaurant admin dashboard
-        </Badge>
-        <div className="grid gap-3">
-          <h1 className="font-heading text-4xl text-foreground sm:text-5xl">
-            Storefront customization
-          </h1>
-          <p className="max-w-4xl text-base leading-7 text-muted-foreground">
-            Tune the customer-facing storefront in one place. Theme, hero content, promo
-            messaging, category visibility, featured states, and ordering all live here while
-            kitchen workflows stay standardized.
-          </p>
+        <div className="flex items-start justify-between gap-4">
+          <div className="grid gap-4">
+            <Badge variant="outline" className="w-fit border-border bg-background text-muted-foreground">
+              Restaurant admin dashboard
+            </Badge>
+            <div className="grid gap-3">
+              <h1 className="font-heading text-4xl text-foreground sm:text-5xl">
+                Storefront customization
+              </h1>
+              <p className="max-w-4xl text-base leading-7 text-muted-foreground">
+                Tune the customer-facing storefront in one place. Theme, hero content, promo
+                messaging, category visibility, featured states, and ordering all live here while
+                kitchen workflows stay standardized.
+              </p>
+            </div>
+          </div>
+          <UserButton />
         </div>
       </header>
 
