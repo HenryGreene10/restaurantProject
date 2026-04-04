@@ -1,7 +1,9 @@
 import { Clock3, MapPin, ShoppingBag } from "lucide-react"
+import { useEffect } from "react"
 
 import { Button } from "../components/Button"
 import type { CustomerOrder } from "../lib/orders"
+import { clearActiveOrder, readActiveOrder } from "./activeOrder"
 import { useOrderStatusPoll } from "./useOrderStatusPoll"
 
 function formatPrice(priceCents: number) {
@@ -50,6 +52,24 @@ export function OrderStatusPage({
     tenantSlug,
     orderId,
   })
+
+  useEffect(() => {
+    const status = orderQuery.data?.status
+    if (status !== "COMPLETED" && status !== "CANCELLED") {
+      return
+    }
+
+    const activeOrder = readActiveOrder()
+    if (!activeOrder) {
+      return
+    }
+
+    clearActiveOrder({
+      orderId,
+      tenantSlug,
+      placedAt: activeOrder.placedAt,
+    })
+  }, [orderId, orderQuery.data?.status, tenantSlug])
 
   return (
     <main className="min-h-screen bg-brand-background text-brand-text">

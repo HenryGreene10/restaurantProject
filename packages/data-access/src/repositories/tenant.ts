@@ -134,6 +134,42 @@ function badRequest(message: string): Error {
   return new Error(message)
 }
 
+function titleCaseWord(word: string) {
+  if (!word) return word
+  return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+}
+
+function formatTenantSlugAsName(slug: string) {
+  return slug
+    .split(/[-_]+/)
+    .filter(Boolean)
+    .map((part, index, parts) => {
+      if (index === 0 && parts.length > 1 && /^[a-z]+s$/i.test(part) && part.length > 3) {
+        const stem = part.slice(0, -1)
+        return `${titleCaseWord(stem)}'s`
+      }
+
+      return titleCaseWord(part)
+    })
+    .join(" ")
+}
+
+function resolveRestaurantDisplayName(input: {
+  appTitle?: string | null
+  restaurantSlug?: string | null
+  restaurantName?: string | null
+}) {
+  if (input.appTitle?.trim()) {
+    return input.appTitle.trim()
+  }
+
+  if (input.restaurantSlug?.trim()) {
+    return formatTenantSlugAsName(input.restaurantSlug.trim())
+  }
+
+  return input.restaurantName?.trim() || "Restaurant"
+}
+
 async function ensureDefaultMenu(
   prisma: Prisma.TransactionClient,
   restaurantId: string,
@@ -1237,24 +1273,6 @@ export function createTenantDataAccess(scope: TenantScope) {
           }),
         })
 
-        if (nextStatus === "READY") {
-          await prisma.notificationJob.create({
-            data: scoped.scopeCreate({
-              orderId,
-              customerId: existing.customerId ?? null,
-              type: "ORDER_READY" satisfies NotificationJobType,
-              status: "PENDING",
-              payload: {
-                orderId,
-                orderNumber: existing.orderNumber,
-                restaurantName: existing.restaurant.name,
-                customerPhone:
-                  existing.customerPhoneSnapshot ?? existing.customer?.phone ?? null,
-              },
-            }),
-          })
-        }
-
         return prisma.order.findFirst({
           where: scoped.scopeWhere({ id: orderId }),
           include: {
@@ -1263,6 +1281,67 @@ export function createTenantDataAccess(scope: TenantScope) {
               orderBy: [{ createdAt: "asc" }],
             },
           },
+        })
+      })
+    },
+
+    async enqueueStatusNotification(
+      orderId: string,
+      nextStatus: OrderStatus,
+    ) {
+      return withTenantConnection(scope.restaurantId, async (prisma) => {
+        const existing = await prisma.order.findFirst({
+          where: scoped.scopeWhere({ id: orderId }),
+          include: {
+            restaurant: true,
+            customer: true,
+          },
+        })
+
+        if (!existing) {
+          return null
+        }
+
+        const customerPhone =
+          existing.customerPhoneSnapshot ?? existing.customer?.phone ?? null
+        if (!customerPhone) {
+          return null
+        }
+
+        const brandConfig = await prisma.brandConfig.findUnique({
+          where: {
+            restaurantId: scope.restaurantId,
+          },
+        })
+
+        const rawConfig =
+          brandConfig?.config &&
+          typeof brandConfig.config === "object" &&
+          !Array.isArray(brandConfig.config)
+            ? (brandConfig.config as Record<string, unknown>)
+            : {}
+
+        const restaurantName = resolveRestaurantDisplayName({
+          appTitle:
+            typeof rawConfig.appTitle === "string" ? rawConfig.appTitle : null,
+          restaurantSlug: existing.restaurant.slug,
+          restaurantName: existing.restaurant.name,
+        })
+
+        return prisma.notificationJob.create({
+          data: scoped.scopeCreate({
+            orderId,
+            customerId: existing.customerId ?? null,
+            type: "ORDER_STATUS" satisfies NotificationJobType,
+            status: "PENDING",
+            payload: {
+              orderId,
+              orderNumber: existing.orderNumber,
+              customerPhone,
+              restaurantName,
+              newStatus: nextStatus,
+            },
+          }),
         })
       })
     },

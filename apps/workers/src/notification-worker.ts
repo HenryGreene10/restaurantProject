@@ -1,5 +1,11 @@
 import { createWorkerDataAccess } from '@repo/data-access'
-import { formatOrderReadySms, sendSMS, type SmsConfig } from '@repo/notifications'
+import {
+  formatOrderCancelledSms,
+  formatOrderConfirmedSms,
+  formatOrderReadySms,
+  sendSMS,
+  type SmsConfig
+} from '@repo/notifications'
 
 type NotificationWorkerDeps = {
   dataAccess: ReturnType<typeof createWorkerDataAccess>
@@ -15,7 +21,7 @@ export async function processNotificationBatch(
 
   for (const job of jobs) {
     try {
-      if (job.type !== 'ORDER_READY') {
+      if (job.type !== 'ORDER_READY' && job.type !== 'ORDER_STATUS') {
         throw new Error(`Unsupported notification job type: ${job.type}`)
       }
 
@@ -46,12 +52,56 @@ export async function processNotificationBatch(
         throw new Error('Missing order number for notification job')
       }
 
+      const restaurantName =
+        typeof job.payload === 'object' &&
+        job.payload &&
+        'restaurantName' in job.payload &&
+        typeof job.payload.restaurantName === 'string'
+          ? job.payload.restaurantName
+          : job.restaurant.name
+
+      const body =
+        job.type === 'ORDER_READY'
+          ? formatOrderReadySms({
+              orderNumber,
+              restaurantName,
+            })
+          : (() => {
+              const nextStatus =
+                typeof job.payload === 'object' &&
+                job.payload &&
+                'newStatus' in job.payload &&
+                typeof job.payload.newStatus === 'string'
+                  ? job.payload.newStatus
+                  : null
+
+              if (nextStatus === 'CONFIRMED') {
+                return formatOrderConfirmedSms({
+                  orderNumber,
+                  restaurantName,
+                })
+              }
+
+              if (nextStatus === 'READY') {
+                return formatOrderReadySms({
+                  orderNumber,
+                  restaurantName,
+                })
+              }
+
+              if (nextStatus === 'CANCELLED') {
+                return formatOrderCancelledSms({
+                  orderNumber,
+                  restaurantName,
+                })
+              }
+
+              throw new Error(`Unsupported ORDER_STATUS notification status: ${nextStatus}`)
+            })()
+
       await sendSMS(deps.smsConfig, {
         to: phone,
-        body: formatOrderReadySms({
-          orderNumber,
-          restaurantName: job.restaurant.name,
-        }),
+        body,
       })
 
       await deps.dataAccess.markNotificationSent(job.id)

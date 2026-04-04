@@ -16,6 +16,12 @@ type OrderStatus =
   | 'COMPLETED'
   | 'CANCELLED'
 
+const SMS_NOTIFICATION_STATUSES = new Set<OrderStatus>([
+  'CONFIRMED',
+  'READY',
+  'CANCELLED',
+])
+
 function parseOrderStatus(value: unknown): OrderStatus | undefined {
   if (
     value === 'PENDING' ||
@@ -270,6 +276,21 @@ export function registerOrderRoutes(r: Router) {
         currentStatus: transition.currentStatus,
         nextStatus: transition.nextStatus,
       })
+    }
+
+    if (SMS_NOTIFICATION_STATUSES.has(nextStatus)) {
+      try {
+        await tenantDataAccess.orders.enqueueStatusNotification(
+          routeParam(req, 'orderId'),
+          nextStatus
+        )
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Failed to enqueue order status SMS notification'
+        console.error(message)
+      }
     }
 
     return res.json(transition.order)

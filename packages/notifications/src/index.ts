@@ -38,9 +38,23 @@ export async function sendSMS(config: SmsConfig, sms: SMS): Promise<void> {
   }
 }
 
+export function formatOrderConfirmedSms(input: {
+  orderNumber: number
+  restaurantName: string
+}) {
+  return `Your order #${input.orderNumber} at ${input.restaurantName} is confirmed and being prepared! We'll text you when it's ready.`
+}
+
 export function formatOrderReadySms(input: {
   orderNumber: number
   restaurantName: string
 }) {
-  return `Your order #${input.orderNumber} from ${input.restaurantName} is ready for pickup!`
+  return `Your order #${input.orderNumber} at ${input.restaurantName} is ready for pickup! Come grab it 🎉`
+}
+
+export function formatOrderCancelledSms(input: {
+  orderNumber: number
+  restaurantName: string
+}) {
+  return `Your order #${input.orderNumber} at ${input.restaurantName} has been cancelled. Please contact the restaurant for help.`
 }

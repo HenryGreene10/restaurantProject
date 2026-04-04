@@ -18,6 +18,13 @@ import { createPickupOrder } from "../lib/orders"
 import { fetchTenantMenu } from "../lib/menu"
 import type { MenuCategory, MenuItem } from "../lib/menu"
 import { CartSummary } from "./CartSummary"
+import {
+  dismissActiveOrderForSession,
+  isActiveOrderDismissed,
+  readActiveOrder,
+  type ActiveOrderRecord,
+  writeActiveOrder,
+} from "./activeOrder"
 import { useCheckoutStore } from "./checkoutStore"
 import { ItemCustomizationDrawer } from "./ItemCustomizationDrawer"
 import { type CartItem, useCartStore } from "./cartStore"
@@ -82,6 +89,7 @@ export function StorefrontPage({
   const [cartOpen, setCartOpen] = useState(false)
   const [submittingOrder, setSubmittingOrder] = useState(false)
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null)
+  const [activeOrderBanner, setActiveOrderBanner] = useState<ActiveOrderRecord | null>(null)
   const cartItems = useCartStore((state) => state.items)
   const addItem = useCartStore((state) => state.addItem)
   const updateCartItem = useCartStore((state) => state.updateItem)
@@ -172,6 +180,16 @@ export function StorefrontPage({
     }
   }, [customerPhone, customerSession.customerPhone, setCustomerPhone])
 
+  useEffect(() => {
+    const activeOrder = readActiveOrder()
+    if (!activeOrder || activeOrder.tenantSlug !== tenantSlug || isActiveOrderDismissed(activeOrder)) {
+      setActiveOrderBanner(null)
+      return
+    }
+
+    setActiveOrderBanner(activeOrder)
+  }, [tenantSlug])
+
   async function submitPickupOrder(payload: {
     customerName: string
     customerPhone: string
@@ -188,6 +206,15 @@ export function StorefrontPage({
         orderNotes: payload.orderNotes,
         items: cartItems,
       })
+
+      const activeOrder = {
+        orderId: order.id,
+        tenantSlug,
+        placedAt: new Date().toISOString(),
+      } satisfies ActiveOrderRecord
+
+      writeActiveOrder(activeOrder)
+      setActiveOrderBanner(activeOrder)
 
       clearCart()
       resetAfterOrder()
@@ -230,6 +257,35 @@ export function StorefrontPage({
                   Direct ordering
                 </Badge>
               </div>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {activeOrderBanner ? (
+          <Card className="border-border/80 bg-card shadow-sm">
+            <CardContent className="flex flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6">
+              <div className="text-sm text-muted-foreground">
+                You have an active order —{" "}
+                <button
+                  type="button"
+                  className="font-semibold text-foreground underline"
+                  onClick={() => onViewOrder(activeOrderBanner.orderId)}
+                >
+                  track it here
+                </button>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => {
+                  dismissActiveOrderForSession(activeOrderBanner)
+                  setActiveOrderBanner(null)
+                }}
+                aria-label="Dismiss active order banner"
+              >
+                <span aria-hidden="true">×</span>
+              </Button>
             </CardContent>
           </Card>
         ) : null}
