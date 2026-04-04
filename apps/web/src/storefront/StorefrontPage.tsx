@@ -20,7 +20,7 @@ import type { MenuCategory, MenuItem } from "../lib/menu"
 import { CartSummary } from "./CartSummary"
 import { useCheckoutStore } from "./checkoutStore"
 import { ItemCustomizationDrawer } from "./ItemCustomizationDrawer"
-import { useCartStore } from "./cartStore"
+import { type CartItem, useCartStore } from "./cartStore"
 import { useTheme } from "../theme/ThemeProvider"
 import { useThemePlaygroundStore } from "../theme/store"
 import type { CustomerSessionController } from "./useCustomerSession"
@@ -72,14 +72,19 @@ export function StorefrontPage({
   customerSession: CustomerSessionController
   onViewOrder: (orderId: string) => void
 }) {
+  const showDevBanner =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("dev") === "true"
   const { theme, isLoading: isThemeLoading, errorMessage: themeError } = useTheme()
   const { tenantSlug, source } = useThemePlaygroundStore()
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null)
+  const [editingCartItem, setEditingCartItem] = useState<CartItem | null>(null)
   const [cartOpen, setCartOpen] = useState(false)
   const [submittingOrder, setSubmittingOrder] = useState(false)
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null)
   const cartItems = useCartStore((state) => state.items)
   const addItem = useCartStore((state) => state.addItem)
+  const updateCartItem = useCartStore((state) => state.updateItem)
   const removeItem = useCartStore((state) => state.removeItem)
   const incrementQuantity = useCartStore((state) => state.incrementQuantity)
   const decrementQuantity = useCartStore((state) => state.decrementQuantity)
@@ -109,6 +114,15 @@ export function StorefrontPage({
         category.categoryItems
           .map((entry) => entry.item)
           .filter((item) => item.isFeatured),
+      ),
+    [categories],
+  )
+  const itemLookup = useMemo(
+    () =>
+      new Map(
+        categories
+          .flatMap((category) => category.categoryItems.map((entry) => entry.item))
+          .map((item) => [item.id, item] as const),
       ),
     [categories],
   )
@@ -166,46 +180,14 @@ export function StorefrontPage({
     setSubmittingOrder(true)
 
     try {
-      let accessToken = customerSession.accessToken
-
-      if (!accessToken) {
-        const restored = await customerSession.restoreSession()
-        accessToken = restored?.accessToken ?? null
-      }
-
-      if (!accessToken) {
-        throw new Error("Verify your phone number before placing the pickup order.")
-      }
-
-      let order
-      try {
-        order = await createPickupOrder({
-          tenantSlug,
-          accessToken,
-          customerName: payload.customerName,
-          customerPhone: payload.customerPhone,
-          orderNotes: payload.orderNotes,
-          items: cartItems,
-        })
-      } catch (error) {
-        if (error instanceof Error && error.message.includes("(401)")) {
-          const restored = await customerSession.restoreSession()
-          if (!restored?.accessToken) {
-            throw new Error("Your customer session expired. Verify your phone number again.")
-          }
-
-          order = await createPickupOrder({
-            tenantSlug,
-            accessToken: restored.accessToken,
-            customerName: payload.customerName,
-            customerPhone: payload.customerPhone,
-            orderNotes: payload.orderNotes,
-            items: cartItems,
-          })
-        } else {
-          throw error
-        }
-      }
+      const order = await createPickupOrder({
+        tenantSlug,
+        accessToken: customerSession.accessToken,
+        customerName: payload.customerName,
+        customerPhone: payload.customerPhone,
+        orderNotes: payload.orderNotes,
+        items: cartItems,
+      })
 
       clearCart()
       resetAfterOrder()
@@ -232,23 +214,25 @@ export function StorefrontPage({
       transition={{ duration: 0.24, ease: "easeOut" }}
     >
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-8">
-        <Card className="border-border/80 bg-card shadow-sm">
-          <CardContent className="flex flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6">
-            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-              <ShieldCheck className="h-4 w-4" />
-              <span>
-                Live storefront for tenant{" "}
-                <span className="font-semibold text-foreground">{tenantSlug}</span>
-              </span>
-            </div>
-            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-              <span>Source: {source === "api" ? "Saved admin config" : "Preset preview"}</span>
-              <Badge variant="outline" className="border-border bg-background text-muted-foreground">
-                Direct ordering
-              </Badge>
-            </div>
-          </CardContent>
-        </Card>
+        {showDevBanner ? (
+          <Card className="border-border/80 bg-card shadow-sm">
+            <CardContent className="flex flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6">
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <ShieldCheck className="h-4 w-4" />
+                <span>
+                  Live storefront for tenant{" "}
+                  <span className="font-semibold text-foreground">{tenantSlug}</span>
+                </span>
+              </div>
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <span>Source: {source === "api" ? "Saved admin config" : "Preset preview"}</span>
+                <Badge variant="outline" className="border-border bg-background text-muted-foreground">
+                  Direct ordering
+                </Badge>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
 
         <AnimatePresence mode="wait">
           {showLoadingSkeletons ? (
@@ -378,7 +362,10 @@ export function StorefrontPage({
                         key={`featured-${item.id}`}
                         item={item}
                         featured
-                        onCustomize={() => setSelectedItem(item)}
+                        onCustomize={() => {
+                          setEditingCartItem(null)
+                          setSelectedItem(item)
+                        }}
                       />
                     ))}
                   </div>
@@ -415,7 +402,10 @@ export function StorefrontPage({
                             <MenuItemCard
                               key={entry.id}
                               item={entry.item}
-                              onCustomize={() => setSelectedItem(entry.item)}
+                              onCustomize={() => {
+                                setEditingCartItem(null)
+                                setSelectedItem(entry.item)
+                              }}
                             />
                           ))}
                         </div>
@@ -443,18 +433,29 @@ export function StorefrontPage({
 
       <ItemCustomizationDrawer
         item={selectedItem}
+        editingItem={editingCartItem}
         open={!!selectedItem}
-        onClose={() => setSelectedItem(null)}
-        onAddToCart={(payload) => addItem(payload)}
+        onClose={() => {
+          setSelectedItem(null)
+          setEditingCartItem(null)
+        }}
+        onAddToCart={(payload) => {
+          if (editingCartItem) {
+            updateCartItem(editingCartItem.lineId, payload)
+          } else {
+            addItem(payload)
+          }
+          setEditingCartItem(null)
+        }}
       />
 
       <CartSummary
         items={cartItems}
         customerName={customerName}
         customerPhone={customerPhone}
-        customerSession={customerSession}
         orderNotes={orderNotes}
         open={cartOpen}
+        hideStickyCartBar={cartOpen || !!selectedItem}
         submitting={submittingOrder}
         onOpen={() => setCartOpen(true)}
         onClose={() => setCartOpen(false)}
@@ -462,13 +463,19 @@ export function StorefrontPage({
         onDecrement={decrementQuantity}
         onRemove={removeItem}
         onClear={clearCart}
+        onEdit={(lineId) => {
+          const cartItem = cartItems.find((entry) => entry.lineId === lineId) ?? null
+          const menuItem = cartItem ? itemLookup.get(cartItem.itemId) ?? null : null
+          if (!cartItem || !menuItem) {
+            return
+          }
+          setEditingCartItem(cartItem)
+          setSelectedItem(menuItem)
+          setCartOpen(false)
+        }}
         onCustomerNameChange={setCustomerName}
         onCustomerPhoneChange={setCustomerPhone}
         onOrderNotesChange={setOrderNotes}
-        onRequestOtp={customerSession.sendCode}
-        onVerifyOtp={async (phone, code) => {
-          await customerSession.verifyCode(phone, code)
-        }}
         onCheckout={submitPickupOrder}
       />
     </motion.main>

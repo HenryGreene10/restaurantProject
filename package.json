@@ -12,7 +12,8 @@
     "build": "npm -ws run build --if-present",
     "lint": "echo add linter later",
     "format": "echo add formatter later",
-    "typecheck": "npm -ws run typecheck --if-present"
+    "typecheck": "npm -ws run typecheck --if-present",
+    "db:reset-seed": "npm -w packages/db run db:reset-seed"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

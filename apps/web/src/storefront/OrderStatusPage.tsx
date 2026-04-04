@@ -1,8 +1,7 @@
-import { Clock3, MapPin, RefreshCw, ShoppingBag } from "lucide-react"
+import { Clock3, MapPin, ShoppingBag } from "lucide-react"
 
 import { Button } from "../components/Button"
 import type { CustomerOrder } from "../lib/orders"
-import type { CustomerSessionController } from "./useCustomerSession"
 import { useOrderStatusPoll } from "./useOrderStatusPoll"
 
 function formatPrice(priceCents: number) {
@@ -41,23 +40,16 @@ function statusCopy(status: CustomerOrder["status"]) {
 export function OrderStatusPage({
   orderId,
   tenantSlug,
-  customerSession,
   onBackToMenu,
 }: {
   orderId: string
   tenantSlug: string
-  customerSession: CustomerSessionController
   onBackToMenu: () => void
 }) {
   const orderQuery = useOrderStatusPoll({
     tenantSlug,
     orderId,
-    accessToken: customerSession.accessToken,
   })
-
-  async function handleRestore() {
-    await customerSession.restoreSession()
-  }
 
   return (
     <main className="min-h-screen bg-brand-background text-brand-text">
@@ -72,36 +64,7 @@ export function OrderStatusPage({
           </button>
         </div>
 
-        {customerSession.isRestoring ? (
-          <section className="rounded-[32px] border border-brand-border/70 bg-brand-surface px-6 py-8 shadow-brand">
-            <div className="flex items-center gap-3 text-brand-muted">
-              <RefreshCw className="h-4 w-4 animate-spin" />
-              Restoring your customer session…
-            </div>
-          </section>
-        ) : null}
-
-        {!customerSession.isRestoring && !customerSession.accessToken ? (
-          <section className="rounded-[32px] border border-amber-200 bg-amber-50 px-6 py-8 shadow-brand">
-            <div className="text-sm font-semibold uppercase tracking-[0.12em] text-amber-700">
-              Session required
-            </div>
-            <div className="mt-2 text-lg font-semibold text-amber-950">
-              We need to restore your verified customer session before loading this order.
-            </div>
-            <div className="mt-4 flex flex-wrap gap-3">
-              <Button type="button" onClick={() => void handleRestore()}>
-                Restore session
-              </Button>
-              <Button type="button" className="bg-brand-surface text-brand-text" onClick={onBackToMenu}>
-                Return to storefront
-              </Button>
-            </div>
-          </section>
-        ) : null}
-
-        {!customerSession.isRestoring && customerSession.accessToken ? (
-          <>
+        <>
             {orderQuery.isLoading ? (
               <section className="rounded-[32px] border border-brand-border/70 bg-brand-surface px-6 py-8 shadow-brand">
                 Loading live order status…
@@ -233,7 +196,6 @@ export function OrderStatusPage({
               </section>
             ) : null}
           </>
-        ) : null}
       </div>
     </main>
   )

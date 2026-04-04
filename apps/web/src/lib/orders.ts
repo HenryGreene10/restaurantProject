@@ -57,10 +57,10 @@ type CreateOrderResponse = {
   status: CustomerOrderStatus
 }
 
-function authHeaders(tenantSlug: string, accessToken: string, includeJson = false) {
+function authHeaders(tenantSlug: string, accessToken?: string | null, includeJson = false) {
   return {
     ...(includeJson ? { "Content-Type": "application/json" } : {}),
-    Authorization: `Bearer ${accessToken}`,
+    ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
     "x-tenant-slug": tenantSlug,
   }
 }
@@ -71,7 +71,7 @@ function parseError(status: number, body: { error?: string } | null, fallback: s
 
 export async function createPickupOrder(input: {
   tenantSlug: string
-  accessToken: string
+  accessToken?: string | null
   customerName: string
   customerPhone: string
   orderNotes: string | null
@@ -126,6 +126,27 @@ export async function fetchCustomerOrder(input: {
 
   if (!response.ok || !body?.id) {
     throw new Error(parseError(response.status, body, "Failed to load order"))
+  }
+
+  return body as CustomerOrder
+}
+
+export async function fetchPublicOrderStatus(input: {
+  tenantSlug: string
+  orderId: string
+}) {
+  const response = await fetch(`${API_BASE_URL}/v1/orders/${input.orderId}/status`, {
+    headers: {
+      "x-tenant-slug": input.tenantSlug,
+    },
+  })
+
+  const body = (await response.json().catch(() => null)) as
+    | ({ error?: string } & Partial<CustomerOrder>)
+    | null
+
+  if (!response.ok || !body?.id) {
+    throw new Error(parseError(response.status, body, "Failed to load order status"))
   }
 
   return body as CustomerOrder

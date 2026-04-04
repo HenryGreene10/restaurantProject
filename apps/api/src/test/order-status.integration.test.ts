@@ -199,4 +199,78 @@ describe('order status integration', () => {
       error: 'Order does not belong to this customer'
     })
   })
+
+  it('returns public order status without customer auth', async () => {
+    await import('./setup')
+    const { createApp } = await import('../app')
+
+    mockFindOrderById.mockResolvedValue({
+      id: 'order_1',
+      customerId: 'cust_1',
+      orderNumber: 42,
+      status: 'PREPARING',
+      paymentStatus: 'PENDING',
+      fulfillmentType: 'PICKUP',
+      subtotalCents: 1200,
+      taxCents: 100,
+      discountCents: 0,
+      totalCents: 1300,
+      notes: 'Extra napkins',
+      pickupTime: null,
+      createdAt: new Date('2026-04-01T12:00:00.000Z'),
+      updatedAt: new Date('2026-04-01T12:05:00.000Z'),
+      customerNameSnapshot: 'Casey',
+      customerPhoneSnapshot: '+15555550123',
+      items: [
+        {
+          id: 'item_1',
+          name: 'Pepperoni Slice',
+          variantName: null,
+          quantity: 2,
+          unitPriceCents: 600,
+          linePriceCents: 1200,
+          notes: null,
+          modifierSelections: []
+        }
+      ],
+      statusEvents: [
+        {
+          id: 'event_1',
+          fromStatus: null,
+          toStatus: 'PENDING',
+          source: 'customer',
+          createdAt: new Date('2026-04-01T12:00:00.000Z')
+        }
+      ]
+    })
+
+    const response = await request(createApp())
+      .get('/v1/orders/order_1/status')
+      .set('x-tenant-slug', 'demo')
+
+    expect(response.status).toBe(200)
+    expect(response.body).toMatchObject({
+      id: 'order_1',
+      orderNumber: 42,
+      status: 'PREPARING',
+      customerNameSnapshot: 'Casey'
+    })
+    expect(mockVerifyCustomerAccessToken).not.toHaveBeenCalled()
+  })
+
+  it('returns 404 for public order status when the order is not found for the tenant', async () => {
+    await import('./setup')
+    const { createApp } = await import('../app')
+
+    mockFindOrderById.mockResolvedValue(null)
+
+    const response = await request(createApp())
+      .get('/v1/orders/order_missing/status')
+      .set('x-tenant-slug', 'demo')
+
+    expect(response.status).toBe(404)
+    expect(response.body).toEqual({
+      error: 'Order not found'
+    })
+  })
 })

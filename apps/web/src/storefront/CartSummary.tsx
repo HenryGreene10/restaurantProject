@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from "framer-motion"
 import { Minus, Plus, ShoppingBag, Trash2, UtensilsCrossed, X } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
+import { createPortal } from "react-dom"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -8,9 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import { CustomerOtpStep } from "./CustomerOtpStep"
 import { cartItemCount, cartLineTotal, cartSubtotal, type CartItem } from "./cartStore"
-import type { CustomerSessionController } from "./useCustomerSession"
 
 function formatPrice(priceCents: number) {
   return new Intl.NumberFormat("en-US", {
@@ -23,9 +22,9 @@ type CartSummaryProps = {
   items: CartItem[]
   customerName: string
   customerPhone: string
-  customerSession: CustomerSessionController
   orderNotes: string
   open: boolean
+  hideStickyCartBar?: boolean
   submitting?: boolean
   onOpen: () => void
   onClose: () => void
@@ -33,11 +32,10 @@ type CartSummaryProps = {
   onDecrement: (lineId: string) => void
   onRemove: (lineId: string) => void
   onClear: () => void
+  onEdit: (lineId: string) => void
   onCustomerNameChange: (value: string) => void
   onCustomerPhoneChange: (value: string) => void
   onOrderNotesChange: (value: string) => void
-  onRequestOtp: (phone: string) => Promise<void>
-  onVerifyOtp: (phone: string, code: string) => Promise<void>
   onCheckout: (payload: {
     customerName: string
     customerPhone: string
@@ -49,9 +47,9 @@ export function CartSummary({
   items,
   customerName,
   customerPhone,
-  customerSession,
   orderNotes,
   open,
+  hideStickyCartBar = false,
   submitting = false,
   onOpen,
   onClose,
@@ -59,56 +57,62 @@ export function CartSummary({
   onDecrement,
   onRemove,
   onClear,
+  onEdit,
   onCustomerNameChange,
   onCustomerPhoneChange,
   onOrderNotesChange,
-  onRequestOtp,
-  onVerifyOtp,
   onCheckout,
 }: CartSummaryProps) {
   const itemCount = cartItemCount(items)
   const subtotal = cartSubtotal(items)
   const [checkoutMode, setCheckoutMode] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
-  const [otpCode, setOtpCode] = useState("")
-  const [otpError, setOtpError] = useState<string | null>(null)
-  const [otpSent, setOtpSent] = useState(false)
-  const [otpPhone, setOtpPhone] = useState<string | null>(null)
-  const [sendingOtp, setSendingOtp] = useState(false)
-  const [verifyingOtp, setVerifyingOtp] = useState(false)
 
   const canContinue = items.length > 0
-  const normalizedPhone = customerPhone.trim()
-  const hasDraftDetails = customerName.trim().length >= 2 && normalizedPhone.length >= 8
-  const isPhoneVerified = customerSession.isVerifiedPhone(normalizedPhone)
-  const canSubmit = hasDraftDetails && isPhoneVerified && !submitting
-  const canSendCode = hasDraftDetails && !sendingOtp && !customerSession.isRestoring
-  const canVerifyCode = otpCode.trim().length >= 4 && !verifyingOtp
+  const trimmedName = customerName.trim()
+  const trimmedPhone = customerPhone.trim()
+  const hasDraftDetails = trimmedName.length > 0 && trimmedPhone.length >= 7
+  const canSubmit = hasDraftDetails && !submitting
 
   const taxEstimate = useMemo(() => Math.round(subtotal * 0.08), [subtotal])
   const totalEstimate = subtotal + taxEstimate
 
   useEffect(() => {
-    if (isPhoneVerified) {
-      setOtpCode("")
-      setOtpError(null)
-      setOtpSent(false)
-      setOtpPhone(null)
+    if (!open || typeof document === "undefined") return
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+
+    return () => {
+      document.body.style.overflow = previousOverflow
     }
-  }, [isPhoneVerified])
+  }, [open])
 
   useEffect(() => {
-    if (otpSent && otpPhone && normalizedPhone !== otpPhone) {
-      setOtpCode("")
-      setOtpError(null)
-      setOtpSent(false)
-      setOtpPhone(null)
-    }
-  }, [normalizedPhone, otpPhone, otpSent])
+    if (!checkoutMode || canSubmit) return
+    if (!trimmedName && !trimmedPhone) return
+
+    console.log("Checkout validation blocked", {
+      nameLength: trimmedName.length,
+      phoneLength: trimmedPhone.length,
+      hasName: trimmedName.length > 0,
+      hasPhone: trimmedPhone.length > 0,
+      hasDraftDetails,
+      submitting,
+    })
+  }, [canSubmit, checkoutMode, hasDraftDetails, submitting, trimmedName, trimmedPhone])
 
   async function handleCheckoutSubmit() {
     if (!canSubmit) {
-      setFormError("Verify your phone number before placing the pickup order.")
+      console.log("Checkout validation blocked", {
+        nameLength: trimmedName.length,
+        phoneLength: trimmedPhone.length,
+        hasName: trimmedName.length > 0,
+        hasPhone: trimmedPhone.length > 0,
+        hasDraftDetails,
+        submitting,
+      })
+      setFormError("Enter your name and phone number before placing the pickup order.")
       return
     }
 
@@ -116,73 +120,26 @@ export function CartSummary({
 
     try {
       await onCheckout({
-        customerName: customerName.trim(),
-        customerPhone: normalizedPhone,
+        customerName: trimmedName,
+        customerPhone: trimmedPhone,
         orderNotes: orderNotes.trim() ? orderNotes.trim() : null,
       })
       setCheckoutMode(false)
-      setOtpCode("")
-      setOtpError(null)
-      setOtpSent(false)
-      setOtpPhone(null)
       onClose()
     } catch (error) {
       setFormError(error instanceof Error ? error.message : "Failed to place order")
     }
   }
 
-  async function handleRequestOtp() {
-    if (!hasDraftDetails) {
-      setFormError("Enter a name and phone number before requesting a verification code.")
-      return
-    }
-
-    setFormError(null)
-    setOtpError(null)
-    setSendingOtp(true)
-
-    try {
-      await onRequestOtp(normalizedPhone)
-      setOtpSent(true)
-      setOtpPhone(normalizedPhone)
-    } catch (error) {
-      setOtpError(error instanceof Error ? error.message : "Failed to send verification code")
-    } finally {
-      setSendingOtp(false)
-    }
-  }
-
-  async function handleVerifyOtp() {
-    if (!canVerifyCode) {
-      setOtpError("Enter the verification code we sent to your phone.")
-      return
-    }
-
-    setOtpError(null)
-    setVerifyingOtp(true)
-
-    try {
-      await onVerifyOtp(normalizedPhone, otpCode.trim())
-    } catch (error) {
-      setOtpError(error instanceof Error ? error.message : "Failed to verify code")
-    } finally {
-      setVerifyingOtp(false)
-    }
-  }
-
   function handleClose() {
     setCheckoutMode(false)
     setFormError(null)
-    setOtpError(null)
-    setOtpCode("")
-    setOtpSent(false)
-    setOtpPhone(null)
     onClose()
   }
 
-  return (
+  const drawer = (
     <>
-      {itemCount > 0 ? (
+      {itemCount > 0 && !open && !hideStickyCartBar ? (
         <div className="fixed inset-x-4 bottom-4 z-30 md:inset-x-auto md:right-6 md:w-full md:max-w-md">
           <Card className="gap-0 border border-border/80 bg-card py-0 shadow-xl">
             <CardContent className="flex items-center justify-between gap-4 px-4 py-4 sm:px-6">
@@ -209,7 +166,7 @@ export function CartSummary({
         {open ? (
           <>
             <motion.div
-              className="fixed inset-0 z-40 bg-foreground/20 backdrop-blur-[2px]"
+              className="fixed inset-0 z-[9999] bg-[rgba(0,0,0,0.6)]"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -217,18 +174,18 @@ export function CartSummary({
             />
 
             <motion.aside
-              className="fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col border-l border-border bg-card shadow-2xl"
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
+              className="fixed bottom-0 left-0 right-0 z-[10000] flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-[12px] border border-neutral-200 bg-white text-black shadow-[0_25px_50px_rgba(0,0,0,0.3)] md:bottom-0 md:left-auto md:right-0 md:top-0 md:max-h-[100dvh] md:w-full md:max-w-[560px] md:rounded-none md:border-l"
+              initial={{ x: "100%", opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: "100%", opacity: 0 }}
               transition={{ type: "spring", stiffness: 280, damping: 28 }}
             >
-              <div className="flex items-center justify-between border-b border-border px-4 py-4 sm:px-6 sm:py-6">
+              <div className="shrink-0 flex items-center justify-between border-b border-neutral-200 bg-white px-4 py-4 sm:px-6 sm:py-6">
                 <div>
-                  <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                  <div className="text-xs font-medium uppercase tracking-[0.12em] text-neutral-500">
                     {checkoutMode ? "Pickup checkout" : "Cart"}
                   </div>
-                  <h2 className="mt-2 text-2xl text-foreground" style={{ fontFamily: "var(--font-heading)" }}>
+                  <h2 className="mt-2 text-2xl text-black" style={{ fontFamily: "var(--font-heading)" }}>
                     {checkoutMode ? "Review and place order" : "Your order"}
                   </h2>
                 </div>
@@ -242,7 +199,7 @@ export function CartSummary({
                 </Button>
               </div>
 
-              <div className="flex-1 space-y-6 overflow-y-auto px-4 py-4 sm:px-6 sm:py-6">
+              <div className="flex-1 space-y-6 overflow-y-auto bg-white px-4 py-4 sm:px-6 sm:py-6">
                 {items.length === 0 ? (
                   <Card size="sm" className="border border-dashed border-border bg-background shadow-none">
                     <CardContent className="flex min-h-48 flex-col items-center justify-center gap-4 px-6 py-12 text-center">
@@ -295,16 +252,27 @@ export function CartSummary({
 
                           <div className="text-right">
                             <div className="font-semibold text-foreground">{formatPrice(cartLineTotal(item))}</div>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => onRemove(item.lineId)}
-                              className="mt-2 h-auto px-0 text-xs text-muted-foreground hover:text-foreground"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                              Remove
-                            </Button>
+                            <div className="mt-2 flex items-center justify-end gap-3">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => onEdit(item.lineId)}
+                                className="h-auto px-0 text-xs text-muted-foreground hover:text-foreground"
+                              >
+                                Edit
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => onRemove(item.lineId)}
+                                className="h-auto px-0 text-xs text-muted-foreground hover:text-foreground"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                Remove
+                              </Button>
+                            </div>
                           </div>
                         </div>
 
@@ -378,18 +346,9 @@ export function CartSummary({
                               id="checkout-phone"
                               value={customerPhone}
                               onChange={(event) => onCustomerPhoneChange(event.target.value)}
-                              placeholder="+1 555 555 5555"
+                              placeholder="(555) 555-5555"
                             />
                           </div>
-                          {isPhoneVerified ? (
-                          <div className="rounded-[var(--radius)] border border-primary/20 bg-primary/10 px-4 py-4 text-sm text-foreground">
-                            Phone verified for this checkout.
-                          </div>
-                        ) : customerSession.isRestoring ? (
-                            <div className="rounded-[var(--radius)] border border-border bg-background px-4 py-4 text-sm text-muted-foreground">
-                              Restoring saved customer session…
-                            </div>
-                          ) : null}
                           <div className="grid gap-2">
                             <Label htmlFor="checkout-note">Order note</Label>
                             <textarea
@@ -403,24 +362,6 @@ export function CartSummary({
                           </div>
                         </CardContent>
                       </Card>
-
-                      {!isPhoneVerified && otpSent && otpPhone ? (
-                        <CustomerOtpStep
-                          code={otpCode}
-                          errorMessage={otpError}
-                          phone={otpPhone}
-                          sending={sendingOtp}
-                          verifying={verifyingOtp}
-                          onCodeChange={setOtpCode}
-                          onEditPhone={() => {
-                            setOtpSent(false)
-                            setOtpCode("")
-                            setOtpError(null)
-                            setOtpPhone(null)
-                          }}
-                          onResend={() => void handleRequestOtp()}
-                        />
-                      ) : null}
 
                       <Card size="sm" className="gap-4 border border-border/80 bg-card shadow-sm">
                         <CardHeader className="gap-2">
@@ -489,31 +430,13 @@ export function CartSummary({
                   </Button>
                 ) : (
                   <div className="grid gap-4">
-                    {isPhoneVerified ? (
-                      <Button
-                        className="min-h-11 w-full justify-center"
-                        disabled={!canSubmit}
-                        onClick={() => void handleCheckoutSubmit()}
-                      >
-                        {submitting ? "Placing order…" : "Place pickup order"}
-                      </Button>
-                    ) : otpSent ? (
-                      <Button
-                        className="min-h-11 w-full justify-center"
-                        disabled={!canVerifyCode}
-                        onClick={() => void handleVerifyOtp()}
-                      >
-                        {verifyingOtp ? "Verifying…" : "Verify code"}
-                      </Button>
-                    ) : (
-                      <Button
-                        className="min-h-11 w-full justify-center"
-                        disabled={!canSendCode}
-                        onClick={() => void handleRequestOtp()}
-                      >
-                        {sendingOtp ? "Sending code…" : "Send verification code"}
-                      </Button>
-                    )}
+                    <Button
+                      className="min-h-11 w-full justify-center"
+                      disabled={!canSubmit}
+                      onClick={() => void handleCheckoutSubmit()}
+                    >
+                      {submitting ? "Placing order…" : "Place pickup order"}
+                    </Button>
                     <Button
                       type="button"
                       variant="ghost"
@@ -531,4 +454,10 @@ export function CartSummary({
       </AnimatePresence>
     </>
   )
+
+  if (typeof document === "undefined") {
+    return drawer
+  }
+
+  return createPortal(drawer, document.body)
 }

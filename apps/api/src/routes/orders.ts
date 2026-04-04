@@ -111,6 +111,48 @@ function serializeCustomerOrder(order: NonNullable<Awaited<ReturnType<ReturnType
   }
 }
 
+function serializePublicOrderStatus(
+  order: NonNullable<Awaited<ReturnType<ReturnType<typeof createTenantDataAccess>['orders']['findById']>>>,
+) {
+  return {
+    id: order.id,
+    orderNumber: order.orderNumber,
+    status: order.status,
+    fulfillmentType: order.fulfillmentType,
+    subtotalCents: order.subtotalCents,
+    taxCents: order.taxCents,
+    totalCents: order.totalCents,
+    notes: order.notes,
+    pickupTime: order.pickupTime,
+    createdAt: order.createdAt,
+    updatedAt: order.updatedAt,
+    customerNameSnapshot: order.customerNameSnapshot,
+    items: order.items.map((item) => ({
+      id: item.id,
+      name: item.name,
+      variantName: item.variantName,
+      quantity: item.quantity,
+      unitPriceCents: item.unitPriceCents,
+      linePriceCents: item.linePriceCents,
+      notes: item.notes,
+      modifierSelections: item.modifierSelections.map((modifier) => ({
+        id: modifier.id,
+        groupName: modifier.groupName,
+        optionName: modifier.optionName,
+        priceDeltaCents: modifier.priceDeltaCents,
+        portion: modifier.portion
+      })),
+    })),
+    statusEvents: order.statusEvents.map((event) => ({
+      id: event.id,
+      fromStatus: event.fromStatus,
+      toStatus: event.toStatus,
+      source: event.source,
+      createdAt: event.createdAt,
+    })),
+  }
+}
+
 export function registerOrderRoutes(r: Router) {
   r.post('/v1/orders', async (req: TenantRequest, res) => {
     try {
@@ -175,6 +217,27 @@ export function registerOrderRoutes(r: Router) {
           : 400
 
       return res.status(status).json({ error: message })
+    }
+  })
+
+  r.get('/v1/orders/:orderId/status', async (req: TenantRequest, res) => {
+    try {
+      if (!req.tenant) return res.status(500).json({ error: 'No tenant in request' })
+
+      const tenantDataAccess = createTenantDataAccess(
+        createTenantScope(req.tenant.id)
+      )
+      const order = await tenantDataAccess.orders.findById(routeParam(req, 'orderId'))
+
+      if (!order) {
+        return res.status(404).json({ error: 'Order not found' })
+      }
+
+      return res.json(serializePublicOrderStatus(order))
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to load order status'
+      return res.status(400).json({ error: message })
     }
   })
 

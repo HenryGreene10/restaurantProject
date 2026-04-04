@@ -44,7 +44,6 @@ export function App() {
       <OrderStatusPage
         orderId={orderId}
         tenantSlug={tenantSlug}
-        customerSession={customerSession}
         onBackToMenu={() => navigate("/")}
       />
     )

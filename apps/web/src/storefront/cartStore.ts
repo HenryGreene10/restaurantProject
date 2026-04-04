@@ -26,6 +26,7 @@ type AddCartItemInput = Omit<CartItem, "lineId">
 type CartStore = {
   items: CartItem[]
   addItem: (item: AddCartItemInput) => void
+  updateItem: (lineId: string, item: AddCartItemInput) => void
   removeItem: (lineId: string) => void
   incrementQuantity: (lineId: string) => void
   decrementQuantity: (lineId: string) => void
@@ -57,6 +58,12 @@ export const useCartStore = create<CartStore>()(
               lineId: crypto.randomUUID(),
             },
           ],
+        })),
+      updateItem: (lineId, item) =>
+        set((state) => ({
+          items: state.items.map((entry) =>
+            entry.lineId === lineId ? { ...item, lineId } : entry,
+          ),
         })),
       removeItem: (lineId) =>
         set((state) => ({

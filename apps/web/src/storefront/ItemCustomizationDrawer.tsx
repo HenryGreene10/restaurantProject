@@ -1,18 +1,19 @@
 import { AnimatePresence, motion } from "framer-motion"
 import { Minus, Plus, X } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
+import { createPortal } from "react-dom"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
 import type { MenuItem } from "../lib/menu"
+import type { CartItem } from "./cartStore"
 
 type SelectionMap = Record<string, string[]>
 
 type DrawerProps = {
   item: MenuItem | null
+  editingItem?: CartItem | null
   open: boolean
   onClose: () => void
   onAddToCart: (payload: {
@@ -47,6 +48,7 @@ function defaultVariant(item: MenuItem | null) {
 
 export function ItemCustomizationDrawer({
   item,
+  editingItem = null,
   open,
   onClose,
   onAddToCart,
@@ -61,16 +63,31 @@ export function ItemCustomizationDrawer({
 
     const nextSelections: SelectionMap = {}
     for (const group of item.itemModifierGroups) {
-      if (group.isRequired && group.minSelections > 0 && group.group.options[0]) {
+      if (editingItem) {
+        nextSelections[group.group.id] = editingItem.modifiers
+          .filter((modifier) => modifier.groupId === group.group.id)
+          .map((modifier) => modifier.optionId)
+      } else if (group.isRequired && group.minSelections > 0 && group.group.options[0]) {
         nextSelections[group.group.id] = [group.group.options[0].id]
       }
     }
 
-    setSelectedVariantId(defaultVariant(item)?.id ?? null)
+    setSelectedVariantId(editingItem?.variantId ?? defaultVariant(item)?.id ?? null)
     setSelectedOptions(nextSelections)
-    setQuantity(1)
-    setNotes("")
-  }, [item, open])
+    setQuantity(editingItem?.quantity ?? 1)
+    setNotes(editingItem?.notes ?? "")
+  }, [editingItem, item, open])
+
+  useEffect(() => {
+    if (!open || typeof document === "undefined") return
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = "hidden"
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [open])
 
   const selectedVariant = useMemo(
     () =>
@@ -160,210 +177,213 @@ export function ItemCustomizationDrawer({
     onClose()
   }
 
-  return (
+  const modal = (
     <AnimatePresence>
       {open && item ? (
         <>
           <motion.div
-            className="fixed inset-0 z-40 bg-foreground/20 backdrop-blur-[2px]"
+            className="fixed inset-0 z-[9999] flex items-center justify-center bg-[rgba(0,0,0,0.6)] p-4"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-          />
-
-          <motion.aside
-            className="fixed inset-y-0 right-0 z-50 flex w-full max-w-xl flex-col overflow-y-auto border-l border-border bg-card shadow-2xl"
-            initial={{ x: "100%" }}
-            animate={{ x: 0 }}
-            exit={{ x: "100%" }}
-            transition={{ type: "spring", stiffness: 280, damping: 28 }}
           >
-            <div className="flex items-center justify-between border-b border-border px-4 py-4 sm:px-6 sm:py-6">
-              <div>
-                <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                  Customize item
+            <motion.div
+              className="relative z-[10000] flex w-[90%] max-w-[560px] flex-col overflow-hidden rounded-[12px] bg-white text-black shadow-[0_25px_50px_rgba(0,0,0,0.3)]"
+              style={{ maxHeight: "85vh" }}
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="shrink-0 border-b border-neutral-200 bg-white px-4 py-4 sm:px-6 sm:py-5">
+                <div className="flex items-center justify-between gap-4">
+                  <div>
+                    <div className="text-xs font-medium uppercase tracking-[0.12em] text-neutral-500">
+                      Customize item
+                    </div>
+                    <h2 className="mt-2 text-2xl text-black" style={{ fontFamily: "var(--font-heading)" }}>
+                      {item.name}
+                    </h2>
+                  </div>
+                  <Button type="button" variant="ghost" size="icon-sm" onClick={onClose}>
+                    <X className="h-5 w-5" />
+                  </Button>
                 </div>
-                <h2 className="mt-2 text-2xl text-foreground" style={{ fontFamily: "var(--font-heading)" }}>
-                  {item.name}
-                </h2>
               </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                onClick={onClose}
-              >
-                <X className="h-5 w-5" />
-              </Button>
-            </div>
 
-            <div className="flex-1 space-y-6 px-4 py-4 sm:px-6 sm:py-6">
-              {item.description ? (
-                <p className="max-w-2xl text-sm leading-6 text-muted-foreground">{item.description}</p>
-              ) : null}
+              <div className="flex-1 overflow-y-auto bg-white px-4 py-4 sm:px-6 sm:py-6">
+                <div className="grid gap-6 bg-white">
+                {item.description ? (
+                  <p className="max-w-2xl text-sm leading-6 text-neutral-600">{item.description}</p>
+                ) : null}
 
-              {item.variants.length > 0 ? (
+                {item.variants.length > 0 ? (
+                  <section className="space-y-4">
+                    <div className="space-y-2">
+                      <Badge variant="outline" className="border-neutral-200 bg-white text-neutral-600">
+                        Choose size
+                      </Badge>
+                      <div className="text-sm text-neutral-600">Pick the size that fits this order.</div>
+                    </div>
+                    <div className="grid gap-4">
+                      {item.variants.map((variant) => {
+                        const active = selectedVariant?.id === variant.id
+                        return (
+                          <Button
+                            key={variant.id}
+                            type="button"
+                            onClick={() => setSelectedVariantId(variant.id)}
+                            variant="outline"
+                            className={[
+                              "h-auto w-full items-start justify-between gap-4 px-4 py-4 text-left",
+                              active
+                                ? "border-primary bg-primary/10 text-black"
+                                : "border-neutral-200 bg-white text-black",
+                            ].join(" ")}
+                          >
+                            <span>
+                              <span className="block font-semibold">{variant.name}</span>
+                              {variant.isDefault ? (
+                                <span className="mt-2 block text-sm text-neutral-500">Default</span>
+                              ) : null}
+                            </span>
+                            <span className="font-semibold">{formatPrice(variant.priceCents)}</span>
+                          </Button>
+                        )
+                      })}
+                    </div>
+                  </section>
+                ) : null}
+
+                {item.itemModifierGroups.map((itemGroup) => (
+                  <section key={itemGroup.id} className="space-y-4">
+                    <div>
+                      <Badge variant="outline" className="border-neutral-200 bg-white text-neutral-600">
+                        {itemGroup.group.name}
+                      </Badge>
+                      <p className="mt-2 text-sm text-neutral-600">
+                        {itemGroup.group.selection === "SINGLE"
+                          ? "Choose one option"
+                          : `Choose up to ${itemGroup.maxSelections ?? itemGroup.group.options.length}`}
+                        {itemGroup.isRequired ? " · Required" : " · Optional"}
+                      </p>
+                    </div>
+
+                    <div className="grid gap-4">
+                      {itemGroup.group.options.map((option) => {
+                        const selected =
+                          selectedOptions[itemGroup.group.id]?.includes(option.id) ?? false
+
+                        return (
+                          <Button
+                            key={option.id}
+                            type="button"
+                            variant="outline"
+                            onClick={() =>
+                              itemGroup.group.selection === "SINGLE"
+                                ? selectSingle(itemGroup.group.id, option.id)
+                                : toggleMultiSelect(
+                                    itemGroup.group.id,
+                                    option.id,
+                                    itemGroup.maxSelections,
+                                  )
+                            }
+                            className={[
+                              "h-auto w-full items-start justify-between gap-4 px-4 py-4 text-left",
+                              selected
+                                ? "border-primary bg-primary/10 text-black"
+                                : "border-neutral-200 bg-white text-black",
+                            ].join(" ")}
+                          >
+                            <span className="font-medium">{option.name}</span>
+                            <span className="text-sm text-neutral-500">
+                              +{formatPrice(option.priceDeltaCents)}
+                            </span>
+                          </Button>
+                        )
+                      })}
+                    </div>
+                  </section>
+                ))}
+
                 <section className="space-y-4">
                   <div className="space-y-2">
-                    <Badge variant="outline" className="border-border bg-background text-muted-foreground">
-                      Choose size
+                    <Badge variant="outline" className="border-neutral-200 bg-white text-neutral-600">
+                      Notes
                     </Badge>
-                    <div className="text-sm text-muted-foreground">Pick the size that fits this order.</div>
+                    <Label htmlFor="item-notes">Special instructions</Label>
                   </div>
-                  <div className="grid gap-4">
-                    {item.variants.map((variant) => {
-                      const active = selectedVariant?.id === variant.id
-                      return (
-                        <Button
-                          key={variant.id}
-                          type="button"
-                          onClick={() => setSelectedVariantId(variant.id)}
-                          variant="outline"
-                          className={[
-                            "h-auto w-full items-start justify-between gap-4 px-4 py-4 text-left",
-                            active
-                              ? "border-primary bg-primary/10 text-foreground"
-                              : "border-border bg-card text-foreground",
-                          ].join(" ")}
-                        >
-                          <span>
-                            <span className="block font-semibold">{variant.name}</span>
-                            {variant.isDefault ? (
-                              <span className="mt-2 block text-sm text-muted-foreground">Default</span>
-                            ) : null}
-                          </span>
-                          <span className="font-semibold">{formatPrice(variant.priceCents)}</span>
-                        </Button>
-                      )
-                    })}
-                  </div>
+                  <textarea
+                    id="item-notes"
+                    value={notes}
+                    onChange={(event) => setNotes(event.target.value)}
+                    rows={3}
+                    placeholder="Add any special instructions for the kitchen"
+                    className="min-h-24 w-full rounded-[12px] border border-neutral-200 bg-white px-4 py-4 text-sm text-black shadow-sm outline-none placeholder:text-neutral-400 focus-visible:border-neutral-400 focus-visible:ring-0"
+                  />
                 </section>
-              ) : null}
 
-              {item.itemModifierGroups.map((itemGroup) => (
-                <section key={itemGroup.id} className="space-y-4">
-                  <div>
-                    <Badge variant="outline" className="border-border bg-background text-muted-foreground">
-                      {itemGroup.group.name}
-                    </Badge>
-                    <p className="mt-2 text-sm text-muted-foreground">
-                      {itemGroup.group.selection === "SINGLE"
-                        ? "Choose one option"
-                        : `Choose up to ${itemGroup.maxSelections ?? itemGroup.group.options.length}`}
-                      {itemGroup.isRequired ? " · Required" : " · Optional"}
-                    </p>
-                  </div>
-
-                  <div className="grid gap-4">
-                    {itemGroup.group.options.map((option) => {
-                      const selected =
-                        selectedOptions[itemGroup.group.id]?.includes(option.id) ?? false
-
-                      return (
-                        <Button
-                          key={option.id}
-                          type="button"
-                          variant="outline"
-                          onClick={() =>
-                            itemGroup.group.selection === "SINGLE"
-                              ? selectSingle(itemGroup.group.id, option.id)
-                              : toggleMultiSelect(
-                                  itemGroup.group.id,
-                                  option.id,
-                                  itemGroup.maxSelections,
-                                )
-                          }
-                          className={[
-                            "h-auto w-full items-start justify-between gap-4 px-4 py-4 text-left",
-                            selected
-                              ? "border-primary bg-primary/10 text-foreground"
-                              : "border-border bg-card text-foreground",
-                          ].join(" ")}
-                        >
-                          <span className="font-medium">{option.name}</span>
-                          <span className="text-sm text-muted-foreground">
-                            +{formatPrice(option.priceDeltaCents)}
-                          </span>
-                        </Button>
-                      )
-                    })}
-                  </div>
-                </section>
-              ))}
-
-              <section className="space-y-4">
-                <div className="space-y-2">
-                  <Badge variant="outline" className="border-border bg-background text-muted-foreground">
-                    Notes
+                <section className="space-y-4">
+                  <Badge variant="outline" className="border-neutral-200 bg-white text-neutral-600">
+                    Quantity
                   </Badge>
-                  <Label htmlFor="item-notes">Special instructions</Label>
+                  <div className="inline-flex items-center gap-2 rounded-[12px] border border-neutral-200 bg-white px-2 py-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => setQuantity((current) => Math.max(1, current - 1))}
+                    >
+                      <Minus className="h-4 w-4" />
+                    </Button>
+                    <span className="min-w-8 text-center text-sm font-semibold text-black">{quantity}</span>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={() => setQuantity((current) => current + 1)}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </section>
                 </div>
-                <textarea
-                  id="item-notes"
-                  value={notes}
-                  onChange={(event) => setNotes(event.target.value)}
-                  rows={3}
-                  placeholder="Add any special instructions for the kitchen"
-                  className="min-h-24 w-full rounded-[var(--radius)] border border-input bg-background px-4 py-4 text-sm text-foreground shadow-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30"
-                />
-              </section>
-
-              <section className="space-y-4">
-                <Badge variant="outline" className="border-border bg-background text-muted-foreground">
-                  Quantity
-                </Badge>
-                <div className="inline-flex items-center gap-2 rounded-[var(--radius)] border border-border bg-background px-2 py-2">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={() => setQuantity((current) => Math.max(1, current - 1))}
-                  >
-                    <Minus className="h-4 w-4" />
-                  </Button>
-                  <span className="min-w-8 text-center text-sm font-semibold text-foreground">{quantity}</span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={() => setQuantity((current) => current + 1)}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </div>
-              </section>
-
-              {validationErrors.length > 0 ? (
-                <div className="rounded-[var(--radius)] border border-destructive/20 bg-destructive/10 px-4 py-4 text-sm text-foreground">
-                  {validationErrors.map((error) => (
-                    <div key={error}>{error}</div>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-
-            <div className="border-t border-border bg-card px-4 py-4 sm:px-6 sm:py-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between text-sm text-muted-foreground">
-                  <span>Total</span>
-                  <span className="text-lg font-semibold text-foreground">
-                    {formatPrice(unitPriceCents * quantity)}
-                  </span>
-                </div>
-                <Separator />
-                <Button
-                  className="min-h-11 w-full justify-center"
-                  disabled={!canSubmit}
-                  onClick={handleAdd}
-                >
-                  Add to cart
-                </Button>
               </div>
-            </div>
-          </motion.aside>
+
+              <div className="shrink-0 border-t border-[#eee] bg-white px-4 py-4 sm:px-6">
+                <div className="grid gap-4 bg-white">
+                  {validationErrors.length > 0 ? (
+                    <div className="rounded-[12px] border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-700">
+                      {validationErrors.map((error) => (
+                        <div key={error}>{error}</div>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  <div className="flex items-center justify-between text-sm text-neutral-600">
+                    <span>Total</span>
+                    <span className="text-lg font-semibold text-black">
+                      {formatPrice(unitPriceCents * quantity)}
+                    </span>
+                  </div>
+
+                  <Button className="min-h-11 w-full justify-center" disabled={!canSubmit} onClick={handleAdd}>
+                    {editingItem ? "Update cart" : "Add to cart"}
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
         </>
       ) : null}
     </AnimatePresence>
   )
+
+  if (typeof document === "undefined") {
+    return null
+  }
+
+  return createPortal(modal, document.body)
 }
