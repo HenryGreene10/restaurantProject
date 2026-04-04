@@ -1,6 +1,6 @@
 # Project Compaction / Handoff
 
-Last updated: 2026-04-03
+Last updated: 2026-04-04
 
 ## Product Direction
 - Multi-tenant white-label restaurant ordering platform for independent restaurants.
@@ -11,7 +11,7 @@ Last updated: 2026-04-03
 ## Binding Architecture Constraints
 - Multi-tenancy is mandatory from the first backend code. Every tenant-scoped query is structurally scoped by `restaurantId` at the data-access layer, not the route layer.
 - Stripe Connect starts in Standard mode.
-- Customer auth is phone + OTP via Twilio Verify.
+- Customer auth infrastructure is phone + OTP via Twilio Verify, but OTP no longer blocks the basic pickup checkout flow.
 - SMS fallback is required for customer notifications.
 - Native app work is deferred until the PWA is proven.
 - AI assistant context must be summarized rather than dumping full historical data.
@@ -73,12 +73,14 @@ Last updated: 2026-04-03
 ### Orders
 - `POST /v1/orders`
 - `GET /v1/orders/:orderId`
+- `GET /v1/orders/:orderId/status`
 - `PATCH /admin/orders/:orderId/status`
 - `GET /v1/kitchen/orders`
 - Order item name snapshots are resolved from the real `MenuItem` at order creation.
 - Customer must resolve or be created before order persistence.
 - Customer-authenticated order creation is supported with bearer token + tenant match enforcement.
 - Customer-authenticated order lookup is supported for the dedicated status page.
+- Public customer order-status lookup is now supported without auth through `GET /v1/orders/:orderId/status`.
 - Order status state machine is enforced in a shared service, not in route handlers.
 - Valid transitions:
   - `PENDING -> CONFIRMED | CANCELLED`
@@ -87,7 +89,7 @@ Last updated: 2026-04-03
   - `READY -> COMPLETED | CANCELLED`
 
 ### Notifications
-- `READY` queues `NotificationJob` rows with `ORDER_READY`.
+- `CONFIRMED`, `READY`, and `CANCELLED` now enqueue order-status SMS notifications through `NotificationJob` rows.
 - Worker lives in `apps/workers`.
 - Worker sends via `TWILIO_MESSAGING_SERVICE_SID`.
 
@@ -129,13 +131,14 @@ Current state:
   - sticky cart summary
   - cart drawer
   - pickup-only checkout step
-  - OTP phone verification inside checkout
+  - direct pickup checkout with name + phone only
   - delivery shown as "coming soon"
   - real `POST /v1/orders` submission
   - dedicated `/orders/:orderId` status page
   - live order-status polling
   - cart/customer draft persistence across refresh
-  - session restore via customer refresh token flow
+  - active-order localStorage banner on return visit
+- OTP infrastructure remains in the codebase for future customer-account/session work, but it does not block basic ordering.
 
 Limitations:
 - no payment UI yet
@@ -179,33 +182,43 @@ Current state:
   - item visibility changes
   - item featured / unfeatured changes
   - category visibility changes
+  - add item
+  - add category
+  - update item fields
+  - set item price
+  - update storefront copy / brand config text
 - Assistant runs on fresh tenant DB context per request.
 - Assistant uses name resolution before mutation and returns clarification instead of mutating on ambiguous matches.
 - Assistant name resolution now uses fuzzy matching (`fuse.js`) to tolerate common typos.
 - Assistant maps delete/remove phrasing to hide rather than permanent deletion.
+- Assistant supports multi-turn clarification and multi-action commands in a single request.
 - Current desktop layout is:
-  - left: manual controls
-  - right top: compact assistant panel
-  - right bottom: live storefront preview
-
-Current URL when running:
-- `http://127.0.0.1:5174/`
+  - left: AI assistant
+  - center: branding/menu controls
+  - right: live storefront preview
 
 ### `apps/kiosk`
 Purpose:
 - Kitchen / fulfillment surface
 
 Current state:
-- Minimal scaffold exists already in `apps/kiosk`
-- Existing backend kitchen feed route already exists at `GET /v1/kitchen/orders`
-- Existing status transition route for kitchen progression remains `PATCH /admin/orders/:orderId/status`
-- Full tablet-grade kitchen dashboard is not built yet
+- Real runnable kitchen dashboard exists in `apps/kiosk`
+- Local URL:
+  - `http://127.0.0.1:5174/?tenant=joes-pizza`
+- Uses:
+  - `GET /v1/kitchen/orders`
+  - `PATCH /admin/orders/:orderId/status`
+- Polls every 10 seconds
+- Shows active orders newest first
+- Supports full status progression:
+  - `PENDING -> CONFIRMED -> PREPARING -> READY -> COMPLETED`
+- Tablet-first card UI is implemented
 
 ## Frontend Priority Reorder
 This is the intentional UI sequence now:
 1. Admin storefront customization
 2. Customer storefront real pages consuming saved config
-3. Kitchen UI later, standardized first
+3. Kitchen UI operationalized after storefront/admin work
 
 This is a frontend reprioritization only. It does not change the backend-first foundation work already completed.
 
@@ -214,25 +227,18 @@ This is a frontend reprioritization only. It does not change the backend-first f
 - Promo section stacking / richer page-builder behavior
 - Payment UI / Stripe checkout integration for the storefront
 - Stripe onboarding UI
-- Kitchen dashboard implementation in `apps/kiosk`
 - Loyalty and marketing UI
-- AI assistant tool expansion beyond visibility / featured mutations
 - AI assistant broader natural-language coverage for theme updates and reorder actions
 - URL-based tenant resolution in `apps/web` and future kitchen UI
 
 ## Current Recommended Next Step
-Build the kitchen dashboard in `apps/kiosk`, then tighten tenant resolution and go-live readiness for the customer/order loop.
+Tighten tenant resolution and complete go-live readiness for the customer/order loop.
 
 Recommended next implementation:
-1. Kitchen dashboard in `apps/kiosk`:
-  - show active tenant orders newest first
-  - tablet-first card UI
-  - 10s polling
-  - status progression buttons using existing backend transitions
-2. Tenant resolution cleanup:
+1. Tenant resolution cleanup:
   - move `apps/web` off the hardcoded Zustand tenant default toward URL-driven slug resolution
   - apply the same pattern to kiosk
-3. Go-live checkout completion:
+2. Go-live checkout completion:
   - payment UI / Stripe checkout
   - kitchen/operator QA
   - deployment/environment hardening

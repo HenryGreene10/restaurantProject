@@ -10,17 +10,33 @@ Current implementation status note for handoff:
   - set item visibility
   - set item featured state
   - set category visibility
-- Assistant resolves names against fresh tenant menu state, now with fuzzy matching, and asks for clarification on ambiguous matches before mutating.
+  - add item
+  - add category
+  - update item
+  - set item price
+  - update brand config text fields
+- Assistant resolves names against fresh tenant menu state, now with fuzzy matching, handles clarification turns, and can execute multi-action commands.
 - Assistant is now a persistent chat surface in the admin dashboard rather than a tab.
 - Customer checkout/status slice is substantially live now:
-  - OTP in checkout
+  - direct pickup checkout with name + phone only
   - dedicated order-status page
   - live status polling
   - cart/customer draft persistence
-- Customer order lookup route is live at `GET /v1/orders/:orderId`.
-- Current notable gap:
-  - kitchen dashboard UI is not built yet, though backend kitchen routes and the `apps/kiosk` scaffold already exist.
+- Customer order status is now fully public through `GET /v1/orders/:orderId/status`.
+- Storefront active-order banner is implemented via localStorage.
+- Kitchen dashboard is built and running in `apps/kiosk`.
 - Current notable frontend limitation:
   - `apps/web` tenant slug is still resolved from frontend state with default `joes-pizza`, not from the URL yet.
+
+Current blockers to first paying customer:
+- URL-based tenant routing
+  - storefront still resolves tenant from hardcoded frontend state
+- Admin authentication
+  - no login system yet for restaurant owners
+- Stripe Connect
+  - no payment processing / payout flow yet
+- Real hosting and deployment
+- Image storage migration
+  - uploaded images are still stored as data URLs and need to move to R2
 
 Use `docs/COMPACTION.md` as the current handoff source of truth until the real PRD is restored here.
