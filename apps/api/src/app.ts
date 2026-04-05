@@ -1,6 +1,7 @@
 import express from 'express'
 import morgan from 'morgan'
 import cors from 'cors'
+import * as Sentry from '@sentry/node'
 import { requireClerkAuth } from './middleware/clerk-auth.js'
 import { tenantMiddleware } from './middleware/tenant.js'
 import { registerHealthRoutes } from './routes/health.js'
@@ -30,6 +31,8 @@ export function createApp() {
   registerOrderRoutes(app)
   registerAssistantRoutes(app)
   registerKitchenRoutes(app)
+
+  Sentry.setupExpressErrorHandler(app)
 
   return app
 }
