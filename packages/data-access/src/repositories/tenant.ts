@@ -1347,11 +1347,77 @@ export function createTenantDataAccess(scope: TenantScope) {
     },
   }
 
+  const payments = {
+    async getStripeConnection() {
+      return withTenantConnection(scope.restaurantId, async (prisma) => {
+        const restaurant = await prisma.restaurant.findUnique({
+          where: { id: scope.restaurantId },
+          include: {
+            brandConfig: true,
+          },
+        })
+
+        if (!restaurant) {
+          throw notFound("Restaurant")
+        }
+
+        const rawConfig =
+          restaurant.brandConfig?.config &&
+          typeof restaurant.brandConfig.config === "object" &&
+          !Array.isArray(restaurant.brandConfig.config)
+            ? (restaurant.brandConfig.config as Record<string, unknown>)
+            : {}
+
+        return {
+          restaurantId: restaurant.id,
+          slug: restaurant.slug,
+          name: restaurant.name,
+          displayName: resolveRestaurantDisplayName({
+            appTitle:
+              typeof rawConfig.appTitle === "string" ? rawConfig.appTitle : null,
+            restaurantSlug: restaurant.slug,
+            restaurantName: restaurant.name,
+          }),
+          stripeAccountId: restaurant.stripeAccountId,
+          stripeChargesEnabled: restaurant.stripeChargesEnabled,
+          stripePayoutsEnabled: restaurant.stripePayoutsEnabled,
+        }
+      })
+    },
+
+    async setStripeAccountId(stripeAccountId: string) {
+      return withTenantConnection(scope.restaurantId, async (prisma) => {
+        return prisma.restaurant.update({
+          where: { id: scope.restaurantId },
+          data: {
+            stripeAccountId,
+          },
+        })
+      })
+    },
+
+    async updateStripeCapabilities(input: {
+      chargesEnabled: boolean
+      payoutsEnabled: boolean
+    }) {
+      return withTenantConnection(scope.restaurantId, async (prisma) => {
+        return prisma.restaurant.update({
+          where: { id: scope.restaurantId },
+          data: {
+            stripeChargesEnabled: input.chargesEnabled,
+            stripePayoutsEnabled: input.payoutsEnabled,
+          },
+        })
+      })
+    },
+  }
+
   return {
     brand,
     scope,
     customers,
     menu,
     orders,
+    payments,
   }
 }

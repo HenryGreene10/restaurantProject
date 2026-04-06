@@ -16,7 +16,18 @@ import {
 } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { AnimatePresence, motion } from "framer-motion"
-import { Eye, EyeOff, ImageIcon, Palette, Sparkles, Star, Trash2 } from "lucide-react"
+import {
+  CheckCircle2,
+  CreditCard,
+  ExternalLink,
+  Eye,
+  EyeOff,
+  ImageIcon,
+  Palette,
+  Sparkles,
+  Star,
+  Trash2,
+} from "lucide-react"
 
 import { AssistantPanel } from "../assistant/AssistantPanel"
 import { fetchTenantMenu, type MenuCategory, type MenuResponse } from "../lib/menu"
@@ -60,6 +71,15 @@ type ThemeDraft = {
   menuCardLayout: "classic" | "compact" | "photo-first"
   showFeaturedBadges: boolean
   showCategoryChips: boolean
+}
+
+type StripeStatus = {
+  configured: boolean
+  displayName: string
+  stripeAccountId: string | null
+  chargesEnabled: boolean
+  payoutsEnabled: boolean
+  status: "not_connected" | "onboarding_required" | "active"
 }
 
 const defaultThemeDraft: ThemeDraft = {
@@ -693,6 +713,10 @@ export const App: React.FC = () => {
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
   const [menuActionMessage, setMenuActionMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [stripeStatus, setStripeStatus] = useState<StripeStatus | null>(null)
+  const [stripeMessage, setStripeMessage] = useState<string | null>(null)
+  const [isStripeLoading, setIsStripeLoading] = useState(true)
+  const [isStripeLaunching, setIsStripeLaunching] = useState(false)
   const [activeTab, setActiveTab] = useState<AdminTab>("branding")
   const [activeShellView, setActiveShellView] = useState<AdminShellView>("assistant")
 
@@ -722,6 +746,13 @@ export const App: React.FC = () => {
     })
   }
 
+  async function loadStripeStatus() {
+    return adminFetchJson<StripeStatus>("/admin/payments/stripe/status", {
+      tenantSlug: linkedTenantSlug,
+      getToken,
+    })
+  }
+
   useEffect(() => {
     if (!isLoaded) {
       return
@@ -729,10 +760,13 @@ export const App: React.FC = () => {
 
     if (!tenantSlug) {
       setIsLoading(false)
+      setIsStripeLoading(false)
       setMenuData(null)
       setSavedTheme(defaultThemeDraft)
       setDraftTheme(defaultThemeDraft)
       setError(null)
+      setStripeStatus(null)
+      setStripeMessage(null)
       return
     }
 
@@ -743,20 +777,26 @@ export const App: React.FC = () => {
       setError(null)
       setSaveMessage(null)
       setMenuActionMessage(null)
+      setStripeMessage(null)
 
       try {
-        const menu = await fetchTenantMenu(linkedTenantSlug, getToken)
+        const [menu, nextStripeStatus] = await Promise.all([
+          fetchTenantMenu(linkedTenantSlug, getToken),
+          loadStripeStatus(),
+        ])
         if (cancelled) return
         const nextTheme = buildDraft(menu)
         setMenuData(menu)
         setSavedTheme(nextTheme)
         setDraftTheme(nextTheme)
+        setStripeStatus(nextStripeStatus)
       } catch (nextError) {
         if (cancelled) return
         setError(nextError instanceof Error ? nextError.message : "Failed to load menu")
       } finally {
         if (!cancelled) {
           setIsLoading(false)
+          setIsStripeLoading(false)
         }
       }
     }
@@ -1102,8 +1142,130 @@ export const App: React.FC = () => {
     }
   }
 
+  const launchStripeOnboarding = async () => {
+    setIsStripeLaunching(true)
+    setStripeMessage(null)
+
+    try {
+      const response = await adminFetchJson<{ url: string }>(
+        "/admin/payments/stripe/onboarding-link",
+        {
+          method: "POST",
+          tenantSlug: linkedTenantSlug,
+          getToken,
+        },
+      )
+      window.location.assign(response.url)
+    } catch (nextError) {
+      setStripeMessage(
+        nextError instanceof Error
+          ? nextError.message
+          : "Failed to launch Stripe onboarding",
+      )
+    } finally {
+      setIsStripeLaunching(false)
+    }
+  }
+
+  const stripeStatusLabel =
+    stripeStatus?.status === "active"
+      ? "Connected and ready"
+      : stripeStatus?.status === "onboarding_required"
+        ? "Onboarding required"
+        : "Not connected"
+
   const controlsPanel = (
     <div className="grid gap-6">
+      <SectionCard
+        title="Stripe payouts"
+        subtitle="Connect the restaurant to Stripe before enabling live card payments."
+      >
+        <div className="grid gap-4">
+          <div className="flex items-start justify-between gap-4 rounded-[var(--radius)] border border-border/70 bg-background px-4 py-4">
+            <div className="grid gap-2">
+              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <CreditCard className="h-4 w-4 text-primary" />
+                {stripeStatus?.displayName ?? "Restaurant payouts"}
+              </div>
+              <div className="text-sm text-muted-foreground">
+                {isStripeLoading
+                  ? "Checking Stripe onboarding status…"
+                  : stripeStatusLabel}
+              </div>
+            </div>
+            <Badge
+              variant="outline"
+              className={cn(
+                "border-border bg-card",
+                stripeStatus?.status === "active" && "border-primary/30 text-foreground",
+              )}
+            >
+              {stripeStatusLabel}
+            </Badge>
+          </div>
+
+          {stripeStatus ? (
+            <div className="grid gap-2 rounded-[var(--radius)] border border-border/70 bg-background px-4 py-4 text-sm text-muted-foreground">
+              <div className="flex items-center justify-between gap-4">
+                <span>Charges enabled</span>
+                <span className="font-medium text-foreground">
+                  {stripeStatus.chargesEnabled ? "Yes" : "No"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-4">
+                <span>Payouts enabled</span>
+                <span className="font-medium text-foreground">
+                  {stripeStatus.payoutsEnabled ? "Yes" : "No"}
+                </span>
+              </div>
+              {stripeStatus.stripeAccountId ? (
+                <div className="flex items-center justify-between gap-4">
+                  <span>Stripe account</span>
+                  <span className="truncate text-xs text-foreground">
+                    {stripeStatus.stripeAccountId}
+                  </span>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {stripeMessage ? (
+            <div className="rounded-[var(--radius)] border border-destructive/20 bg-destructive/10 px-4 py-4 text-sm text-destructive">
+              {stripeMessage}
+            </div>
+          ) : null}
+
+          <Button
+            type="button"
+            className="min-h-11 justify-between"
+            disabled={isStripeLaunching || !stripeStatus?.configured}
+            onClick={() => void launchStripeOnboarding()}
+          >
+            <span>
+              {stripeStatus?.status === "active"
+                ? "Review Stripe account"
+                : stripeStatus?.status === "onboarding_required"
+                  ? "Continue Stripe onboarding"
+                  : "Connect Stripe"}
+            </span>
+            <ExternalLink className="h-4 w-4" />
+          </Button>
+
+          {!stripeStatus?.configured ? (
+            <div className="text-sm text-muted-foreground">
+              Stripe is not configured yet. Add the Stripe env values before onboarding a restaurant.
+            </div>
+          ) : null}
+
+          {stripeStatus?.status === "active" ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <CheckCircle2 className="h-4 w-4 text-primary" />
+              This restaurant can finish payment setup next.
+            </div>
+          ) : null}
+        </div>
+      </SectionCard>
+
       <SectionCard
         title="Storefront controls"
         subtitle="Draft edits update the preview instantly. Save persists them to the backend."

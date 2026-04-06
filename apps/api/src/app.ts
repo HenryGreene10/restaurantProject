@@ -8,14 +8,17 @@ import { registerHealthRoutes } from './routes/health.js'
 import { registerMenuRoutes } from './routes/menu.js'
 import { registerAdminBrandRoutes } from './routes/admin-brand.js'
 import { registerAdminMenuRoutes } from './routes/admin-menu.js'
+import { registerAdminPaymentsRoutes } from './routes/admin-payments.js'
 import { registerOrderRoutes } from './routes/orders.js'
 import { registerAssistantRoutes } from './routes/assistant.js'
 import { registerKitchenRoutes } from './routes/kitchen.js'
 import { registerCustomerAuthRoutes } from './routes/customer-auth.js'
+import { registerStripeWebhookRoute } from './routes/stripe-webhook.js'
 
 export function createApp() {
   const app = express()
 
+  registerStripeWebhookRoute(app)
   app.use(cors())
   app.use(express.json({ limit: '1mb' }))
   app.use(morgan('dev'))
@@ -27,6 +30,7 @@ export function createApp() {
   app.use('/admin', requireClerkAuth)
   app.use('/v1/assistant/command', requireClerkAuth)
   registerAdminBrandRoutes(app)
+  registerAdminPaymentsRoutes(app)
   registerAdminMenuRoutes(app)
   registerOrderRoutes(app)
   registerAssistantRoutes(app)
