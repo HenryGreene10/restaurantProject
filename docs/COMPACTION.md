@@ -1,12 +1,33 @@
 # Project Compaction / Handoff
 
-Last updated: 2026-04-04
+Last updated: 2026-04-06
+
+## What Changed Since Last Compaction
+- Stripe Connect Phase 1 is implemented:
+  - admin Stripe status endpoint
+  - admin onboarding-link endpoint
+  - Stripe webhook endpoint
+  - tenant Stripe capability sync
+  - admin UI entry point for Stripe onboarding
+- API deployment path is hardened for Render:
+  - Prisma generate runs during build
+  - API is bundled with `esbuild`
+  - bundle output is CommonJS for Render runtime compatibility
+- Admin and storefront deployment path is now Vercel, not just a hosting target in docs.
+- Live domain setup is now based on `easymenu.website`.
+- Environment variable structure is now clarified operationally:
+  - root `.env` for backend/worker/db scripts
+  - app-local `.env.local` for Vite frontends
+- Business model direction is now explicit:
+  - flat monthly SaaS fee
+  - not commission-based
 
 ## Product Direction
 - Multi-tenant white-label restaurant ordering platform for independent restaurants.
 - Core value: restaurants own branding, customer relationship, and margin.
-- Current frontend priority is admin-driven customer storefront customization.
-- Kitchen UI is intentionally standardized for now and deprioritized relative to storefront customization.
+- Current commercial model is flat monthly SaaS pricing, not order commission.
+- Current frontend priority remains admin-driven storefront control and go-live readiness.
+- Kitchen UI remains intentionally standardized relative to storefront customization.
 
 ## Binding Architecture Constraints
 - Multi-tenancy is mandatory from the first backend code. Every tenant-scoped query is structurally scoped by `restaurantId` at the data-access layer, not the route layer.
@@ -20,15 +41,32 @@ Last updated: 2026-04-04
 
 ## Locked Stack
 - Runtime: Node.js + TypeScript
-- Backend: Express currently implemented, though architecture docs originally locked Fastify; codebase is running on Express now
+- Backend: Express
 - Database: PostgreSQL + Prisma
 - Frontend: React + Vite
 - Styling: Tailwind with CSS variables for tenant theming in `apps/web`; admin uses scoped CSS for now
-- Auth: Custom JWT + Twilio Verify OTP
+- Auth:
+  - customer auth: custom JWT + Twilio Verify OTP
+  - admin auth: Clerk
 - SMS: Twilio Verify + Twilio Messaging
-- Payments: Stripe Connect Standard + Stripe Billing
-- Hosting target: Railway or Render for backend, Vercel for frontend
-- Monorepo: npm workspaces now; Turborepo remains the intended final tooling direction in docs
+- Payments:
+  - Stripe Connect Standard for restaurant onboarding/payouts
+  - storefront payment collection still pending
+- Hosting:
+  - API: Render
+  - Admin: Vercel
+  - Storefront: Vercel
+
+## Deployment Topology
+- API is deployed on Render.
+- API build path is:
+  - `prisma generate`
+  - `esbuild` bundle
+  - CommonJS output at `dist/index.js`
+- Admin is deployed on Vercel.
+- Storefront is deployed on Vercel.
+- Live domain is `easymenu.website`.
+- Tenant routing is intended around `*.easymenu.website` plus future custom domains.
 
 ## Important Non-Functional Requirements
 - Order placement to kitchen screen appearance: under 2 seconds
@@ -62,6 +100,7 @@ Last updated: 2026-04-04
 - `POST /auth/customer/refresh`
 - Successful OTP verification persists or reuses a tenant-scoped `Customer`.
 - Customer sessions use JWT access token + httpOnly refresh cookie.
+- Admin routes are protected with Clerk bearer-token verification.
 
 ### Public Menu
 - `GET /menu`
@@ -80,7 +119,7 @@ Last updated: 2026-04-04
 - Customer must resolve or be created before order persistence.
 - Customer-authenticated order creation is supported with bearer token + tenant match enforcement.
 - Customer-authenticated order lookup is supported for the dedicated status page.
-- Public customer order-status lookup is now supported without auth through `GET /v1/orders/:orderId/status`.
+- Public customer order-status lookup is supported without auth through `GET /v1/orders/:orderId/status`.
 - Order status state machine is enforced in a shared service, not in route handlers.
 - Valid transitions:
   - `PENDING -> CONFIRMED | CANCELLED`
@@ -89,7 +128,7 @@ Last updated: 2026-04-04
   - `READY -> COMPLETED | CANCELLED`
 
 ### Notifications
-- `CONFIRMED`, `READY`, and `CANCELLED` now enqueue order-status SMS notifications through `NotificationJob` rows.
+- `CONFIRMED`, `READY`, and `CANCELLED` enqueue order-status SMS notifications through `NotificationJob` rows.
 - Worker lives in `apps/workers`.
 - Worker sends via `TWILIO_MESSAGING_SERVICE_SID`.
 
@@ -102,6 +141,14 @@ Last updated: 2026-04-04
 - Category-local item reorder
 - Item availability and featured-state updates
 - Brand config GET/PATCH
+
+### Payments
+- Stripe Connect Standard onboarding status endpoint is live.
+- Stripe onboarding-link creation endpoint is live.
+- Stripe webhook endpoint is live.
+- Stripe account capability sync (`charges_enabled`, `payouts_enabled`) is implemented.
+- Restaurant-level Stripe account state is stored on the tenant record.
+- Admin UI exposes Stripe payout/onboarding status and launches hosted onboarding.
 
 ## Frontend Status
 
@@ -121,7 +168,7 @@ Current state:
   - real categories/items
   - menu card layouts from saved config
 - Hidden categories/items are filtered out of the storefront
-- Customer interaction layer now exists:
+- Customer interaction layer exists:
   - item customization drawer
   - variant selection
   - modifier selection
@@ -138,16 +185,14 @@ Current state:
   - live order-status polling
   - cart/customer draft persistence across refresh
   - active-order localStorage banner on return visit
+- Tenant slug is now URL/domain-driven:
+  - subdomain-based in production via `VITE_TENANT_DOMAIN_SUFFIX`
+  - `?tenant=` fallback in local development
 - OTP infrastructure remains in the codebase for future customer-account/session work, but it does not block basic ordering.
 
 Limitations:
 - no payment UI yet
-- tenant slug is still store-driven in the frontend, not URL-driven yet
-- default local tenant is still `joes-pizza`
-
-Current URL when running:
-- `http://127.0.0.1:5173/`
-- tenant resolution in `apps/web` currently comes from the Zustand theme store, not the pathname
+- no live card payment collection yet
 
 ### `apps/admin`
 Purpose:
@@ -157,6 +202,7 @@ Current state:
 - Real admin customization panel exists
 - Uses live tenant menu data
 - Saves persisted brand config through the API
+- Clerk-based admin sign-in is wired
 - Controls available now:
   - logo upload
   - banner upload
@@ -176,7 +222,7 @@ Current state:
   - item sold-out state
   - item image upload
 - Preview pane renders the customer storefront using the real menu and current draft settings.
-- Admin AI assistant is now a persistent chat panel in the dashboard layout, not a tab.
+- Admin AI assistant is a persistent chat panel in the dashboard layout.
 - Assistant command route is `POST /v1/assistant/command`.
 - Assistant currently supports:
   - item visibility changes
@@ -189,13 +235,13 @@ Current state:
   - update storefront copy / brand config text
 - Assistant runs on fresh tenant DB context per request.
 - Assistant uses name resolution before mutation and returns clarification instead of mutating on ambiguous matches.
-- Assistant name resolution now uses fuzzy matching (`fuse.js`) to tolerate common typos.
+- Assistant name resolution uses fuzzy matching (`fuse.js`) to tolerate common typos.
 - Assistant maps delete/remove phrasing to hide rather than permanent deletion.
 - Assistant supports multi-turn clarification and multi-action commands in a single request.
-- Current desktop layout is:
-  - left: AI assistant
-  - center: branding/menu controls
-  - right: live storefront preview
+- Admin Stripe section is now live:
+  - Stripe status display
+  - account-id/capability display
+  - onboarding/review button
 
 ### `apps/kiosk`
 Purpose:
@@ -203,8 +249,6 @@ Purpose:
 
 Current state:
 - Real runnable kitchen dashboard exists in `apps/kiosk`
-- Local URL:
-  - `http://127.0.0.1:5174/?tenant=joes-pizza`
 - Uses:
   - `GET /v1/kitchen/orders`
   - `PATCH /admin/orders/:orderId/status`
@@ -214,89 +258,49 @@ Current state:
   - `PENDING -> CONFIRMED -> PREPARING -> READY -> COMPLETED`
 - Tablet-first card UI is implemented
 
-## Frontend Priority Reorder
-This is the intentional UI sequence now:
-1. Admin storefront customization
-2. Customer storefront real pages consuming saved config
-3. Kitchen UI operationalized after storefront/admin work
-
-This is a frontend reprioritization only. It does not change the backend-first foundation work already completed.
-
 ## What Is Not Done Yet
+- Storefront payment collection / payment UI
+- Stripe checkout or equivalent customer payment capture flow
+- Full production-grade admin authorization beyond bearer-token verification and tenant metadata assumptions
 - Drag-and-drop composition controls beyond current category/item ordering
 - Promo section stacking / richer page-builder behavior
-- Payment UI / Stripe checkout integration for the storefront
-- Stripe onboarding UI
 - Loyalty and marketing UI
 - AI assistant broader natural-language coverage for theme updates and reorder actions
-- URL-based tenant resolution in `apps/web` and future kitchen UI
+- Image storage migration away from data URLs toward real object storage
+- Full production smoke testing across:
+  - Render API
+  - Vercel storefront/admin
+  - live domain routing
+  - Stripe webhook delivery
+  - worker deployment
 
 ## Current Recommended Next Step
-Tighten tenant resolution and complete go-live readiness for the customer/order loop.
+Finish go-live readiness for the first paying restaurant.
 
 Recommended next implementation:
-1. Tenant resolution cleanup:
-  - move `apps/web` off the hardcoded Zustand tenant default toward URL-driven slug resolution
-  - apply the same pattern to kiosk
-2. Go-live checkout completion:
-  - payment UI / Stripe checkout
-  - kitchen/operator QA
-  - deployment/environment hardening
+1. Complete storefront payment collection:
+  - payment UI
+  - backend payment capture/confirmation flow
+2. Tighten backend admin authorization:
+  - tenant membership enforcement
+  - role enforcement
+3. Complete production hardening:
+  - Render/Vercel smoke tests
+  - worker deployment
+  - webhook verification
+  - env and domain QA
 
 ## Test / Validation Status
-- Typecheck is passing for:
+- Targeted typecheck is passing for:
   - `apps/admin`
   - `apps/web`
   - `apps/api`
-- `packages/ai-assistant`
-- API integration coverage exists and passes for changed surfaces when run outside the read-only sandbox.
-- Latest verified assistant/backend/admin checks:
-  - `npm -w packages/ai-assistant run typecheck`
-  - `npm -w apps/api run typecheck`
-  - `npm -w apps/admin run typecheck`
-  - `npm -w apps/api run test`
+  - `apps/kiosk`
+  - `packages/data-access`
+  - `packages/payments`
+- API deployment build is now verified with:
+  - Prisma generate
+  - `esbuild` bundle
+  - CommonJS output for Render
 - `apps/web` build passes locally in this environment.
-- `apps/admin` production build has intermittently hung at Vite's `transforming...` step in this environment without emitting a concrete error; typecheck is clean.
 - Full API suite passes when run outside the sandbox because `supertest` needs to bind a local listener in this environment.
-
-## Key Recent Commits
-- `7ab18f5` `docs: add project compaction handoff`
-- `1ead849` `feat(web): add theme foundation playground`
-- `fadbe26` `feat(admin): add storefront customization preview`
-- `0c0b77b` `feat(brand): persist storefront customization settings`
-- `f0ee2a2` `feat(admin): add menu presentation customization controls`
-- `1cb1f6c` `feat(storefront): add deeper hero and layout customization`
-- `67eeba9` `feat(web): turn theme preview into real storefront`
-- `41b19f8` `feat(web): add item customization and cart flow`
-- `bff25a0` `feat(web): add pickup-only checkout flow`
-- `e5d5acf` `feat(admin): improve storefront editing workflow`
-- `4249f8b` `feat(ai): wire assistant menu actions`
-- `74ff387` `feat(ui): polish storefront and admin surfaces`
-- `363a598` `feat(ui): refine storefront branding and media`
-- `6f0a3eb` `feat(ui): improve admin assistant and storefront flows`
-- `17f9c7b` `feat(api): add customer order status lookup`
-
-## Run Commands
-API:
-```bash
-cd /mnt/c/Users/henry/Henry2026/RestaurantProject
-set -a
-source .env
-npm -w apps/api run dev
-```
-
-Admin:
-```bash
-cd /mnt/c/Users/henry/Henry2026/RestaurantProject
-npm -w apps/admin run dev -- --host 127.0.0.1
-```
-
-Web:
-```bash
-cd /mnt/c/Users/henry/Henry2026/RestaurantProject
-npm -w apps/web run dev -- --host 127.0.0.1
-```
-
-## URLs
-- Admin: `http://127.0.0.1:5174/`
-- Customer storefront: `http://127.0.0.1:5173/`
