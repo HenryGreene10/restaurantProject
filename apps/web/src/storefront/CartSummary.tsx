@@ -9,7 +9,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
+import type { CheckoutPaymentIntentSession } from "@/lib/payments"
 import { cartItemCount, cartLineTotal, cartSubtotal, type CartItem } from "./cartStore"
+import { StripeCheckoutForm } from "./StripeCheckoutForm"
 
 const NAME_PATTERN = /^[A-Za-z\s'-]+$/
 const ORDER_NOTE_MAX_LENGTH = 500
@@ -71,11 +73,13 @@ type CartSummaryProps = {
   onCustomerNameChange: (value: string) => void
   onCustomerPhoneChange: (value: string) => void
   onOrderNotesChange: (value: string) => void
-  onCheckout: (payload: {
+  stripePublishableKey: string
+  onCreatePaymentIntent: (payload: {
     customerName: string
     customerPhone: string
     orderNotes: string | null
-  }) => Promise<void>
+  }) => Promise<CheckoutPaymentIntentSession>
+  onPaymentConfirmed: (checkoutSessionId: string) => Promise<void>
 }
 
 export function CartSummary({
@@ -96,7 +100,9 @@ export function CartSummary({
   onCustomerNameChange,
   onCustomerPhoneChange,
   onOrderNotesChange,
-  onCheckout,
+  stripePublishableKey,
+  onCreatePaymentIntent,
+  onPaymentConfirmed,
 }: CartSummaryProps) {
   const itemCount = cartItemCount(items)
   const subtotal = cartSubtotal(items)
@@ -105,6 +111,8 @@ export function CartSummary({
   const [nameTouched, setNameTouched] = useState(false)
   const [phoneTouched, setPhoneTouched] = useState(false)
   const [submitAttempted, setSubmitAttempted] = useState(false)
+  const [paymentSession, setPaymentSession] = useState<CheckoutPaymentIntentSession | null>(null)
+  const [isPreparingPayment, setIsPreparingPayment] = useState(false)
 
   const canContinue = items.length > 0
   const trimmedName = customerName.trim()
@@ -114,7 +122,7 @@ export function CartSummary({
   const showNameError = (nameTouched || submitAttempted) && !!nameError
   const showPhoneError = (phoneTouched || submitAttempted) && !!phoneError
   const hasDraftDetails = trimmedName.length > 0 && trimmedPhone.length > 0
-  const canSubmit = hasDraftDetails && !submitting
+  const canSubmit = hasDraftDetails && !submitting && !isPreparingPayment
 
   const taxEstimate = useMemo(() => Math.round(subtotal * 0.08), [subtotal])
   const totalEstimate = subtotal + taxEstimate
@@ -134,7 +142,7 @@ export function CartSummary({
     setSubmitAttempted(true)
 
     if (!canSubmit) {
-      setFormError("Enter your name and phone number before placing the pickup order.")
+      setFormError("Enter your name and phone number before continuing to payment.")
       return
     }
 
@@ -150,22 +158,29 @@ export function CartSummary({
     }
 
     setFormError(null)
+    setIsPreparingPayment(true)
 
     try {
-      await onCheckout({
+      if (!stripePublishableKey) {
+        throw new Error("Stripe is not configured for this storefront")
+      }
+
+      const nextPaymentSession = await onCreatePaymentIntent({
         customerName: trimmedName,
         customerPhone: normalizedPhone,
         orderNotes: orderNotes.trim() ? orderNotes.trim() : null,
       })
-      setCheckoutMode(false)
-      onClose()
+      setPaymentSession(nextPaymentSession)
     } catch (error) {
-      setFormError(error instanceof Error ? error.message : "Failed to place order")
+      setFormError(error instanceof Error ? error.message : "Failed to prepare payment")
+    } finally {
+      setIsPreparingPayment(false)
     }
   }
 
   function handleClose() {
     setCheckoutMode(false)
+    setPaymentSession(null)
     setFormError(null)
     setNameTouched(false)
     setPhoneTouched(false)
@@ -374,6 +389,7 @@ export function CartSummary({
                               value={customerName}
                               onChange={(event) => onCustomerNameChange(event.target.value)}
                               onBlur={() => setNameTouched(true)}
+                              disabled={Boolean(paymentSession)}
                               placeholder="Customer name"
                             />
                             {showNameError ? (
@@ -387,6 +403,7 @@ export function CartSummary({
                               value={customerPhone}
                               onChange={(event) => onCustomerPhoneChange(event.target.value)}
                               onBlur={() => setPhoneTouched(true)}
+                              disabled={Boolean(paymentSession)}
                               placeholder="(555) 555-5555"
                             />
                             {showPhoneError ? (
@@ -410,12 +427,38 @@ export function CartSummary({
                               }
                               rows={3}
                               maxLength={ORDER_NOTE_MAX_LENGTH}
+                              disabled={Boolean(paymentSession)}
                               className="min-h-24 w-full rounded-[var(--radius)] border border-input bg-background px-4 py-4 text-sm text-foreground shadow-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30"
                               placeholder="Optional note for pickup"
                             />
                           </div>
                         </CardContent>
                       </Card>
+
+                      {paymentSession ? (
+                        <Card size="sm" className="gap-4 border border-border/80 bg-card shadow-sm">
+                          <CardHeader className="gap-2">
+                            <Badge variant="outline" className="border-border bg-background text-muted-foreground">
+                              Payment
+                            </Badge>
+                            <CardTitle style={{ fontFamily: "var(--font-heading)" }}>
+                              Card payment
+                            </CardTitle>
+                          </CardHeader>
+                          <CardContent className="grid gap-4">
+                            <StripeCheckoutForm
+                              publishableKey={stripePublishableKey}
+                              stripeAccountId={paymentSession.stripeAccountId}
+                              clientSecret={paymentSession.clientSecret}
+                              customerName={trimmedName}
+                              submitting={submitting}
+                              onPaymentConfirmed={async () => {
+                                await onPaymentConfirmed(paymentSession.checkoutSessionId)
+                              }}
+                            />
+                          </CardContent>
+                        </Card>
+                      ) : null}
 
                       <Card size="sm" className="gap-4 border border-border/80 bg-card shadow-sm">
                         <CardHeader className="gap-2">
@@ -484,19 +527,25 @@ export function CartSummary({
                   </Button>
                 ) : (
                   <div className="grid gap-4">
-                    <Button
-                      className="min-h-11 w-full justify-center"
-                      disabled={!hasDraftDetails || submitting}
-                      onClick={() => void handleCheckoutSubmit()}
-                    >
-                      {submitting ? "Placing order…" : "Place pickup order"}
-                    </Button>
+                    {!paymentSession ? (
+                      <Button
+                        className="min-h-11 w-full justify-center"
+                        disabled={!hasDraftDetails || submitting || isPreparingPayment}
+                        onClick={() => void handleCheckoutSubmit()}
+                      >
+                        {isPreparingPayment ? "Preparing payment…" : "Continue to payment"}
+                      </Button>
+                    ) : null}
                     <Button
                       type="button"
                       variant="ghost"
-                      onClick={() => setCheckoutMode(false)}
+                      onClick={() => {
+                        const hadPaymentSession = Boolean(paymentSession)
+                        setPaymentSession(null)
+                        setCheckoutMode(hadPaymentSession)
+                      }}
                     >
-                      Back to cart
+                      {paymentSession ? "Back to details" : "Back to cart"}
                     </Button>
                   </div>
                 )}

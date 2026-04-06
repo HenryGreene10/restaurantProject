@@ -1,4 +1,4 @@
-import Stripe = require('stripe')
+import StripeConstructor, { type Stripe as StripeClient } from 'stripe'
 
 export type StripeRuntimeConfig = {
   secretKey: string
@@ -11,6 +11,11 @@ export type StripeOnboardingConfig = {
   returnUrl: string
 }
 
+export type DirectChargePaymentIntentConfig = {
+  secretKey: string
+  stripeAccountId: string
+}
+
 export type StripeConnectionState = {
   stripeAccountId: string | null
   chargesEnabled: boolean
@@ -19,7 +24,12 @@ export type StripeConnectionState = {
 }
 
 function createStripeClient(secretKey: string) {
-  return Stripe(secretKey)
+  const Stripe = StripeConstructor as unknown as new (
+    key: string,
+    config?: Record<string, unknown>,
+  ) => StripeClient
+
+  return new Stripe(secretKey)
 }
 
 export function deriveStripeConnectionState(input: {
@@ -81,6 +91,44 @@ export async function createOnboardingLink(input: {
     return_url: input.config.returnUrl,
     type: 'account_onboarding',
   })
+}
+
+export async function createDirectChargePaymentIntent(input: {
+  config: DirectChargePaymentIntentConfig
+  amount: number
+  currency: string
+  metadata?: Record<string, string>
+  idempotencyKey?: string
+}) {
+  const stripe = createStripeClient(input.config.secretKey)
+  return stripe.paymentIntents.create(
+    {
+      amount: input.amount,
+      currency: input.currency,
+      automatic_payment_methods: {
+        enabled: true,
+      },
+      metadata: input.metadata,
+    },
+    {
+      stripeAccount: input.config.stripeAccountId,
+      idempotencyKey: input.idempotencyKey,
+    },
+  )
+}
+
+export async function retrieveDirectChargePaymentIntent(input: {
+  config: DirectChargePaymentIntentConfig
+  paymentIntentId: string
+}) {
+  const stripe = createStripeClient(input.config.secretKey)
+  return stripe.paymentIntents.retrieve(
+    input.paymentIntentId,
+    undefined,
+    {
+      stripeAccount: input.config.stripeAccountId,
+    },
+  )
 }
 
 export async function verifyStripeWebhookEvent(input: {

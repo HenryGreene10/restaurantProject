@@ -32,6 +32,11 @@
 10) Sequential Order Numbers
 - Use an atomic per‑tenant sequence (e.g., `RestaurantOrderSequence`) — never “count existing orders”.
 
+11) Prisma Generation Fragility
+- Current monorepo setup has one schema owner (`packages/db/prisma/schema.prisma`), multiple direct consumers of `@prisma/client`, and an implicit shared generation target under `node_modules/.prisma/client`. Treat that path as fragile until it is fixed.
+- New Prisma models should use raw parameterized SQL in the data-access layer if the generated Prisma delegate is not reliably present at runtime.
+- Proper fix: make `packages/db` the single owner of client generation and make all Prisma consumers import from that single generated client surface.
+
 ## Non‑Functional Requirements (Binding)
 - Order placement to kitchen screen: under 2 seconds E2E.
 - Kitchen screen: resilient to Wi‑Fi drops with optimistic UI and auto‑reconnect.

@@ -1,7 +1,14 @@
 import express from 'express'
 import type { Express, Request, Response } from 'express'
-import { createPlatformDataAccess } from '@repo/data-access'
-import { verifyStripeWebhookEvent } from '@repo/payments'
+import {
+  createPlatformDataAccess,
+  createTenantDataAccess,
+  createTenantScope,
+} from '@repo/data-access'
+import {
+  retrieveDirectChargePaymentIntent,
+  verifyStripeWebhookEvent,
+} from '@repo/payments'
 import { env } from '../config/env.js'
 
 export function registerStripeWebhookRoute(app: Express) {
@@ -40,6 +47,67 @@ export function registerStripeWebhookRoute(app: Express) {
               payoutsEnabled: Boolean(account.payouts_enabled),
             })
           }
+        }
+
+        if (event.type === 'payment_intent.succeeded') {
+          const stripeAccountId = event.account
+          if (!stripeAccountId) {
+            return res.status(400).json({ error: 'Missing connected Stripe account' })
+          }
+
+          const platformDataAccess = createPlatformDataAccess()
+          const tenant = await platformDataAccess.findTenantByStripeAccountId(stripeAccountId)
+
+          if (!tenant) {
+            return res.status(200).json({ received: true })
+          }
+
+          const paymentIntent = event.data.object
+          const tenantDataAccess = createTenantDataAccess(createTenantScope(tenant.id))
+
+          const checkoutSession =
+            await tenantDataAccess.checkouts.findByPaymentIntentId(paymentIntent.id)
+
+          if (!checkoutSession) {
+            return res.status(200).json({ received: true })
+          }
+
+          const freshPaymentIntent = await retrieveDirectChargePaymentIntent({
+            config: {
+              secretKey: runtime.STRIPE_SECRET_KEY,
+              stripeAccountId,
+            },
+            paymentIntentId: paymentIntent.id,
+          })
+
+          if (freshPaymentIntent.amount !== checkoutSession.totalCents) {
+            return res.status(400).json({ error: 'Payment amount does not match checkout session' })
+          }
+
+          if (checkoutSession.stripeAccountId !== stripeAccountId) {
+            return res.status(400).json({ error: 'Stripe account does not match checkout session' })
+          }
+
+          await tenantDataAccess.checkouts.markPaymentSucceededByIntent(paymentIntent.id)
+          await tenantDataAccess.checkouts.createOrderFromCheckoutSession(checkoutSession.id)
+        }
+
+        if (event.type === 'payment_intent.payment_failed') {
+          const stripeAccountId = event.account
+          if (!stripeAccountId) {
+            return res.status(400).json({ error: 'Missing connected Stripe account' })
+          }
+
+          const platformDataAccess = createPlatformDataAccess()
+          const tenant = await platformDataAccess.findTenantByStripeAccountId(stripeAccountId)
+
+          if (!tenant) {
+            return res.status(200).json({ received: true })
+          }
+
+          const paymentIntent = event.data.object
+          const tenantDataAccess = createTenantDataAccess(createTenantScope(tenant.id))
+          await tenantDataAccess.checkouts.markPaymentFailedByIntent(paymentIntent.id)
         }
 
         return res.status(200).json({ received: true })

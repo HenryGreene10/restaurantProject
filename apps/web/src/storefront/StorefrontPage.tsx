@@ -14,7 +14,11 @@ import {
 } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
-import { createPickupOrder } from "../lib/orders"
+import {
+  createCheckoutPaymentIntent,
+  fetchCheckoutStatus,
+  type CheckoutPaymentIntentSession,
+} from "../lib/payments"
 import { fetchTenantMenu } from "../lib/menu"
 import type { MenuCategory, MenuItem } from "../lib/menu"
 import { CartSummary } from "./CartSummary"
@@ -82,6 +86,7 @@ export function StorefrontPage({
   const showDevBanner =
     typeof window !== "undefined" &&
     new URLSearchParams(window.location.search).get("dev") === "true"
+  const stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ?? ""
   const { theme, isLoading: isThemeLoading, errorMessage: themeError } = useTheme()
   const { tenantSlug, source } = useThemePlaygroundStore()
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null)
@@ -190,36 +195,58 @@ export function StorefrontPage({
     setActiveOrderBanner(activeOrder)
   }, [tenantSlug])
 
-  async function submitPickupOrder(payload: {
+  async function createPaymentIntentForCheckout(payload: {
     customerName: string
     customerPhone: string
     orderNotes: string | null
-  }) {
+  }): Promise<CheckoutPaymentIntentSession> {
+    return createCheckoutPaymentIntent({
+      tenantSlug,
+      accessToken: customerSession.accessToken,
+      customerName: payload.customerName,
+      customerPhone: payload.customerPhone,
+      orderNotes: payload.orderNotes,
+      items: cartItems,
+    })
+  }
+
+  async function finalizePaidCheckout(checkoutSessionId: string) {
     setSubmittingOrder(true)
 
     try {
-      const order = await createPickupOrder({
-        tenantSlug,
-        accessToken: customerSession.accessToken,
-        customerName: payload.customerName,
-        customerPhone: payload.customerPhone,
-        orderNotes: payload.orderNotes,
-        items: cartItems,
-      })
+      const deadline = Date.now() + 20_000
 
-      const activeOrder = {
-        orderId: order.id,
-        tenantSlug,
-        placedAt: new Date().toISOString(),
-      } satisfies ActiveOrderRecord
+      while (Date.now() < deadline) {
+        const checkoutStatus = await fetchCheckoutStatus({
+          tenantSlug,
+          checkoutSessionId,
+        })
 
-      writeActiveOrder(activeOrder)
-      setActiveOrderBanner(activeOrder)
+        if (checkoutStatus.status === "ORDER_CREATED" && checkoutStatus.orderId) {
+          const activeOrder = {
+            orderId: checkoutStatus.orderId,
+            tenantSlug,
+            placedAt: new Date().toISOString(),
+          } satisfies ActiveOrderRecord
 
-      clearCart()
-      resetAfterOrder()
-      setCartOpen(false)
-      onViewOrder(order.id)
+          writeActiveOrder(activeOrder)
+          setActiveOrderBanner(activeOrder)
+
+          clearCart()
+          resetAfterOrder()
+          setCartOpen(false)
+          onViewOrder(checkoutStatus.orderId)
+          return
+        }
+
+        if (checkoutStatus.status === "PAYMENT_FAILED" || checkoutStatus.status === "EXPIRED") {
+          throw new Error(checkoutStatus.error ?? "Payment did not complete")
+        }
+
+        await new Promise((resolve) => window.setTimeout(resolve, 1000))
+      }
+
+      throw new Error("Payment succeeded, but order creation is still pending")
     } finally {
       setSubmittingOrder(false)
     }
@@ -532,7 +559,9 @@ export function StorefrontPage({
         onCustomerNameChange={setCustomerName}
         onCustomerPhoneChange={setCustomerPhone}
         onOrderNotesChange={setOrderNotes}
-        onCheckout={submitPickupOrder}
+        stripePublishableKey={stripePublishableKey}
+        onCreatePaymentIntent={createPaymentIntentForCheckout}
+        onPaymentConfirmed={finalizePaidCheckout}
       />
     </motion.main>
   )

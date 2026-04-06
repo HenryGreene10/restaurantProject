@@ -55,6 +55,15 @@ enum PaymentStatus {
   REFUNDED
 }
 
+enum CheckoutSessionStatus {
+  PENDING
+  REQUIRES_ACTION
+  PAYMENT_FAILED
+  PAYMENT_SUCCEEDED
+  ORDER_CREATED
+  EXPIRED
+}
+
 enum FulfillmentType {
   PICKUP
   DELIVERY
@@ -117,6 +126,7 @@ model Restaurant {
   modifierOptions      ModifierOption[]
   menuItemModifierGroups MenuItemModifierGroup[]
   orders               Order[]
+  checkoutSessions     CheckoutSession[]
   orderItems           OrderItem[]
   orderItemModifierSelections OrderItemModifierSelection[]
   orderStatusEvents    OrderStatusEvent[]
@@ -175,6 +185,7 @@ model Customer {
   smsSubscriptions    SmsSubscription[]
   webPushSubscriptions WebPushSubscription[]
   orders              Order[]
+  checkoutSessions    CheckoutSession[]
   loyaltyAccounts     LoyaltyAccount[]
   promotionRedemptions PromotionRedemption[]
   notificationJobs    NotificationJob[]
@@ -344,6 +355,35 @@ model RestaurantOrderSequence {
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 }
 
+model CheckoutSession {
+  id                      String                @id @default(uuid())
+  restaurantId            String
+  customerId              String?
+  customerNameSnapshot    String?
+  customerPhoneSnapshot   String?
+  fulfillmentType         FulfillmentType       @default(PICKUP)
+  notes                   String?
+  pickupTime              DateTime?
+  deliveryAddressSnapshot Json?
+  cartSnapshot            Json
+  subtotalCents           Int
+  taxCents                Int
+  discountCents           Int                   @default(0)
+  totalCents              Int
+  stripeAccountId         String
+  stripePaymentIntentId   String?               @unique
+  status                  CheckoutSessionStatus @default(PENDING)
+  createdOrderId          String?
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+  restaurant              Restaurant            @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  customer                Customer?             @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  createdOrder            Order?                @relation("CheckoutCreatedOrder", fields: [createdOrderId], references: [id], onDelete: SetNull)
+
+  @@index([restaurantId, createdAt])
+  @@index([restaurantId, status])
+}
+
 model Order {
   id                     String           @id @default(uuid())
   restaurantId           String
@@ -371,6 +411,7 @@ model Order {
   statusEvents           OrderStatusEvent[]
   promotionRedemptions   PromotionRedemption[]
   notificationJobs       NotificationJob[]
+  checkoutSessions       CheckoutSession[] @relation("CheckoutCreatedOrder")
 
   @@unique([restaurantId, orderNumber])
   @@index([restaurantId, createdAt])

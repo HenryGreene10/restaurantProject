@@ -10,6 +10,7 @@ import { registerAdminBrandRoutes } from './routes/admin-brand.js'
 import { registerAdminMenuRoutes } from './routes/admin-menu.js'
 import { registerAdminPaymentsRoutes } from './routes/admin-payments.js'
 import { registerOrderRoutes } from './routes/orders.js'
+import { registerCheckoutRoutes } from './routes/checkouts.js'
 import { registerAssistantRoutes } from './routes/assistant.js'
 import { registerKitchenRoutes } from './routes/kitchen.js'
 import { registerCustomerAuthRoutes } from './routes/customer-auth.js'
@@ -27,6 +28,7 @@ export function createApp() {
   app.use(tenantMiddleware)
   registerCustomerAuthRoutes(app)
   registerMenuRoutes(app)
+  registerCheckoutRoutes(app)
   app.use('/admin', requireClerkAuth)
   app.use('/v1/assistant/command', requireClerkAuth)
   registerAdminBrandRoutes(app)

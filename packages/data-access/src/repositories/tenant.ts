@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto"
 import {
   CatalogVisibility,
   Customer,
@@ -23,13 +24,16 @@ type UpsertCustomerByPhoneInput = {
 
 type CreateOrderItemInput = {
   itemId?: string | null
+  variantId?: string | null
   name?: string
   variantName?: string | null
   quantity?: number
   unitPriceCents?: number
   notes?: string | null
   modifiers?: Array<{
+    groupId?: string | null
     groupName: string
+    optionId?: string | null
     optionName: string
     priceDeltaCents?: number
     portion?: "WHOLE" | "LEFT" | "RIGHT"
@@ -45,6 +49,74 @@ type CreateOrderInput = {
   pickupTime?: Date | null
   deliveryAddressSnapshot?: Prisma.InputJsonValue | null
   items: CreateOrderItemInput[]
+}
+
+type CheckoutSessionStatus =
+  | "PENDING"
+  | "REQUIRES_ACTION"
+  | "PAYMENT_FAILED"
+  | "PAYMENT_SUCCEEDED"
+  | "ORDER_CREATED"
+  | "EXPIRED"
+
+type NormalizedOrderModifierSnapshot = {
+  groupId: string | null
+  groupName: string
+  optionId: string | null
+  optionName: string
+  priceDeltaCents: number
+  portion: "WHOLE" | "LEFT" | "RIGHT"
+}
+
+type NormalizedOrderItemSnapshot = {
+  itemId: string | null
+  variantId: string | null
+  name: string
+  variantName: string | null
+  quantity: number
+  unitPriceCents: number
+  linePriceCents: number
+  notes: string | null
+  modifiers: NormalizedOrderModifierSnapshot[]
+}
+
+type CheckoutCartSnapshot = {
+  items: NormalizedOrderItemSnapshot[]
+}
+
+type CreateCheckoutSessionInput = {
+  customerId?: string | null
+  customerNameSnapshot?: string | null
+  customerPhoneSnapshot?: string | null
+  fulfillmentType?: FulfillmentType
+  notes?: string | null
+  pickupTime?: Date | null
+  deliveryAddressSnapshot?: Prisma.InputJsonValue | null
+  items: CreateOrderItemInput[]
+  stripeAccountId: string
+}
+
+type CheckoutSessionRow = {
+  id: string
+  restaurantId: string
+  customerId: string | null
+  customerNameSnapshot: string | null
+  customerPhoneSnapshot: string | null
+  fulfillmentType: FulfillmentType
+  notes: string | null
+  pickupTime: Date | null
+  deliveryAddressSnapshot: Prisma.JsonValue | null
+  cartSnapshot: Prisma.JsonValue
+  subtotalCents: number
+  taxCents: number
+  discountCents: number
+  totalCents: number
+  stripeAccountId: string
+  stripePaymentIntentId: string | null
+  status: CheckoutSessionStatus
+  createdOrderId: string | null
+  createdAt: Date
+  updatedAt: Date
 }
 
 type MenuCategoryCreateInput = {
@@ -222,6 +294,268 @@ async function nextOrderNumber(
   })
 
   return sequence.nextValue - 1
+}
+
+async function resolveOrderCustomer(
+  prisma: Prisma.TransactionClient,
+  scope: TenantScope,
+  scoped: ReturnType<typeof bindTenantScope>,
+  input: {
+    customerId?: string | null
+    customerPhoneSnapshot?: string | null
+    customerNameSnapshot?: string | null
+  },
+) {
+  let customer: Customer | null = null
+
+  if (input.customerId) {
+    customer = await prisma.customer.findFirst({
+      where: scoped.scopeWhere({ id: input.customerId }),
+    })
+
+    if (!customer) {
+      throw badRequest("Customer not found for tenant")
+    }
+  } else if (input.customerPhoneSnapshot) {
+    customer =
+      (await prisma.customer.findFirst({
+        where: scoped.scopeWhere({ phone: input.customerPhoneSnapshot }),
+      })) ??
+      (await prisma.customer.create({
+        data: scoped.scopeCreate({
+          phone: input.customerPhoneSnapshot,
+          name: input.customerNameSnapshot ?? null,
+        }),
+      }))
+
+    if (!customer) {
+      throw badRequest("Customer lookup or creation failed")
+    }
+  } else {
+    throw badRequest("Customer phone is required to create an order")
+  }
+
+  return customer
+}
+
+async function normalizeOrderItems(
+  prisma: Prisma.TransactionClient,
+  scope: TenantScope,
+  scoped: ReturnType<typeof bindTenantScope>,
+  items: CreateOrderItemInput[],
+) {
+  const normalizedItems = await Promise.all(
+    items.map(async (item) => {
+      if (!item.itemId) {
+        throw badRequest("Order items must include a valid itemId")
+      }
+
+      const menuItem = await prisma.menuItem.findFirst({
+        where: scoped.scopeWhere({ id: item.itemId }),
+        include: {
+          variants: true,
+          itemModifierGroups: {
+            include: {
+              group: {
+                include: {
+                  options: true,
+                },
+              },
+            },
+          },
+        },
+      })
+
+      if (!menuItem) {
+        throw badRequest(`Menu item ${item.itemId} not found for tenant`)
+      }
+
+      const quantity = item.quantity ?? 1
+      if (!Number.isInteger(quantity) || quantity <= 0) {
+        throw badRequest("Order item quantity must be a positive integer")
+      }
+
+      const selectedVariant = item.variantId
+        ? menuItem.variants.find((variant) => variant.id === item.variantId)
+        : menuItem.variants.find((variant) => variant.isDefault) ?? null
+
+      if (item.variantId && !selectedVariant) {
+        throw badRequest(`Variant ${item.variantId} not found for item ${menuItem.id}`)
+      }
+
+      const normalizedModifiers = (item.modifiers ?? []).map((modifier) => {
+        if (modifier.optionId) {
+          const matchingGroup = menuItem.itemModifierGroups.find(
+            (entry) => !modifier.groupId || entry.groupId === modifier.groupId,
+          )
+
+          const option = matchingGroup?.group.options.find(
+            (entry) => entry.id === modifier.optionId,
+          )
+
+          if (!matchingGroup || !option) {
+            throw badRequest(
+              `Modifier option ${modifier.optionId} not found for item ${menuItem.id}`,
+            )
+          }
+
+          return {
+            groupId: matchingGroup.groupId,
+            groupName: matchingGroup.group.name,
+            optionId: option.id,
+            optionName: option.name,
+            priceDeltaCents: option.priceDeltaCents,
+            portion: modifier.portion ?? "WHOLE",
+          } satisfies NormalizedOrderModifierSnapshot
+        }
+
+        return {
+          groupId: modifier.groupId ?? null,
+          groupName: modifier.groupName,
+          optionId: modifier.optionId ?? null,
+          optionName: modifier.optionName,
+          priceDeltaCents: modifier.priceDeltaCents ?? 0,
+          portion: modifier.portion ?? "WHOLE",
+        } satisfies NormalizedOrderModifierSnapshot
+      })
+
+      const unitPriceCents =
+        selectedVariant?.priceCents ?? item.unitPriceCents ?? menuItem.basePriceCents
+      const modifierUnitTotal = normalizedModifiers.reduce(
+        (sum, modifier) => sum + modifier.priceDeltaCents,
+        0,
+      )
+
+      return {
+        itemId: menuItem.id,
+        variantId: selectedVariant?.id ?? item.variantId ?? null,
+        name: menuItem.name,
+        variantName: selectedVariant?.name ?? item.variantName ?? null,
+        quantity,
+        unitPriceCents,
+        linePriceCents: (unitPriceCents + modifierUnitTotal) * quantity,
+        notes: item.notes ?? null,
+        modifiers: normalizedModifiers,
+      } satisfies NormalizedOrderItemSnapshot
+    }),
+  )
+
+  const subtotalCents = normalizedItems.reduce((sum, item) => sum + item.linePriceCents, 0)
+  const taxCents = Math.round(subtotalCents * 0.08875)
+  const totalCents = subtotalCents + taxCents
+
+  return {
+    items: normalizedItems,
+    subtotalCents,
+    taxCents,
+    totalCents,
+  }
+}
+
+function parseCheckoutCartSnapshot(value: Prisma.JsonValue): CheckoutCartSnapshot {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    Array.isArray(value) ||
+    !("items" in value) ||
+    !Array.isArray(value.items)
+  ) {
+    throw badRequest("Checkout cart snapshot is invalid")
+  }
+
+  return value as CheckoutCartSnapshot
+}
+
+async function persistOrderFromSnapshot(
+  prisma: Prisma.TransactionClient,
+  scope: TenantScope,
+  scoped: ReturnType<typeof bindTenantScope>,
+  input: {
+    customerId?: string | null
+    customerNameSnapshot?: string | null
+    customerPhoneSnapshot?: string | null
+    fulfillmentType?: FulfillmentType
+    notes?: string | null
+    pickupTime?: Date | null
+    deliveryAddressSnapshot?: Prisma.InputJsonValue | null
+    items: NormalizedOrderItemSnapshot[]
+    subtotalCents: number
+    taxCents: number
+    totalCents: number
+    paymentStatus?: "PENDING" | "REQUIRES_ACTION" | "PAID" | "FAILED" | "REFUNDED"
+    stripePaymentIntentId?: string | null
+  },
+) {
+  const customer = await resolveOrderCustomer(prisma, scope, scoped, {
+    customerId: input.customerId,
+    customerPhoneSnapshot: input.customerPhoneSnapshot,
+    customerNameSnapshot: input.customerNameSnapshot,
+  })
+
+  const orderNumber = await nextOrderNumber(prisma, scope.restaurantId)
+  const deliveryAddressSnapshot =
+    input.deliveryAddressSnapshot === null
+      ? Prisma.JsonNull
+      : input.deliveryAddressSnapshot
+
+  return prisma.order.create({
+    data: {
+      ...scoped.scopeCreate({
+        customerId: customer.id,
+        orderNumber,
+        status: "PENDING",
+        paymentStatus: input.paymentStatus ?? "PENDING",
+        fulfillmentType: input.fulfillmentType ?? "PICKUP",
+        subtotalCents: input.subtotalCents,
+        taxCents: input.taxCents,
+        discountCents: 0,
+        totalCents: input.totalCents,
+        notes: input.notes ?? null,
+        pickupTime: input.pickupTime ?? null,
+        deliveryAddressSnapshot,
+        customerNameSnapshot: input.customerNameSnapshot ?? customer.name ?? null,
+        customerPhoneSnapshot: input.customerPhoneSnapshot ?? customer.phone ?? null,
+        stripePaymentIntentId: input.stripePaymentIntentId ?? null,
+      }),
+      items: {
+        create: input.items.map((item) => ({
+          restaurantId: scope.restaurantId,
+          itemId: item.itemId,
+          name: item.name,
+          variantName: item.variantName,
+          quantity: item.quantity,
+          unitPriceCents: item.unitPriceCents,
+          linePriceCents: item.linePriceCents,
+          notes: item.notes ?? null,
+          modifierSelections: {
+            create: item.modifiers.map((modifier) => ({
+              restaurantId: scope.restaurantId,
+              groupName: modifier.groupName,
+              optionName: modifier.optionName,
+              priceDeltaCents: modifier.priceDeltaCents,
+              portion: modifier.portion,
+            })),
+          },
+        })),
+      },
+      statusEvents: {
+        create: {
+          restaurantId: scope.restaurantId,
+          fromStatus: null,
+          toStatus: "PENDING",
+          source: "customer",
+        },
+      },
+    },
+    include: {
+      items: {
+        include: {
+          modifierSelections: true,
+        },
+      },
+      statusEvents: true,
+    },
+  })
 }
 
 export function createTenantDataAccess(scope: TenantScope) {
@@ -1060,6 +1394,238 @@ export function createTenantDataAccess(scope: TenantScope) {
     },
   }
 
+  async function findCheckoutSessionById(
+    prisma: Prisma.TransactionClient,
+    checkoutSessionId: string,
+  ) {
+    const rows = await prisma.$queryRaw<CheckoutSessionRow[]>(Prisma.sql`
+      SELECT *
+      FROM "CheckoutSession"
+      WHERE "restaurantId" = ${scope.restaurantId}
+        AND "id" = ${checkoutSessionId}
+      LIMIT 1
+    `)
+
+    return rows[0] ?? null
+  }
+
+  async function findCheckoutSessionByPaymentIntentId(
+    prisma: Prisma.TransactionClient,
+    paymentIntentId: string,
+  ) {
+    const rows = await prisma.$queryRaw<CheckoutSessionRow[]>(Prisma.sql`
+      SELECT *
+      FROM "CheckoutSession"
+      WHERE "restaurantId" = ${scope.restaurantId}
+        AND "stripePaymentIntentId" = ${paymentIntentId}
+      LIMIT 1
+    `)
+
+    return rows[0] ?? null
+  }
+
+  const checkouts = {
+    async createCheckoutSession(input: CreateCheckoutSessionInput) {
+      return withTenantConnection(scope.restaurantId, async (prisma) => {
+        const customer = await resolveOrderCustomer(prisma, scope, scoped, {
+          customerId: input.customerId,
+          customerPhoneSnapshot: input.customerPhoneSnapshot,
+          customerNameSnapshot: input.customerNameSnapshot,
+        })
+
+        const normalized = await normalizeOrderItems(prisma, scope, scoped, input.items)
+        const deliveryAddressSnapshotValue =
+          input.deliveryAddressSnapshot === null
+            ? Prisma.sql`NULL`
+            : Prisma.sql`${JSON.stringify(input.deliveryAddressSnapshot)}::jsonb`
+        const cartSnapshotValue = Prisma.sql`${JSON.stringify({
+          items: normalized.items,
+        })}::jsonb`
+        const rows = await prisma.$queryRaw<CheckoutSessionRow[]>(Prisma.sql`
+          INSERT INTO "CheckoutSession" (
+            "id",
+            "restaurantId",
+            "customerId",
+            "customerNameSnapshot",
+            "customerPhoneSnapshot",
+            "fulfillmentType",
+            "notes",
+            "pickupTime",
+            "deliveryAddressSnapshot",
+            "cartSnapshot",
+            "subtotalCents",
+            "taxCents",
+            "discountCents",
+            "totalCents",
+            "stripeAccountId",
+            "status",
+            "createdAt",
+            "updatedAt"
+          ) VALUES (
+            ${randomUUID()},
+            ${scope.restaurantId},
+            ${customer.id},
+            ${input.customerNameSnapshot ?? customer.name ?? null},
+            ${input.customerPhoneSnapshot ?? customer.phone ?? null},
+            ${input.fulfillmentType ?? "PICKUP"},
+            ${input.notes ?? null},
+            ${input.pickupTime ?? null},
+            ${deliveryAddressSnapshotValue},
+            ${cartSnapshotValue},
+            ${normalized.subtotalCents},
+            ${normalized.taxCents},
+            ${0},
+            ${normalized.totalCents},
+            ${input.stripeAccountId},
+            ${"PENDING" satisfies CheckoutSessionStatus},
+            NOW(),
+            NOW()
+          )
+          RETURNING *
+        `)
+
+        return rows[0] ?? null
+      })
+    },
+
+    async findById(checkoutSessionId: string) {
+      return withTenantConnection(scope.restaurantId, async (prisma) => {
+        return findCheckoutSessionById(prisma, checkoutSessionId)
+      })
+    },
+
+    async findByPaymentIntentId(paymentIntentId: string) {
+      return withTenantConnection(scope.restaurantId, async (prisma) => {
+        return findCheckoutSessionByPaymentIntentId(prisma, paymentIntentId)
+      })
+    },
+
+    async attachPaymentIntent(checkoutSessionId: string, paymentIntentId: string) {
+      return withTenantConnection(scope.restaurantId, async (prisma) => {
+        const rows = await prisma.$queryRaw<CheckoutSessionRow[]>(Prisma.sql`
+          UPDATE "CheckoutSession"
+          SET "stripePaymentIntentId" = ${paymentIntentId},
+              "updatedAt" = NOW()
+          WHERE "restaurantId" = ${scope.restaurantId}
+            AND "id" = ${checkoutSessionId}
+          RETURNING *
+        `)
+
+        return rows[0] ?? null
+      })
+    },
+
+    async markRequiresAction(checkoutSessionId: string) {
+      return withTenantConnection(scope.restaurantId, async (prisma) => {
+        const rows = await prisma.$queryRaw<CheckoutSessionRow[]>(Prisma.sql`
+          UPDATE "CheckoutSession"
+          SET "status" = ${"REQUIRES_ACTION" satisfies CheckoutSessionStatus},
+              "updatedAt" = NOW()
+          WHERE "restaurantId" = ${scope.restaurantId}
+            AND "id" = ${checkoutSessionId}
+          RETURNING *
+        `)
+
+        return rows[0] ?? null
+      })
+    },
+
+    async markPaymentFailedByIntent(paymentIntentId: string) {
+      return withTenantConnection(scope.restaurantId, async (prisma) => {
+        const rows = await prisma.$queryRaw<CheckoutSessionRow[]>(Prisma.sql`
+          UPDATE "CheckoutSession"
+          SET "status" = ${"PAYMENT_FAILED" satisfies CheckoutSessionStatus},
+              "updatedAt" = NOW()
+          WHERE "restaurantId" = ${scope.restaurantId}
+            AND "stripePaymentIntentId" = ${paymentIntentId}
+          RETURNING *
+        `)
+
+        return rows[0] ?? null
+      })
+    },
+
+    async markPaymentSucceededByIntent(paymentIntentId: string) {
+      return withTenantConnection(scope.restaurantId, async (prisma) => {
+        const rows = await prisma.$queryRaw<CheckoutSessionRow[]>(Prisma.sql`
+          UPDATE "CheckoutSession"
+          SET "status" = ${"PAYMENT_SUCCEEDED" satisfies CheckoutSessionStatus},
+              "updatedAt" = NOW()
+          WHERE "restaurantId" = ${scope.restaurantId}
+            AND "stripePaymentIntentId" = ${paymentIntentId}
+          RETURNING *
+        `)
+
+        return rows[0] ?? null
+      })
+    },
+
+    async createOrderFromCheckoutSession(checkoutSessionId: string) {
+      return withTenantConnection(scope.restaurantId, async (prisma) => {
+        const checkoutSession = await findCheckoutSessionById(prisma, checkoutSessionId)
+
+        if (!checkoutSession) {
+          return { kind: "not_found" as const }
+        }
+
+        if (checkoutSession.createdOrderId) {
+          const existingOrder = await prisma.order.findFirst({
+            where: scoped.scopeWhere({ id: checkoutSession.createdOrderId }),
+            include: {
+              items: {
+                include: {
+                  modifierSelections: true,
+                },
+              },
+              statusEvents: {
+                orderBy: [{ createdAt: "asc" }],
+              },
+            },
+          })
+
+          return {
+            kind: "already_created" as const,
+            order: existingOrder,
+          }
+        }
+
+        const cartSnapshot = parseCheckoutCartSnapshot(checkoutSession.cartSnapshot as Prisma.JsonValue)
+        const createdOrder = await persistOrderFromSnapshot(prisma, scope, scoped, {
+          customerId: checkoutSession.customerId,
+          customerNameSnapshot: checkoutSession.customerNameSnapshot,
+          customerPhoneSnapshot: checkoutSession.customerPhoneSnapshot,
+          fulfillmentType: checkoutSession.fulfillmentType,
+          notes: checkoutSession.notes,
+          pickupTime: checkoutSession.pickupTime,
+          deliveryAddressSnapshot:
+            checkoutSession.deliveryAddressSnapshot === null
+              ? null
+              : (checkoutSession.deliveryAddressSnapshot as Prisma.InputJsonValue),
+          items: cartSnapshot.items,
+          subtotalCents: checkoutSession.subtotalCents,
+          taxCents: checkoutSession.taxCents,
+          totalCents: checkoutSession.totalCents,
+          paymentStatus: "PAID",
+          stripePaymentIntentId: checkoutSession.stripePaymentIntentId,
+        })
+
+        await prisma.$executeRaw(Prisma.sql`
+          UPDATE "CheckoutSession"
+          SET "createdOrderId" = ${createdOrder.id},
+              "status" = ${"ORDER_CREATED" satisfies CheckoutSessionStatus},
+              "updatedAt" = NOW()
+          WHERE "restaurantId" = ${scope.restaurantId}
+            AND "id" = ${checkoutSession.id}
+        `)
+
+        return {
+          kind: "created" as const,
+          order: createdOrder,
+        }
+      })
+    },
+  }
+
   const orders = {
     async findById(orderId: string) {
       return withTenantConnection(scope.restaurantId, async (prisma) => {
@@ -1083,138 +1649,22 @@ export function createTenantDataAccess(scope: TenantScope) {
 
     async createOrder(input: CreateOrderInput) {
       return withTenantConnection(scope.restaurantId, async (prisma) => {
-        let customer: Customer | null = null
+        const normalized = await normalizeOrderItems(prisma, scope, scoped, input.items)
 
-        if (input.customerId) {
-          customer = await prisma.customer.findFirst({
-            where: scoped.scopeWhere({ id: input.customerId }),
-          })
-
-          if (!customer) {
-            throw badRequest("Customer not found for tenant")
-          }
-        } else if (input.customerPhoneSnapshot) {
-          customer =
-            (await prisma.customer.findFirst({
-              where: scoped.scopeWhere({ phone: input.customerPhoneSnapshot }),
-            })) ??
-            (await prisma.customer.create({
-              data: scoped.scopeCreate({
-                phone: input.customerPhoneSnapshot,
-                name: input.customerNameSnapshot ?? null,
-              }),
-            }))
-
-          if (!customer) {
-            throw badRequest("Customer lookup or creation failed")
-          }
-        } else {
-          throw badRequest("Customer phone is required to create an order")
-        }
-
-        const normalizedItems = await Promise.all(input.items.map(async (item) => {
-          if (!item.itemId) {
-            throw badRequest("Order items must include a valid itemId")
-          }
-
-          const menuItem = await prisma.menuItem.findFirst({
-            where: scoped.scopeWhere({ id: item.itemId }),
-          })
-
-          if (!menuItem) {
-            throw badRequest(`Menu item ${item.itemId} not found for tenant`)
-          }
-
-          const quantity = item.quantity ?? 1
-          const unitPriceCents = item.unitPriceCents ?? menuItem.basePriceCents
-          const modifierTotal = (item.modifiers ?? []).reduce(
-            (sum, modifier) => sum + (modifier.priceDeltaCents ?? 0),
-            0,
-          )
-
-          return {
-            ...item,
-            itemId: menuItem.id,
-            name: menuItem.name,
-            quantity,
-            unitPriceCents,
-            linePriceCents: (unitPriceCents + modifierTotal) * quantity,
-          }
-        }))
-
-        const subtotalCents = normalizedItems.reduce(
-          (sum, item) => sum + item.linePriceCents,
-          0,
-        )
-        const taxCents = Math.round(subtotalCents * 0.08875)
-        const totalCents = subtotalCents + taxCents
-        const orderNumber = await nextOrderNumber(prisma, scope.restaurantId)
-        const deliveryAddressSnapshot =
-          input.deliveryAddressSnapshot === null
-            ? Prisma.JsonNull
-            : input.deliveryAddressSnapshot
-
-        const createdOrder = await prisma.order.create({
-          data: {
-            ...scoped.scopeCreate({
-              customerId: customer.id,
-              orderNumber,
-              status: "PENDING",
-              paymentStatus: "PENDING",
-              fulfillmentType: input.fulfillmentType ?? "PICKUP",
-              subtotalCents,
-              taxCents,
-              discountCents: 0,
-              totalCents,
-              notes: input.notes ?? null,
-              pickupTime: input.pickupTime ?? null,
-              deliveryAddressSnapshot,
-              customerNameSnapshot:
-                input.customerNameSnapshot ?? customer.name ?? null,
-              customerPhoneSnapshot:
-                input.customerPhoneSnapshot ?? customer.phone ?? null,
-            }),
-            items: {
-              create: normalizedItems.map((item) => ({
-                restaurantId: scope.restaurantId,
-                itemId: item.itemId ?? null,
-                name: item.name,
-                variantName: item.variantName ?? null,
-                quantity: item.quantity,
-                unitPriceCents: item.unitPriceCents,
-                linePriceCents: item.linePriceCents,
-                notes: item.notes ?? null,
-                modifierSelections: {
-                  create: (item.modifiers ?? []).map((modifier) => ({
-                    restaurantId: scope.restaurantId,
-                    groupName: modifier.groupName,
-                    optionName: modifier.optionName,
-                    priceDeltaCents: modifier.priceDeltaCents ?? 0,
-                    portion: modifier.portion ?? "WHOLE",
-                  })),
-                },
-              })),
-            },
-            statusEvents: {
-              create: {
-                restaurantId: scope.restaurantId,
-                fromStatus: null,
-                toStatus: "PENDING",
-                source: "customer",
-              },
-            },
-          },
-          include: {
-            items: {
-              include: {
-                modifierSelections: true,
-              },
-            },
-            statusEvents: true,
-          },
+        return persistOrderFromSnapshot(prisma, scope, scoped, {
+          customerId: input.customerId,
+          customerNameSnapshot: input.customerNameSnapshot,
+          customerPhoneSnapshot: input.customerPhoneSnapshot,
+          fulfillmentType: input.fulfillmentType,
+          notes: input.notes,
+          pickupTime: input.pickupTime,
+          deliveryAddressSnapshot: input.deliveryAddressSnapshot ?? null,
+          items: normalized.items,
+          subtotalCents: normalized.subtotalCents,
+          taxCents: normalized.taxCents,
+          totalCents: normalized.totalCents,
+          paymentStatus: "PENDING",
         })
-
-        return createdOrder
       })
     },
 
@@ -1417,6 +1867,7 @@ export function createTenantDataAccess(scope: TenantScope) {
     scope,
     customers,
     menu,
+    checkouts,
     orders,
     payments,
   }
