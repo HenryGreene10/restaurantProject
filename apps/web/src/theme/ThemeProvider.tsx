@@ -22,7 +22,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const liveThemeQuery = useQuery({
     queryKey: ["tenant-menu", tenantSlug],
     queryFn: () => fetchTenantMenu(tenantSlug),
-    enabled: source === "api",
+    enabled: source === "api" && Boolean(tenantSlug),
     staleTime: 60_000,
   })
 

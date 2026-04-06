@@ -11,11 +11,46 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { cartItemCount, cartLineTotal, cartSubtotal, type CartItem } from "./cartStore"
 
+const NAME_PATTERN = /^[A-Za-z\s'-]+$/
+const ORDER_NOTE_MAX_LENGTH = 500
+
 function formatPrice(priceCents: number) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
   }).format(priceCents / 100)
+}
+
+function normalizePhoneNumber(value: string) {
+  const digits = value.replace(/\D/g, "")
+
+  if (digits.length === 10) {
+    return `+1${digits}`
+  }
+
+  if (digits.length === 11 && digits.startsWith("1")) {
+    return `+${digits}`
+  }
+
+  return null
+}
+
+function validateCustomerName(value: string) {
+  const trimmed = value.trim()
+  if (trimmed.length < 2 || !NAME_PATTERN.test(trimmed)) {
+    return "Please enter your full name"
+  }
+
+  return null
+}
+
+function validateCustomerPhone(value: string) {
+  const digits = value.replace(/\D/g, "")
+  if (digits.length < 10 || !normalizePhoneNumber(value)) {
+    return "Please enter a valid 10-digit phone number"
+  }
+
+  return null
 }
 
 type CartSummaryProps = {
@@ -67,11 +102,18 @@ export function CartSummary({
   const subtotal = cartSubtotal(items)
   const [checkoutMode, setCheckoutMode] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [nameTouched, setNameTouched] = useState(false)
+  const [phoneTouched, setPhoneTouched] = useState(false)
+  const [submitAttempted, setSubmitAttempted] = useState(false)
 
   const canContinue = items.length > 0
   const trimmedName = customerName.trim()
   const trimmedPhone = customerPhone.trim()
-  const hasDraftDetails = trimmedName.length > 0 && trimmedPhone.length >= 7
+  const nameError = validateCustomerName(customerName)
+  const phoneError = validateCustomerPhone(customerPhone)
+  const showNameError = (nameTouched || submitAttempted) && !!nameError
+  const showPhoneError = (phoneTouched || submitAttempted) && !!phoneError
+  const hasDraftDetails = trimmedName.length > 0 && trimmedPhone.length > 0
   const canSubmit = hasDraftDetails && !submitting
 
   const taxEstimate = useMemo(() => Math.round(subtotal * 0.08), [subtotal])
@@ -88,31 +130,22 @@ export function CartSummary({
     }
   }, [open])
 
-  useEffect(() => {
-    if (!checkoutMode || canSubmit) return
-    if (!trimmedName && !trimmedPhone) return
-
-    console.log("Checkout validation blocked", {
-      nameLength: trimmedName.length,
-      phoneLength: trimmedPhone.length,
-      hasName: trimmedName.length > 0,
-      hasPhone: trimmedPhone.length > 0,
-      hasDraftDetails,
-      submitting,
-    })
-  }, [canSubmit, checkoutMode, hasDraftDetails, submitting, trimmedName, trimmedPhone])
-
   async function handleCheckoutSubmit() {
+    setSubmitAttempted(true)
+
     if (!canSubmit) {
-      console.log("Checkout validation blocked", {
-        nameLength: trimmedName.length,
-        phoneLength: trimmedPhone.length,
-        hasName: trimmedName.length > 0,
-        hasPhone: trimmedPhone.length > 0,
-        hasDraftDetails,
-        submitting,
-      })
       setFormError("Enter your name and phone number before placing the pickup order.")
+      return
+    }
+
+    if (nameError || phoneError) {
+      setFormError(null)
+      return
+    }
+
+    const normalizedPhone = normalizePhoneNumber(customerPhone)
+    if (!normalizedPhone) {
+      setFormError(null)
       return
     }
 
@@ -121,7 +154,7 @@ export function CartSummary({
     try {
       await onCheckout({
         customerName: trimmedName,
-        customerPhone: trimmedPhone,
+        customerPhone: normalizedPhone,
         orderNotes: orderNotes.trim() ? orderNotes.trim() : null,
       })
       setCheckoutMode(false)
@@ -134,6 +167,9 @@ export function CartSummary({
   function handleClose() {
     setCheckoutMode(false)
     setFormError(null)
+    setNameTouched(false)
+    setPhoneTouched(false)
+    setSubmitAttempted(false)
     onClose()
   }
 
@@ -337,8 +373,12 @@ export function CartSummary({
                               id="checkout-name"
                               value={customerName}
                               onChange={(event) => onCustomerNameChange(event.target.value)}
+                              onBlur={() => setNameTouched(true)}
                               placeholder="Customer name"
                             />
+                            {showNameError ? (
+                              <div className="text-sm text-red-600">{nameError}</div>
+                            ) : null}
                           </div>
                           <div className="grid gap-2">
                             <Label htmlFor="checkout-phone">Phone</Label>
@@ -346,16 +386,30 @@ export function CartSummary({
                               id="checkout-phone"
                               value={customerPhone}
                               onChange={(event) => onCustomerPhoneChange(event.target.value)}
+                              onBlur={() => setPhoneTouched(true)}
                               placeholder="(555) 555-5555"
                             />
+                            {showPhoneError ? (
+                              <div className="text-sm text-red-600">{phoneError}</div>
+                            ) : null}
                           </div>
                           <div className="grid gap-2">
-                            <Label htmlFor="checkout-note">Order note</Label>
+                            <div className="flex items-center justify-between gap-3">
+                              <Label htmlFor="checkout-note">Order note</Label>
+                              <div className="text-xs text-muted-foreground">
+                                {orderNotes.length}/{ORDER_NOTE_MAX_LENGTH}
+                              </div>
+                            </div>
                             <textarea
                               id="checkout-note"
                               value={orderNotes}
-                              onChange={(event) => onOrderNotesChange(event.target.value)}
+                              onChange={(event) =>
+                                onOrderNotesChange(
+                                  event.target.value.slice(0, ORDER_NOTE_MAX_LENGTH),
+                                )
+                              }
                               rows={3}
+                              maxLength={ORDER_NOTE_MAX_LENGTH}
                               className="min-h-24 w-full rounded-[var(--radius)] border border-input bg-background px-4 py-4 text-sm text-foreground shadow-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30"
                               placeholder="Optional note for pickup"
                             />
@@ -432,7 +486,7 @@ export function CartSummary({
                   <div className="grid gap-4">
                     <Button
                       className="min-h-11 w-full justify-center"
-                      disabled={!canSubmit}
+                      disabled={!hasDraftDetails || submitting}
                       onClick={() => void handleCheckoutSubmit()}
                     >
                       {submitting ? "Placing order…" : "Place pickup order"}

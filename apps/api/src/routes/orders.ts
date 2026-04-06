@@ -37,6 +37,20 @@ function parseOrderStatus(value: unknown): OrderStatus | undefined {
   return undefined
 }
 
+function normalizeCustomerPhone(value: string) {
+  const digits = value.replace(/\D/g, '')
+
+  if (digits.length === 10) {
+    return `+1${digits}`
+  }
+
+  if (digits.length === 11 && digits.startsWith('1')) {
+    return `+${digits}`
+  }
+
+  return null
+}
+
 function routeParam(req: TenantRequest, key: string): string {
   const value = req.params[key]
   return Array.isArray(value) ? value[0] : value
@@ -166,6 +180,15 @@ export function registerOrderRoutes(r: Router) {
       const { items, type, pickupTime, deliveryAddress, notes, customerId, customerName, customerPhone } = req.body ?? {}
       if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ error: 'No items' })
       const customerAuth = readBearerToken(req) ? verifyCustomer(req) : null
+      const normalizedCustomerPhone =
+        customerAuth?.phone ??
+        (typeof customerPhone === 'string'
+          ? normalizeCustomerPhone(customerPhone)
+          : null)
+
+      if (!normalizedCustomerPhone) {
+        return res.status(400).json({ error: 'Invalid customer phone number' })
+      }
 
       const tenantDataAccess = createTenantDataAccess(
         createTenantScope(req.tenant.id)
@@ -175,9 +198,7 @@ export function registerOrderRoutes(r: Router) {
           customerAuth?.customerId ??
           (typeof customerId === 'string' ? customerId : undefined),
         customerNameSnapshot: typeof customerName === 'string' ? customerName : null,
-        customerPhoneSnapshot:
-          customerAuth?.phone ??
-          (typeof customerPhone === 'string' ? customerPhone : null),
+        customerPhoneSnapshot: normalizedCustomerPhone,
         fulfillmentType: type === 'DELIVERY' ? 'DELIVERY' : 'PICKUP',
         notes,
         pickupTime: pickupTime ? new Date(pickupTime) : null,

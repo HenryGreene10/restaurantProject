@@ -1,5 +1,6 @@
 import { create } from "zustand"
 
+import { getTenantSlug } from "../lib/tenant"
 import type { ThemeSource } from "./types"
 
 type ThemePlaygroundState = {
@@ -11,7 +12,7 @@ type ThemePlaygroundState = {
 
 export const useThemePlaygroundStore = create<ThemePlaygroundState>((set) => ({
   source: "api",
-  tenantSlug: "joes-pizza",
+  tenantSlug: getTenantSlug() ?? "",
   setSource: (source) => set({ source }),
   setTenantSlug: (tenantSlug) => set({ tenantSlug }),
 }))
