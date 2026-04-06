@@ -6,9 +6,12 @@
   "main": "src/index.ts",
   "scripts": {
     "dev": "node --loader ts-node/esm src/index.ts",
-    "build": "tsc -p tsconfig.json",
+    "build": "prisma generate && tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
+  },
+  "prisma": {
+    "schema": "../../packages/db/prisma/schema.prisma"
   },
   "dependencies": {
     "@clerk/backend": "^3.2.4",
@@ -26,6 +29,9 @@
     "zod": "^3.22.4"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/express": "^5.0.1",
+    "@types/jsonwebtoken": "^9.0.7",
     "@types/supertest": "^6.0.3",
     "supertest": "^7.0.0",
     "ts-node": "^10.9.2",

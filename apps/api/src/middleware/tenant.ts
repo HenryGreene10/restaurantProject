@@ -1,9 +1,18 @@
 import type { Request, Response, NextFunction } from 'express'
 import { tenantFromHost, tenantFromSlug } from '../lib/tenant.js'
 
-export interface TenantRequest extends Request {
-  tenant?: { id: string; slug: string }
+type Tenant = {
+  id: string
+  slug: string
 }
+
+declare module 'express-serve-static-core' {
+  interface Request {
+    tenant?: Tenant
+  }
+}
+
+export type TenantRequest = Request
 
 export async function tenantMiddleware(req: TenantRequest, res: Response, next: NextFunction) {
   const requestedSlug = req.header('x-tenant-slug')
