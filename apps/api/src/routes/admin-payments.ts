@@ -72,7 +72,7 @@ export function registerAdminPaymentsRoutes(r: Router) {
           refreshUrl: runtime.STRIPE_CONNECT_REFRESH_URL,
           returnUrl: runtime.STRIPE_CONNECT_RETURN_URL,
         },
-        stripeAccountId,
+        stripeAccountId: stripeAccountId!,
       })
 
       return res.json({ url: onboardingLink.url })

@@ -2,11 +2,11 @@
   "name": "api",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
+  "type": "commonjs",
   "main": "src/index.ts",
   "scripts": {
     "dev": "node --loader ts-node/esm src/index.ts",
-    "build": "prisma generate && esbuild src/index.ts --bundle --platform=node --outfile=dist/index.js --format=esm",
+    "build": "prisma generate && esbuild src/index.ts --bundle --platform=node --outfile=dist/index.js --format=cjs",
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"

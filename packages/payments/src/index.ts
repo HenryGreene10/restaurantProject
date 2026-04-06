@@ -1,4 +1,4 @@
-import Stripe from 'stripe'
+import Stripe = require('stripe')
 
 export type StripeRuntimeConfig = {
   secretKey: string
@@ -19,7 +19,7 @@ export type StripeConnectionState = {
 }
 
 function createStripeClient(secretKey: string) {
-  return new Stripe(secretKey)
+  return Stripe(secretKey)
 }
 
 export function deriveStripeConnectionState(input: {
