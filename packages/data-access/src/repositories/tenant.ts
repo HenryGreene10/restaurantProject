@@ -1467,7 +1467,7 @@ export function createTenantDataAccess(scope: TenantScope) {
             ${customer.id},
             ${input.customerNameSnapshot ?? customer.name ?? null},
             ${input.customerPhoneSnapshot ?? customer.phone ?? null},
-            ${input.fulfillmentType ?? "PICKUP"},
+            ${Prisma.sql`${input.fulfillmentType ?? "PICKUP"}::"FulfillmentType"`},
             ${input.notes ?? null},
             ${input.pickupTime ?? null},
             ${deliveryAddressSnapshotValue},
