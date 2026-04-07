@@ -3,6 +3,8 @@ import request from 'supertest'
 
 const mockFindTenantByHost = vi.fn()
 const mockFindTenantBySlug = vi.fn()
+const mockFindAdminAccessByClerkUserId = vi.fn()
+const mockClaimLegacyAdminAccessByEmail = vi.fn()
 const mockListCategories = vi.fn()
 const mockCreateCategory = vi.fn()
 const mockUpdateCategory = vi.fn()
@@ -32,11 +34,19 @@ const mockGetBrandConfig = vi.fn()
 const mockUpdateBrandConfig = vi.fn()
 const mockReorderCategoryItems = vi.fn()
 
+vi.mock('@clerk/backend', () => ({
+  verifyToken: vi.fn().mockResolvedValue({
+    sub: 'user_1',
+  }),
+}))
+
 vi.mock('@repo/data-access', () => ({
   createTenantScope: (restaurantId: string) => ({ restaurantId }),
   createPlatformDataAccess: () => ({
     findTenantByHost: mockFindTenantByHost,
-    findTenantBySlug: mockFindTenantBySlug
+    findTenantBySlug: mockFindTenantBySlug,
+    findAdminAccessByClerkUserId: mockFindAdminAccessByClerkUserId,
+    claimLegacyAdminAccessByEmail: mockClaimLegacyAdminAccessByEmail,
   }),
   createTenantDataAccess: () => ({
     brand: {
@@ -89,6 +99,16 @@ describe('admin menu integration', () => {
       id: 'rest_1',
       slug: 'demo'
     })
+    mockFindAdminAccessByClerkUserId.mockResolvedValue({
+      adminUserId: 'admin_1',
+      clerkUserId: 'user_1',
+      email: 'owner@demo.test',
+      role: 'owner',
+      restaurantId: 'rest_1',
+      tenantSlug: 'demo',
+      restaurantName: 'Demo Restaurant',
+    })
+    mockClaimLegacyAdminAccessByEmail.mockResolvedValue(null)
   })
 
   it('creates a tenant-scoped category', async () => {
@@ -103,6 +123,7 @@ describe('admin menu integration', () => {
 
     const response = await request(createApp())
       .post('/admin/menu/categories')
+      .set('Authorization', 'Bearer clerk_token')
       .set('Host', 'demo.example.com')
       .send({ name: 'Pizza', menuId: 'menu_1', sortOrder: 1 })
 
@@ -128,6 +149,7 @@ describe('admin menu integration', () => {
 
     const response = await request(createApp())
       .patch('/admin/menu/items/item_1/availability')
+      .set('Authorization', 'Bearer clerk_token')
       .set('Host', 'demo.example.com')
       .send({ visibility: 'SOLD_OUT' })
 
@@ -147,6 +169,7 @@ describe('admin menu integration', () => {
 
     const response = await request(createApp())
       .post('/admin/menu/modifier-groups/group_1/options')
+      .set('Authorization', 'Bearer clerk_token')
       .set('Host', 'demo.example.com')
       .send({ name: 'Mushrooms', priceDeltaCents: 200, position: 1 })
 
@@ -171,6 +194,7 @@ describe('admin menu integration', () => {
 
     const response = await request(createApp())
       .post('/admin/menu/items/item_1/modifier-groups')
+      .set('Authorization', 'Bearer clerk_token')
       .set('x-tenant-slug', 'demo')
       .send({
         groupId: 'group_1',
@@ -208,6 +232,7 @@ describe('admin menu integration', () => {
 
     const response = await request(createApp())
       .patch('/admin/brand-config')
+      .set('Authorization', 'Bearer clerk_token')
       .set('x-tenant-slug', 'demo')
       .send({
         appTitle: "Joe's Pizza",
@@ -257,6 +282,7 @@ describe('admin menu integration', () => {
 
     const response = await request(createApp())
       .patch('/admin/menu/categories/cat_1/items/reorder')
+      .set('Authorization', 'Bearer clerk_token')
       .set('x-tenant-slug', 'demo')
       .send({ itemIds: ['item_2', 'item_1'] })
 

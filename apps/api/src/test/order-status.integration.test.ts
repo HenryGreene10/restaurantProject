@@ -3,9 +3,17 @@ import request from 'supertest'
 
 const mockFindTenantByHost = vi.fn()
 const mockFindTenantBySlug = vi.fn()
+const mockFindAdminAccessByClerkUserId = vi.fn()
+const mockClaimLegacyAdminAccessByEmail = vi.fn()
 const mockFindOrderById = vi.fn()
 const mockUpdateOrderStatus = vi.fn()
 const mockVerifyCustomerAccessToken = vi.fn()
+
+vi.mock('@clerk/backend', () => ({
+  verifyToken: vi.fn().mockResolvedValue({
+    sub: 'user_1',
+  }),
+}))
 
 vi.mock('@repo/auth', async () => {
   const actual = await vi.importActual<typeof import('@repo/auth')>('@repo/auth')
@@ -19,7 +27,9 @@ vi.mock('@repo/data-access', () => ({
   createTenantScope: (restaurantId: string) => ({ restaurantId }),
   createPlatformDataAccess: () => ({
     findTenantByHost: mockFindTenantByHost,
-    findTenantBySlug: mockFindTenantBySlug
+    findTenantBySlug: mockFindTenantBySlug,
+    findAdminAccessByClerkUserId: mockFindAdminAccessByClerkUserId,
+    claimLegacyAdminAccessByEmail: mockClaimLegacyAdminAccessByEmail,
   }),
   createTenantDataAccess: () => ({
     menu: {
@@ -47,6 +57,16 @@ describe('order status integration', () => {
       id: 'rest_1',
       slug: 'demo'
     })
+    mockFindAdminAccessByClerkUserId.mockResolvedValue({
+      adminUserId: 'admin_1',
+      clerkUserId: 'user_1',
+      email: 'owner@demo.test',
+      role: 'owner',
+      restaurantId: 'rest_1',
+      tenantSlug: 'demo',
+      restaurantName: 'Demo Restaurant',
+    })
+    mockClaimLegacyAdminAccessByEmail.mockResolvedValue(null)
     mockVerifyCustomerAccessToken.mockReturnValue({
       sub: 'cust_1',
       customerId: 'cust_1',
@@ -67,6 +87,7 @@ describe('order status integration', () => {
 
     const response = await request(createApp())
       .patch('/admin/orders/order_1/status')
+      .set('Authorization', 'Bearer clerk_token')
       .set('Host', 'demo.example.com')
       .send({ status: 'PREPARING' })
 
@@ -94,6 +115,7 @@ describe('order status integration', () => {
 
     const response = await request(createApp())
       .patch('/admin/orders/order_1/status')
+      .set('Authorization', 'Bearer clerk_token')
       .set('x-tenant-slug', 'demo')
       .send({ status: 'PREPARING', actorAdminId: 'admin_1' })
 

@@ -238,8 +238,7 @@ export function registerOrderRoutes(r: Router) {
     const transition = await transitionOrderStatus(tenantDataAccess, {
       orderId: routeParam(req, 'orderId'),
       nextStatus,
-      actorAdminId:
-        typeof req.body?.actorAdminId === 'string' ? req.body.actorAdminId : null,
+      actorAdminId: req.adminUser?.id ?? null,
     })
 
     if (transition.kind === 'not_found') {

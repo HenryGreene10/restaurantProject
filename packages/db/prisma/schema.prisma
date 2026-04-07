@@ -19,13 +19,6 @@ enum DomainSslStatus {
   FAILED
 }
 
-enum AdminRole {
-  OWNER
-  MANAGER
-  STAFF
-  SUPPORT
-}
-
 enum CatalogVisibility {
   AVAILABLE
   SOLD_OUT
@@ -160,9 +153,9 @@ model RestaurantDomain {
 model AdminUser {
   id           String     @id @default(uuid())
   restaurantId String
+  clerkUserId  String     @unique
   email        String
-  passwordHash String
-  role         AdminRole
+  role         String     @default("owner")
   createdAt    DateTime   @default(now())
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   orderStatusEvents OrderStatusEvent[]

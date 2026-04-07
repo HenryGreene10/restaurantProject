@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react"
+import React, { useCallback, useEffect, useMemo, useState } from "react"
 import { UserButton, useAuth, useUser } from "@clerk/react"
 import {
   DndContext,
@@ -32,6 +32,7 @@ import {
 import { AssistantPanel } from "../assistant/AssistantPanel"
 import { fetchTenantMenu, type MenuCategory, type MenuResponse } from "../lib/menu"
 import { adminFetchJson } from "../lib/api"
+import { OnboardingPage } from "./OnboardingPage"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
@@ -170,6 +171,10 @@ type AdminTab = "branding" | "menu"
 type AdminShellView = "assistant" | "controls"
 type ThemeChangeHandler = <K extends keyof ThemeDraft>(key: K, value: ThemeDraft[K]) => void
 type CategoryItemEntry = MenuCategory["categoryItems"][number]
+
+function currentAdminPath() {
+  return window.location.pathname
+}
 
 function areThemesEqual(left: ThemeDraft, right: ThemeDraft) {
   return JSON.stringify(left) === JSON.stringify(right)
@@ -705,6 +710,7 @@ export const App: React.FC = () => {
   const { isLoaded, user } = useUser()
   const tenantSlug = tenantSlugFromMetadata(user?.publicMetadata?.tenantSlug)
   const linkedTenantSlug = tenantSlug ?? ""
+  const [pathname, setPathname] = useState(currentAdminPath)
   const [menuData, setMenuData] = useState<MenuResponse | null>(null)
   const [savedTheme, setSavedTheme] = useState<ThemeDraft>(defaultThemeDraft)
   const [draftTheme, setDraftTheme] = useState<ThemeDraft>(defaultThemeDraft)
@@ -719,6 +725,37 @@ export const App: React.FC = () => {
   const [isStripeLaunching, setIsStripeLaunching] = useState(false)
   const [activeTab, setActiveTab] = useState<AdminTab>("branding")
   const [activeShellView, setActiveShellView] = useState<AdminShellView>("assistant")
+
+  const handleOnboardingCompleted = useCallback(async () => {
+    await user?.reload()
+    window.location.assign("/")
+  }, [user])
+
+  useEffect(() => {
+    function handlePopState() {
+      setPathname(currentAdminPath())
+    }
+
+    window.addEventListener("popstate", handlePopState)
+    return () => window.removeEventListener("popstate", handlePopState)
+  }, [])
+
+  useEffect(() => {
+    if (!isLoaded) {
+      return
+    }
+
+    if (!tenantSlug && pathname !== "/signup") {
+      window.history.replaceState({}, "", "/signup")
+      setPathname("/signup")
+      return
+    }
+
+    if (tenantSlug && pathname === "/signup") {
+      window.history.replaceState({}, "", "/")
+      setPathname("/")
+    }
+  }, [isLoaded, pathname, tenantSlug])
 
   async function patchAdminJson<T>(path: string, body: unknown) {
     return adminFetchJson<T>(path, {
@@ -816,36 +853,20 @@ export const App: React.FC = () => {
   }
 
   if (!tenantSlug) {
-    return (
-      <motion.main
-        className="mx-auto flex min-h-[100dvh] w-full max-w-[960px] flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8"
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.22, ease: "easeOut" }}
-      >
-        <header className="flex items-start justify-between gap-4">
-          <div className="grid gap-3">
-            <Badge variant="outline" className="w-fit border-border bg-background text-muted-foreground">
-              Restaurant admin dashboard
-            </Badge>
-            <div className="grid gap-2">
-              <h1 className="font-heading text-4xl text-foreground sm:text-5xl">
-                Storefront customization
-              </h1>
-              <p className="max-w-3xl text-base leading-7 text-muted-foreground">
-                Your account needs a restaurant link before the admin tools can load.
-              </p>
-            </div>
-          </div>
-          <UserButton />
-        </header>
+    const primaryEmail = user?.primaryEmailAddress?.emailAddress ?? ""
 
-        <SectionCard title="Account setup" subtitle="Restaurant access is managed through Clerk user metadata.">
-          <div className="rounded-[var(--radius)] border border-destructive/20 bg-destructive/10 px-4 py-4 text-sm text-destructive">
-            Your account is not linked to a restaurant. Contact support.
-          </div>
-        </SectionCard>
-      </motion.main>
+    return (
+      <>
+        <div className="absolute right-4 top-4 sm:right-6 sm:top-6">
+          <UserButton />
+        </div>
+        <OnboardingPage
+          clerkUserId={user?.id ?? ""}
+          email={primaryEmail}
+          getToken={getToken}
+          onCompleted={handleOnboardingCompleted}
+        />
+      </>
     )
   }
 

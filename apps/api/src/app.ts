@@ -14,6 +14,7 @@ import { registerCheckoutRoutes } from './routes/checkouts.js'
 import { registerAssistantRoutes } from './routes/assistant.js'
 import { registerKitchenRoutes } from './routes/kitchen.js'
 import { registerCustomerAuthRoutes } from './routes/customer-auth.js'
+import { registerOnboardingRoutes } from './routes/onboarding.js'
 import { registerStripeWebhookRoute } from './routes/stripe-webhook.js'
 
 export function createApp() {
@@ -25,12 +26,13 @@ export function createApp() {
   app.use(morgan('dev'))
 
   registerHealthRoutes(app)
+  registerOnboardingRoutes(app)
+  app.use('/admin', requireClerkAuth)
+  app.use('/v1/assistant/command', requireClerkAuth)
   app.use(tenantMiddleware)
   registerCustomerAuthRoutes(app)
   registerMenuRoutes(app)
   registerCheckoutRoutes(app)
-  app.use('/admin', requireClerkAuth)
-  app.use('/v1/assistant/command', requireClerkAuth)
   registerAdminBrandRoutes(app)
   registerAdminPaymentsRoutes(app)
   registerAdminMenuRoutes(app)

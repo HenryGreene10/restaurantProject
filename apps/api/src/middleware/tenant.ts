@@ -1,7 +1,7 @@
 import type { Request, Response, NextFunction } from 'express'
 import { tenantFromHost, tenantFromSlug } from '../lib/tenant.js'
 
-type Tenant = {
+export type Tenant = {
   id: string
   slug: string
 }
@@ -15,6 +15,14 @@ declare module 'express-serve-static-core' {
 export type TenantRequest = Request
 
 export async function tenantMiddleware(req: TenantRequest, res: Response, next: NextFunction) {
+  if (req.adminUser) {
+    req.tenant = {
+      id: req.adminUser.restaurantId,
+      slug: req.adminUser.tenantSlug,
+    }
+    return next()
+  }
+
   const requestedSlug = req.header('x-tenant-slug')
   const host = req.headers.host
 

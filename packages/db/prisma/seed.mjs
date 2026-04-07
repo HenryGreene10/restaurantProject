@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto"
 import { PrismaClient } from "@prisma/client"
 
 const prisma = new PrismaClient()
@@ -333,14 +334,17 @@ async function seedRestaurant(definition, restaurantIndex) {
     ]
   })
 
-  await prisma.adminUser.create({
-    data: {
-      restaurantId: restaurant.id,
-      email: `owner@${definition.slug}.test`,
-      passwordHash: "seeded-password-hash",
-      role: "OWNER"
-    }
-  })
+  await prisma.$executeRaw`
+    INSERT INTO "AdminUser" ("id", "restaurantId", "clerkUserId", "email", "role", "createdAt")
+    VALUES (
+      ${randomUUID()},
+      ${restaurant.id},
+      ${`seed-${definition.slug}-owner`},
+      ${`owner@${definition.slug}.test`},
+      ${"owner"},
+      NOW()
+    )
+  `
 
   const menu = await prisma.menu.create({
     data: {
