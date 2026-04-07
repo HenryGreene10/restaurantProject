@@ -1477,7 +1477,7 @@ export function createTenantDataAccess(scope: TenantScope) {
             ${0},
             ${normalized.totalCents},
             ${input.stripeAccountId},
-            ${"PENDING" satisfies CheckoutSessionStatus},
+            ${Prisma.sql`${"PENDING" satisfies CheckoutSessionStatus}::"CheckoutSessionStatus"`},
             NOW(),
             NOW()
           )
