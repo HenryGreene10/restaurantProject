@@ -14,19 +14,6 @@ function parseOrderPath(pathname: string) {
   return match?.[1] ?? null
 }
 
-function adminSignupUrl() {
-  const hostname = window.location.hostname.toLowerCase()
-  if (
-    hostname === "localhost" ||
-    hostname === "127.0.0.1" ||
-    hostname === "0.0.0.0"
-  ) {
-    return "http://localhost:5174/signup"
-  }
-
-  return "https://admin.easymenu.website/signup"
-}
-
 export function App() {
   const { tenantSlug } = useThemePlaygroundStore()
   const customerSession = useCustomerSession(tenantSlug)
@@ -68,21 +55,18 @@ export function App() {
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <a
-              href={adminSignupUrl()}
+              href="https://admin.easymenu.website/signup"
               className="inline-flex items-center justify-center rounded-[var(--radius)] bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-sm transition hover:opacity-95"
             >
               Get started
             </a>
             <a
-              href={adminSignupUrl()}
+              href="https://admin.easymenu.website"
               className="inline-flex items-center justify-center rounded-[var(--radius)] border border-border px-5 py-3 text-sm font-semibold text-foreground transition hover:bg-accent hover:text-accent-foreground"
             >
               Open admin
             </a>
           </div>
-          <p className="mt-6 text-sm leading-6 text-muted-foreground">
-            In local development, you can still preview a storefront with <code>?tenant=joes-pizza</code>.
-          </p>
         </div>
       </main>
     )
