@@ -5,7 +5,7 @@ Multi-tenant white-label restaurant ordering platform for independent restaurant
 - Backend: Node + Express + Prisma (Postgres + RLS)
 - Frontend: React + Vite storefront
 - Admin + Kitchen: React apps
-- Payments: Stripe Connect Standard onboarding is live; storefront payment collection is still pending
+- Payments: Stripe Connect Standard onboarding and Phase 2 storefront card collection are implemented
 - AI Assistant: tenant-aware admin command surface
 - Notifications: Twilio SMS worker
 
@@ -61,17 +61,28 @@ See `docs/ENV_VARS.md` for the current env layout.
 - Customer storefront is live with:
   - tenant-aware menu rendering
   - cart
-  - pickup checkout
+  - Stripe Elements card checkout
   - order status page
   - live order polling
 - Admin is live with:
   - Clerk auth
+  - Clerk-backed self-serve restaurant signup
   - brand customization
   - menu management
   - AI assistant
   - Stripe onboarding entry point
+- Backend admin auth is tenant-bound through stored `AdminUser.clerkUserId` membership, not trusted frontend tenant headers.
 - Kitchen dashboard is live with polling and status transitions.
 - Stripe Connect Phase 1 is live for restaurant onboarding and webhook capability sync.
+- Stripe Phase 2 is live for direct-charge checkout sessions and webhook-authoritative paid order creation.
+
+## Current Launch Backlog
+
+- Mobile QA across storefront, admin, and kitchen
+- Receipt printing flow
+- Loyalty / rewards UI
+- Production webhook and payment QA on live domains
+- Removal of the temporary Clerk email auto-link bridge after existing admins are migrated
 
 ## Tenancy
 

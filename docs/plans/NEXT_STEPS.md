@@ -1,12 +1,38 @@
-# Next Steps (Phase 1)
+# Next Steps
 
-1) Finalize database schema (see SCHEMA_PROPOSAL.md) and RLS SQL.
-2) Create packages: `data-access` (tenant‑safe repositories) and `tenant-context` (tenant resolution, connection scoping).
-3) Seed script skeleton per SEEDING.md (joes‑pizza seq 1003; sunrise‑cafe seq 2003).
-4) Implement Twilio Verify OTP flow endpoints (request/verify/refresh) with minimal JWT issuance.
-5) Wire Stripe Connect Standard onboarding link + webhooks (Billing later in Phase 1).
-6) Basic admin endpoints for menu/category/item/variants/modifiers; no UI yet.
-7) Build admin customization UI for customer-facing menu appearance and presentation.
-8) Build customer storefront pages on top of the shared theme system and admin-controlled config.
-9) Kitchen polling endpoint and standard operational UI (to be replaced by real‑time in later phase).
-10) Integration tests for tenant isolation, OTP, and menu CRUD.
+## Immediate Launch Backlog
+
+1. Run full mobile QA.
+   - storefront browsing and category navigation
+   - cart drawer behavior
+   - Stripe checkout flow
+   - admin dashboard usability on phone
+   - kitchen tablet workflow
+2. Build receipt printing.
+   - printable ticket layout
+   - printer integration path
+   - kitchen/admin operational testing
+3. Build loyalty / rewards UI.
+   - customer-facing reward presentation
+   - admin configuration surface
+   - redemption UX rules
+4. Complete production payment QA.
+   - Render API + Vercel storefront/admin smoke test
+   - connected-account webhook verification
+   - live domain checkout validation on `easymenu.website`
+   - refund / failure-path validation
+5. Finish auth migration cleanup.
+   - backfill existing admins with real `clerkUserId` links
+   - remove temporary email auto-link bridge
+6. Harden operational polish.
+   - image storage migration away from data URLs
+   - richer promo / loyalty marketing surfaces
+   - broader AI assistant command coverage
+
+## Recently Completed
+
+- Stripe Connect Phase 1 onboarding flow
+- Render API bundling and CommonJS deploy path
+- Vercel deployment for admin and storefront
+- Stripe Phase 2 direct-charge checkout flow
+- Clerk-backed admin authorization and self-serve restaurant onboarding

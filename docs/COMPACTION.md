@@ -21,6 +21,19 @@ Last updated: 2026-04-06
 - Business model direction is now explicit:
   - flat monthly SaaS fee
   - not commission-based
+- Stripe Phase 2 customer payment collection is now implemented:
+  - `POST /v1/checkouts/create-payment-intent`
+  - `GET /v1/checkouts/:checkoutSessionId`
+  - Stripe Elements payment UI in the storefront
+  - webhook-authoritative order creation on `payment_intent.succeeded`
+  - direct charges on the restaurant connected account
+- Clerk-backed admin authorization and onboarding are now implemented:
+  - `AdminUser` is linked by `clerkUserId`
+  - self-serve `POST /v1/onboarding/register`
+  - existing-admin recovery via `GET /v1/onboarding/me`
+  - admin tenant scope now comes from DB-linked restaurant membership, not trusted frontend tenant headers
+- Existing-admin migration still uses a temporary Clerk-email auto-link bridge for first login.
+- Checkout raw SQL enum casts were fixed for `fulfillmentType` and `status` in `CheckoutSession` inserts.
 
 ## Product Direction
 - Multi-tenant white-label restaurant ordering platform for independent restaurants.
@@ -51,7 +64,8 @@ Last updated: 2026-04-06
 - SMS: Twilio Verify + Twilio Messaging
 - Payments:
   - Stripe Connect Standard for restaurant onboarding/payouts
-  - storefront payment collection still pending
+  - Stripe Phase 2 direct-charge customer payment collection is implemented
+  - production QA and rollout hardening are still pending
 - Hosting:
   - API: Render
   - Admin: Vercel
@@ -149,6 +163,12 @@ Last updated: 2026-04-06
 - Stripe account capability sync (`charges_enabled`, `payouts_enabled`) is implemented.
 - Restaurant-level Stripe account state is stored on the tenant record.
 - Admin UI exposes Stripe payout/onboarding status and launches hosted onboarding.
+- `POST /v1/checkouts/create-payment-intent` is live.
+- `GET /v1/checkouts/:checkoutSessionId` is live.
+- Storefront payments use Stripe Elements and direct charges on the connected restaurant account.
+- `payment_intent.succeeded` creates the real order from a checkout snapshot.
+- `payment_intent.payment_failed` marks checkout failure without creating an order.
+- `CheckoutSession` persistence is currently implemented with raw parameterized SQL because Prisma client generation remains fragile for newly added models.
 
 ## Frontend Status
 
@@ -180,7 +200,9 @@ Current state:
   - pickup-only checkout step
   - direct pickup checkout with name + phone only
   - delivery shown as "coming soon"
-  - real `POST /v1/orders` submission
+  - Stripe Elements card payment flow
+  - checkout-session creation and payment confirmation
+  - webhook-backed paid order creation
   - dedicated `/orders/:orderId` status page
   - live order-status polling
   - cart/customer draft persistence across refresh
@@ -191,8 +213,9 @@ Current state:
 - OTP infrastructure remains in the codebase for future customer-account/session work, but it does not block basic ordering.
 
 Limitations:
-- no payment UI yet
-- no live card payment collection yet
+- mobile QA is still pending across the full checkout flow
+- receipt printing flow is not implemented
+- loyalty / rewards UI is not implemented
 
 ### `apps/admin`
 Purpose:
@@ -203,6 +226,8 @@ Current state:
 - Uses live tenant menu data
 - Saves persisted brand config through the API
 - Clerk-based admin sign-in is wired
+- Clerk-backed self-serve restaurant signup is wired
+- Existing admins without `tenantSlug` metadata can be recovered through `/v1/onboarding/me`
 - Controls available now:
   - logo upload
   - banner upload
@@ -242,6 +267,7 @@ Current state:
   - Stripe status display
   - account-id/capability display
   - onboarding/review button
+- Admin tenant authorization now resolves through backend `AdminUser.clerkUserId` linkage rather than trusting `x-tenant-slug`.
 
 ### `apps/kiosk`
 Purpose:
@@ -259,36 +285,39 @@ Current state:
 - Tablet-first card UI is implemented
 
 ## What Is Not Done Yet
-- Storefront payment collection / payment UI
-- Stripe checkout or equivalent customer payment capture flow
-- Full production-grade admin authorization beyond bearer-token verification and tenant metadata assumptions
+- Full mobile QA across:
+  - storefront browsing
+  - cart drawer
+  - Stripe checkout flow
+  - admin dashboard controls
+  - kitchen tablet workflow
+- Receipt printing flow:
+  - kitchen/admin printable ticket format
+  - printer integration path and operational QA
+- Loyalty / rewards UI and related customer-facing promotion surfaces
+- Remove the temporary Clerk email auto-link bridge after existing admins are fully migrated
+- Complete production hardening for payments:
+  - real connected-account webhook verification
+  - end-to-end QA on live domains
+  - refund / failure-path validation
 - Drag-and-drop composition controls beyond current category/item ordering
 - Promo section stacking / richer page-builder behavior
-- Loyalty and marketing UI
 - AI assistant broader natural-language coverage for theme updates and reorder actions
 - Image storage migration away from data URLs toward real object storage
-- Full production smoke testing across:
-  - Render API
-  - Vercel storefront/admin
-  - live domain routing
-  - Stripe webhook delivery
-  - worker deployment
 
 ## Current Recommended Next Step
-Finish go-live readiness for the first paying restaurant.
+Finish launch-hardening for the first real restaurant deployment.
 
 Recommended next implementation:
-1. Complete storefront payment collection:
-  - payment UI
-  - backend payment capture/confirmation flow
-2. Tighten backend admin authorization:
-  - tenant membership enforcement
-  - role enforcement
-3. Complete production hardening:
+1. Run mobile QA across storefront, admin, and kiosk.
+2. Build receipt printing.
+3. Build loyalty / rewards UI.
+4. Finish production hardening:
   - Render/Vercel smoke tests
+  - live webhook verification
   - worker deployment
-  - webhook verification
   - env and domain QA
+5. Remove the temporary existing-admin auto-link bridge after backfill.
 
 ## Test / Validation Status
 - Targeted typecheck is passing for:
