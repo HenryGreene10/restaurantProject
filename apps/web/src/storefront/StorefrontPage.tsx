@@ -76,6 +76,21 @@ function visibleCategories(categories: MenuCategory[]) {
     }))
 }
 
+const placeholderPromoBannerMessages = new Set([
+  "Give loyal customers a direct-order reward funded by marketplace savings.",
+  "Try the direct-order welcome offer and keep ordering through the restaurant.",
+  "Design-forward preset for tighter brand systems.",
+])
+
+function promoBannerMessage(value: string) {
+  const normalized = value.trim()
+  if (!normalized || placeholderPromoBannerMessages.has(normalized)) {
+    return null
+  }
+
+  return normalized
+}
+
 export function StorefrontPage({
   customerSession,
   onViewOrder,
@@ -142,6 +157,7 @@ export function StorefrontPage({
 
   const hasVisibleItems = categories.some((category) => category.categoryItems.length > 0)
   const showLoadingSkeletons = source === "api" && !menuQuery.data && (menuQuery.isLoading || isThemeLoading)
+  const visiblePromoBanner = promoBannerMessage(theme.promoBannerText)
 
   useEffect(() => {
     if (!categories.length) {
@@ -347,22 +363,28 @@ export function StorefrontPage({
                       : `linear-gradient(135deg, ${hexToRgba(theme.palette.primary, 0.15)}, ${hexToRgba(theme.palette.primary, 0.1)}), ${theme.palette.surface}`,
                   }}
                 >
-                  <div className="grid max-w-4xl gap-6">
-                    {theme.logoUrl ? (
-                      <div
-                        className="h-16 w-16 rounded-[12px] border border-border/80 bg-card/90 bg-contain bg-center bg-no-repeat shadow-sm"
-                        style={{ backgroundImage: `url(${theme.logoUrl})` }}
-                      />
-                    ) : null}
+                  <div className="grid max-w-4xl gap-6 justify-items-center text-center sm:justify-items-start sm:text-left">
+                    {theme.logoUrl || theme.heroBadgeText.trim() ? (
+                      <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center">
+                        {theme.logoUrl ? (
+                          <div className="flex h-20 w-20 items-center justify-center rounded-[22px] border border-white/15 bg-card/90 p-3 shadow-lg backdrop-blur sm:h-24 sm:w-24">
+                            <div
+                              className="h-full w-full bg-contain bg-center bg-no-repeat"
+                              style={{ backgroundImage: `url(${theme.logoUrl})` }}
+                            />
+                          </div>
+                        ) : null}
 
-                    {theme.heroBadgeText.trim() ? (
-                      <Badge
-                        variant="outline"
-                        className="w-fit border-border/80 bg-card/90 px-4 py-2 text-sm text-muted-foreground backdrop-blur"
-                      >
-                        <Sparkles className="h-4 w-4" />
-                        {theme.heroBadgeText}
-                      </Badge>
+                        {theme.heroBadgeText.trim() ? (
+                          <Badge
+                            variant="outline"
+                            className="w-fit border-border/80 bg-card/90 px-4 py-2 text-sm text-muted-foreground backdrop-blur"
+                          >
+                            <Sparkles className="h-4 w-4" />
+                            {theme.heroBadgeText}
+                          </Badge>
+                        ) : null}
+                      </div>
                     ) : null}
 
                     <div className="grid gap-4">
@@ -390,10 +412,10 @@ export function StorefrontPage({
                 </div>
               </section>
 
-              {theme.promoBannerText ? (
+              {visiblePromoBanner ? (
                 <Card className="border-border/80 bg-card shadow-sm">
                   <CardContent className="px-4 py-4 sm:px-6">
-                    <p className="text-sm leading-6 text-muted-foreground">{theme.promoBannerText}</p>
+                    <p className="text-sm leading-6 text-muted-foreground">{visiblePromoBanner}</p>
                   </CardContent>
                 </Card>
               ) : null}
@@ -590,33 +612,27 @@ function MenuItemCard({
       <Card
         className={cn(
           "overflow-hidden border-border/80 bg-card shadow-sm",
-          isPhotoFirst && "grid grid-cols-1 gap-0 sm:grid-cols-[minmax(10rem,12rem)_minmax(0,1fr)]",
+          isPhotoFirst &&
+            "grid grid-cols-[minmax(0,1fr)_7.5rem] items-stretch gap-0 sm:grid-cols-[minmax(0,1fr)_8.5rem] lg:grid-cols-[minmax(0,1fr)_10rem]",
           item.visibility === "SOLD_OUT" && "opacity-70",
         )}
       >
-        {isPhotoFirst ? (
-          <div
-            className="aspect-[4/3] w-full bg-cover bg-center sm:h-full sm:min-h-[12rem] sm:aspect-auto"
-            style={{ backgroundImage: `url(${item.photoUrl})` }}
-          />
-        ) : null}
-
         <div className="flex min-w-0 flex-1 flex-col">
-          <CardHeader className="grid gap-4 px-4 pt-4 sm:px-6 sm:pt-6">
+          <CardHeader className="grid gap-3 px-4 pb-3 pt-4 sm:px-5 sm:pb-4 sm:pt-5">
             <div className="flex items-start justify-between gap-4">
               <h3
-                className="min-w-0 flex-1 text-xl font-bold text-foreground sm:text-2xl"
+                className="min-w-0 flex-1 text-lg font-bold text-foreground sm:text-xl"
                 style={{ fontFamily: "var(--font-heading)" }}
               >
                 {item.name}
               </h3>
-              <div className="shrink-0 text-base font-semibold text-foreground sm:text-lg">
+              <div className="shrink-0 text-sm font-semibold text-foreground sm:text-base">
                 {formatPrice(itemPrice(item))}
               </div>
             </div>
 
             {item.description ? (
-              <p className="text-sm leading-6 text-muted-foreground">{item.description}</p>
+              <p className="text-sm leading-5 text-muted-foreground sm:leading-6">{item.description}</p>
             ) : null}
 
             {badgeLabel || meta.length > 0 ? (
@@ -642,17 +658,26 @@ function MenuItemCard({
             ) : null}
           </CardHeader>
 
-          <CardFooter className="justify-end px-4 pb-4 pt-0 sm:px-6 sm:pb-6">
+          <CardFooter className="justify-start px-4 pb-4 pt-0 sm:justify-end sm:px-5 sm:pb-5">
             {item.visibility === "SOLD_OUT" ? (
               <div className="text-sm text-muted-foreground">Sold out today</div>
             ) : (
-              <Button className="min-h-11" onClick={onCustomize}>
+              <Button className="min-h-11 w-full sm:w-auto" onClick={onCustomize}>
                 Add
                 <ArrowRight className="h-4 w-4" />
               </Button>
             )}
           </CardFooter>
         </div>
+
+        {isPhotoFirst ? (
+          <div className="flex items-center justify-center p-3 sm:p-4">
+            <div
+              className="h-[7.5rem] w-[7.5rem] rounded-[18px] border border-border/70 bg-cover bg-center shadow-sm sm:h-[8.5rem] sm:w-[8.5rem] lg:h-[10rem] lg:w-[10rem]"
+              style={{ backgroundImage: `url(${item.photoUrl})` }}
+            />
+          </div>
+        ) : null}
       </Card>
     </motion.div>
   )
@@ -715,9 +740,8 @@ function StorefrontLoadingSkeleton() {
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             {Array.from({ length: 6 }).map((_, index) => (
               <Card key={index} className="overflow-hidden border-border/80 bg-card shadow-sm">
-                <div className="grid grid-cols-1 sm:grid-cols-[minmax(10rem,12rem)_minmax(0,1fr)]">
-                  <Skeleton className="aspect-[4/3] w-full sm:h-full sm:min-h-[12rem] sm:aspect-auto" />
-                  <CardContent className="grid gap-4 px-4 py-4 sm:px-6 sm:py-6">
+                <div className="grid grid-cols-[minmax(0,1fr)_7.5rem] items-stretch sm:grid-cols-[minmax(0,1fr)_8.5rem] lg:grid-cols-[minmax(0,1fr)_10rem]">
+                  <CardContent className="grid gap-4 px-4 py-4 sm:px-5 sm:py-5">
                     <div className="flex items-center justify-between gap-4">
                       <Skeleton className="h-6 w-40" />
                       <Skeleton className="h-5 w-16" />
@@ -728,6 +752,9 @@ function StorefrontLoadingSkeleton() {
                     </div>
                     <Skeleton className="h-8 w-20 rounded-full" />
                   </CardContent>
+                  <div className="flex items-center justify-center p-3 sm:p-4">
+                    <Skeleton className="h-[7.5rem] w-[7.5rem] rounded-[18px] sm:h-[8.5rem] sm:w-[8.5rem] lg:h-[10rem] lg:w-[10rem]" />
+                  </div>
                 </div>
               </Card>
             ))}
