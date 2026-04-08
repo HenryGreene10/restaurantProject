@@ -9,6 +9,14 @@ type AdminFetchOptions = {
   body?: unknown
 }
 
+type AdminUploadOptions = {
+  fieldName?: string
+  file: File
+  getToken: ClerkTokenGetter
+  onProgress?: (progressPercent: number) => void
+  tenantSlug: string
+}
+
 function serializeBody(body: unknown) {
   if (body === undefined) {
     return undefined
@@ -37,6 +45,36 @@ export async function adminFetch(path: string, options: AdminFetchOptions) {
     headers,
     body: serializeBody(options.body),
   })
+}
+
+export async function adminUploadFileJson<T>(path: string, options: AdminUploadOptions) {
+  options.onProgress?.(0)
+
+  const token = await options.getToken()
+  if (!token) {
+    throw new Error("Unable to authenticate your admin session.")
+  }
+
+  const formData = new FormData()
+  formData.append(options.fieldName ?? "image", options.file, options.file.name)
+
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "x-tenant-slug": options.tenantSlug,
+    },
+    body: formData,
+  })
+
+  if (!response.ok) {
+    const payload = (await response.json().catch(() => null)) as { error?: string } | null
+    throw new Error(payload?.error ?? `Request failed (${response.status})`)
+  }
+
+  options.onProgress?.(100)
+
+  return response.json() as Promise<T>
 }
 
 export async function adminFetchJson<T>(path: string, options: AdminFetchOptions) {

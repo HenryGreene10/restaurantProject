@@ -31,7 +31,7 @@ import {
 
 import { AssistantPanel } from "../assistant/AssistantPanel"
 import { fetchTenantMenu, type MenuCategory, type MenuResponse } from "../lib/menu"
-import { adminFetchJson } from "../lib/api"
+import { adminFetchJson, adminUploadFileJson } from "../lib/api"
 import { OnboardingPage } from "./OnboardingPage"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -171,6 +171,7 @@ type AdminTab = "branding" | "menu"
 type AdminShellView = "assistant" | "controls"
 type ThemeChangeHandler = <K extends keyof ThemeDraft>(key: K, value: ThemeDraft[K]) => void
 type CategoryItemEntry = MenuCategory["categoryItems"][number]
+type BrandingImageField = "logoUrl" | "heroImageUrl"
 
 function currentAdminPath() {
   return window.location.pathname
@@ -723,6 +724,7 @@ export const App: React.FC = () => {
   const [stripeMessage, setStripeMessage] = useState<string | null>(null)
   const [isStripeLoading, setIsStripeLoading] = useState(true)
   const [isStripeLaunching, setIsStripeLaunching] = useState(false)
+  const [isBrandingUploadInProgress, setIsBrandingUploadInProgress] = useState(false)
   const [activeTab, setActiveTab] = useState<AdminTab>("branding")
   const [activeShellView, setActiveShellView] = useState<AdminShellView>("assistant")
 
@@ -773,6 +775,34 @@ export const App: React.FC = () => {
       getToken,
       body,
     })
+  }
+
+  async function uploadBrandingImage(
+    file: File,
+    onProgress?: (progressPercent: number) => void,
+  ) {
+    if (!tenantSlug) {
+      throw new Error("Your account is not linked to a restaurant. Contact support.")
+    }
+
+    setSaveMessage(null)
+    setIsBrandingUploadInProgress(true)
+
+    try {
+      const response = await adminUploadFileJson<{ url: string }>(
+        "/admin/branding/upload-image",
+        {
+          file,
+          getToken,
+          onProgress,
+          tenantSlug: linkedTenantSlug,
+        },
+      )
+
+      return response.url
+    } finally {
+      setIsBrandingUploadInProgress(false)
+    }
   }
 
   async function deleteAdmin(path: string) {
@@ -914,6 +944,11 @@ export const App: React.FC = () => {
   const saveTheme = async () => {
     if (!tenantSlug) {
       setSaveMessage("Your account is not linked to a restaurant. Contact support.")
+      return
+    }
+
+    if (isBrandingUploadInProgress) {
+      setSaveMessage("Wait for the image upload to finish before saving.")
       return
     }
 
@@ -1319,7 +1354,11 @@ export const App: React.FC = () => {
               className="grid gap-5"
             >
               {activeTab === "branding" ? (
-                <BrandingTab theme={draftTheme} onThemeChange={updateTheme} />
+                <BrandingTab
+                  theme={draftTheme}
+                  onThemeChange={updateTheme}
+                  onUploadImage={uploadBrandingImage}
+                />
               ) : null}
 
               {activeTab === "menu" ? (
@@ -1355,6 +1394,7 @@ export const App: React.FC = () => {
             <ThemeSaveBar
               isDirty={isThemeDirty}
               isLoading={isLoading}
+              isUploadPending={isBrandingUploadInProgress}
               isSaving={isSaving}
               onSave={() => void saveTheme()}
               saveMessage={saveMessage}
@@ -1527,22 +1567,65 @@ function TabBar({
 }
 
 function BrandingTab({
+  onUploadImage,
   theme,
   onThemeChange,
 }: {
+  onUploadImage: (
+    file: File,
+    onProgress?: (progressPercent: number) => void,
+  ) => Promise<string>
   theme: ThemeDraft
   onThemeChange: ThemeChangeHandler
 }) {
+  const [uploadState, setUploadState] = useState<
+    Record<
+      BrandingImageField,
+      { error: string | null; isUploading: boolean; progressPercent: number }
+    >
+  >({
+    heroImageUrl: { error: null, isUploading: false, progressPercent: 0 },
+    logoUrl: { error: null, isUploading: false, progressPercent: 0 },
+  })
+
   async function handleFileChange(
-    key: "logoUrl" | "heroImageUrl",
+    key: BrandingImageField,
     file: File | null,
   ) {
     if (!file) {
       return
     }
 
-    const nextValue = await readFileAsDataUrl(file)
-    onThemeChange(key, nextValue)
+    setUploadState((current) => ({
+      ...current,
+      [key]: { error: null, isUploading: true, progressPercent: 0 },
+    }))
+
+    try {
+      const nextValue = await onUploadImage(file, (progressPercent) => {
+        setUploadState((current) => ({
+          ...current,
+          [key]: {
+            ...current[key],
+            progressPercent,
+          },
+        }))
+      })
+      onThemeChange(key, nextValue)
+      setUploadState((current) => ({
+        ...current,
+        [key]: { error: null, isUploading: false, progressPercent: 100 },
+      }))
+    } catch (error) {
+      setUploadState((current) => ({
+        ...current,
+        [key]: {
+          error: error instanceof Error ? error.message : "Failed to upload image",
+          isUploading: false,
+          progressPercent: 0,
+        },
+      }))
+    }
   }
 
   return (
@@ -1558,9 +1641,18 @@ function BrandingTab({
               copy="Drop image here or click to upload"
               imageUrl={theme.logoUrl}
               imagePresentation="contain"
+              disabled={uploadState.logoUrl.isUploading}
               onRemove={() => onThemeChange("logoUrl", "")}
               onFile={(file) => void handleFileChange("logoUrl", file)}
             />
+            {uploadState.logoUrl.isUploading ? (
+              <div className="text-sm text-muted-foreground">
+                Uploading logo… {uploadState.logoUrl.progressPercent}%
+              </div>
+            ) : null}
+            {uploadState.logoUrl.error ? (
+              <div className="text-sm text-destructive">{uploadState.logoUrl.error}</div>
+            ) : null}
             {!theme.logoUrl ? (
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <ImageIcon className="h-4 w-4" />
@@ -1580,10 +1672,19 @@ function BrandingTab({
               copy="Drop image here or click to upload"
               imageUrl={theme.heroImageUrl}
               imagePresentation="cover"
+              disabled={uploadState.heroImageUrl.isUploading}
               overlayImage
               onRemove={() => onThemeChange("heroImageUrl", "")}
               onFile={(file) => void handleFileChange("heroImageUrl", file)}
             />
+            {uploadState.heroImageUrl.isUploading ? (
+              <div className="text-sm text-muted-foreground">
+                Uploading banner… {uploadState.heroImageUrl.progressPercent}%
+              </div>
+            ) : null}
+            {uploadState.heroImageUrl.error ? (
+              <div className="text-sm text-destructive">{uploadState.heroImageUrl.error}</div>
+            ) : null}
             {!theme.heroImageUrl ? (
               <div className="text-sm text-muted-foreground">
                 No banner uploaded. The hero will fall back to a subtle brand-color tint.
@@ -1682,12 +1783,14 @@ function BrandingTab({
 function ThemeSaveBar({
   isDirty,
   isLoading,
+  isUploadPending,
   isSaving,
   onSave,
   saveMessage,
 }: {
   isDirty: boolean
   isLoading: boolean
+  isUploadPending: boolean
   isSaving: boolean
   onSave: () => void
   saveMessage: string | null
@@ -1710,9 +1813,13 @@ function ThemeSaveBar({
       <Button
         type="button"
         onClick={onSave}
-        disabled={isSaving || isLoading || !isDirty}
+        disabled={isSaving || isLoading || isUploadPending || !isDirty}
       >
-        {isSaving ? "Saving…" : "Save storefront settings"}
+        {isSaving
+          ? "Saving…"
+          : isUploadPending
+            ? "Upload in progress…"
+            : "Save storefront settings"}
       </Button>
     </div>
   )
@@ -2335,6 +2442,7 @@ function FieldShell({
 function ImageDropZone({
   compact = false,
   copy,
+  disabled = false,
   id,
   imagePresentation = "cover",
   imageUrl,
@@ -2344,6 +2452,7 @@ function ImageDropZone({
 }: {
   compact?: boolean
   copy: string
+  disabled?: boolean
   id: string
   imagePresentation?: "contain" | "cover"
   imageUrl?: string
@@ -2354,6 +2463,10 @@ function ImageDropZone({
   const [isDragging, setIsDragging] = useState(false)
 
   function handleFiles(files: FileList | null) {
+    if (disabled) {
+      return
+    }
+
     const file = files?.[0]
     if (file) {
       onFile(file)
@@ -2374,8 +2487,12 @@ function ImageDropZone({
         !imageUrl && compact ? "min-h-12" : "",
         !imageUrl && !compact ? "min-h-28" : "",
         isDragging ? "border-primary bg-primary/10 text-foreground" : "",
+        disabled ? "cursor-not-allowed opacity-70" : "",
       )}
       onDragOver={(event) => {
+        if (disabled) {
+          return
+        }
         event.preventDefault()
         setIsDragging(true)
       }}
@@ -2384,6 +2501,9 @@ function ImageDropZone({
         setIsDragging(false)
       }}
       onDrop={(event) => {
+        if (disabled) {
+          return
+        }
         event.preventDefault()
         setIsDragging(false)
         handleFiles(event.dataTransfer.files)
@@ -2394,6 +2514,7 @@ function ImageDropZone({
         type="file"
         accept="image/*"
         className="sr-only"
+        disabled={disabled}
         onChange={(event) => handleFiles(event.target.files)}
       />
       {imageUrl ? (
