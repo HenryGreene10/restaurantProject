@@ -191,8 +191,8 @@ export function CartSummary({
   const drawer = (
     <>
       {itemCount > 0 && !open && !hideStickyCartBar ? (
-        <div className="fixed inset-x-4 bottom-4 z-30 md:inset-x-auto md:right-6 md:w-full md:max-w-md">
-          <Card className="gap-0 border border-border/80 bg-card py-0 shadow-xl">
+        <div className="fixed inset-x-4 bottom-4 z-30 isolate md:inset-x-auto md:right-6 md:w-full md:max-w-md">
+          <Card className="gap-0 border border-border/80 bg-card py-0 shadow-xl [backdrop-filter:none] [transform:translateZ(0)]">
             <CardContent className="flex items-center justify-between gap-4 px-4 py-4 sm:px-6">
               <div className="flex items-center gap-4">
                 <div className="rounded-[var(--radius)] border border-border bg-background p-2 text-primary">
