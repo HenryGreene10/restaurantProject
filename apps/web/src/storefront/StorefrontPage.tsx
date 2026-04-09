@@ -621,80 +621,82 @@ function MenuItemCard({
       <Card
         className={cn(
           "h-full overflow-hidden border-border/80 bg-card shadow-sm",
-          isPhotoFirst &&
-            "grid grid-cols-[minmax(0,1fr)_7.5rem] items-stretch gap-0 sm:grid-cols-[minmax(0,1fr)_8.5rem] lg:grid-cols-[minmax(0,1fr)_10rem]",
           item.visibility === "SOLD_OUT" && "opacity-70",
         )}
       >
-        <div
-          className={cn(
-            "flex min-w-0 flex-1 flex-col",
-            !isPhotoFirst && "min-h-[11rem] sm:min-h-[12rem]",
-          )}
-        >
-          <CardHeader className="grid gap-3 px-4 pb-3 pt-4 sm:px-5 sm:pb-4 sm:pt-5">
-            <div className="flex items-start justify-between gap-4">
-              <h3
-                className="min-w-0 flex-1 text-lg font-bold text-foreground sm:text-xl"
-                style={{ fontFamily: "var(--font-heading)" }}
-              >
-                {item.name}
-              </h3>
-              <div className="shrink-0 text-sm font-semibold text-foreground sm:text-base">
-                {formatPrice(itemPrice(item))}
-              </div>
+        <div className="grid min-h-[11.25rem] grid-cols-[minmax(0,1fr)_7.5rem] grid-rows-[auto_1fr_auto] gap-x-4 gap-y-3 px-4 py-4 sm:min-h-[12rem] sm:grid-cols-[minmax(0,1fr)_8.5rem] sm:px-5 sm:py-5 lg:grid-cols-[minmax(0,1fr)_10rem]">
+          <div className="min-w-0">
+            <h3
+              className="text-lg font-bold text-foreground sm:text-xl"
+              style={{ fontFamily: "var(--font-heading)" }}
+            >
+              {item.name}
+            </h3>
+          </div>
+
+          <div className="text-right text-sm font-semibold text-foreground sm:text-base">
+            {formatPrice(itemPrice(item))}
+          </div>
+
+          <div className="min-w-0">
+            <div className="grid gap-3">
+              {item.description ? (
+                <p className="text-sm leading-5 text-muted-foreground sm:leading-6">{item.description}</p>
+              ) : null}
+
+              {badgeLabel || meta.length > 0 ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  {badgeLabel ? (
+                    <Badge
+                      variant="outline"
+                      className={
+                        featured && item.visibility !== "SOLD_OUT"
+                          ? "border-primary/20 bg-primary/10 text-foreground"
+                          : "border-border bg-background text-muted-foreground"
+                      }
+                    >
+                      {badgeLabel}
+                    </Badge>
+                  ) : null}
+                  {meta.slice(0, 1).map((tag) => (
+                    <span key={tag} className="text-sm text-muted-foreground">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
             </div>
+          </div>
 
-            {item.description ? (
-              <p className="text-sm leading-5 text-muted-foreground sm:leading-6">{item.description}</p>
-            ) : null}
+          <div className="row-span-2 flex items-end justify-end">
+            {isPhotoFirst ? (
+              <div
+                className="h-[7.5rem] w-[7.5rem] rounded-[18px] border border-border/70 bg-cover bg-center shadow-sm sm:h-[8.5rem] sm:w-[8.5rem] lg:h-[10rem] lg:w-[10rem]"
+                style={{ backgroundImage: `url(${item.photoUrl})` }}
+              />
+            ) : (
+              <div
+                aria-hidden="true"
+                className="h-[7.5rem] w-[7.5rem] opacity-0 sm:h-[8.5rem] sm:w-[8.5rem] lg:h-[10rem] lg:w-[10rem]"
+              />
+            )}
+          </div>
 
-            {badgeLabel || meta.length > 0 ? (
-              <div className="flex flex-wrap items-center gap-2">
-                {badgeLabel ? (
-                  <Badge
-                    variant="outline"
-                    className={
-                      featured && item.visibility !== "SOLD_OUT"
-                        ? "border-primary/20 bg-primary/10 text-foreground"
-                        : "border-border bg-background text-muted-foreground"
-                    }
-                  >
-                    {badgeLabel}
-                  </Badge>
-                ) : null}
-                {meta.slice(0, 1).map((tag) => (
-                  <span key={tag} className="text-sm text-muted-foreground">
-                    {tag}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-          </CardHeader>
-
-          <CardFooter className="mt-auto justify-end px-4 pb-4 pt-0 sm:px-5 sm:pb-5">
+          <div className="flex items-end justify-start">
             {item.visibility === "SOLD_OUT" ? (
               <div className="text-sm text-muted-foreground">Sold out today</div>
             ) : (
               <Button
-                className={cn("min-h-11", isPhotoFirst ? "w-full sm:w-auto" : "w-auto")}
+                variant="outline"
+                className="min-h-11 rounded-full border-border bg-background px-5"
                 onClick={onCustomize}
               >
                 Add
                 <ArrowRight className="h-4 w-4" />
               </Button>
             )}
-          </CardFooter>
-        </div>
-
-        {isPhotoFirst ? (
-          <div className="flex items-center justify-center p-3 sm:p-4">
-            <div
-              className="h-[7.5rem] w-[7.5rem] rounded-[18px] border border-border/70 bg-cover bg-center shadow-sm sm:h-[8.5rem] sm:w-[8.5rem] lg:h-[10rem] lg:w-[10rem]"
-              style={{ backgroundImage: `url(${item.photoUrl})` }}
-            />
           </div>
-        ) : null}
+        </div>
       </Card>
     </motion.div>
   )
@@ -757,21 +759,17 @@ function StorefrontLoadingSkeleton() {
           <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             {Array.from({ length: 6 }).map((_, index) => (
               <Card key={index} className="overflow-hidden border-border/80 bg-card shadow-sm">
-                <div className="grid grid-cols-[minmax(0,1fr)_7.5rem] items-stretch sm:grid-cols-[minmax(0,1fr)_8.5rem] lg:grid-cols-[minmax(0,1fr)_10rem]">
-                  <CardContent className="grid gap-4 px-4 py-4 sm:px-5 sm:py-5">
-                    <div className="flex items-center justify-between gap-4">
-                      <Skeleton className="h-6 w-40" />
-                      <Skeleton className="h-5 w-16" />
-                    </div>
-                    <div className="grid gap-2">
-                      <Skeleton className="h-4 w-full" />
-                      <Skeleton className="h-4 w-4/5" />
-                    </div>
-                    <Skeleton className="h-8 w-20 rounded-full" />
-                  </CardContent>
-                  <div className="flex items-center justify-center p-3 sm:p-4">
+                <div className="grid min-h-[11.25rem] grid-cols-[minmax(0,1fr)_7.5rem] grid-rows-[auto_1fr_auto] gap-x-4 gap-y-3 px-4 py-4 sm:min-h-[12rem] sm:grid-cols-[minmax(0,1fr)_8.5rem] sm:px-5 sm:py-5 lg:grid-cols-[minmax(0,1fr)_10rem]">
+                  <Skeleton className="h-6 w-40 self-start" />
+                  <Skeleton className="h-5 w-16 justify-self-end self-start" />
+                  <div className="grid gap-2 self-start">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-4/5" />
+                  </div>
+                  <div className="row-span-2 flex items-end justify-end">
                     <Skeleton className="h-[7.5rem] w-[7.5rem] rounded-[18px] sm:h-[8.5rem] sm:w-[8.5rem] lg:h-[10rem] lg:w-[10rem]" />
                   </div>
+                  <Skeleton className="h-11 w-24 rounded-full self-end" />
                 </div>
               </Card>
             ))}
