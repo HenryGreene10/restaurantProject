@@ -183,6 +183,24 @@ async function loadTenantContext(dataAccess: ToolContext["dataAccess"]) {
   }
 }
 
+function findItemCategoryMatches(input: {
+  categories: Awaited<ReturnType<ToolContext["dataAccess"]["menu"]["getPublicMenu"]>>["categories"]
+  itemId: string
+}) {
+  const matches: Array<{ id: string; label: string }> = []
+
+  for (const category of input.categories) {
+    if (category.categoryItems.some((entry) => entry.item.id === input.itemId)) {
+      matches.push({
+        id: category.id,
+        label: category.name,
+      })
+    }
+  }
+
+  return matches
+}
+
 function mergeChanges(results: AssistantCommandResponse[]) {
   const merged = new Map<string, AssistantChange>()
 
@@ -253,6 +271,16 @@ async function executeIntent(input: {
     })
   }
 
+  if (intent.action === "update_theme") {
+    return assistantMutationTools.update_theme.execute(toolContext, {
+      accentColor: intent.accentColor,
+      primaryColor: intent.primaryColor,
+      backgroundColor: intent.backgroundColor,
+      headingFont: intent.headingFont,
+      bodyFont: intent.bodyFont,
+    })
+  }
+
   const { menuState } = await loadTenantContext(toolContext.dataAccess)
   const match = findMenuEntities({
     categories: menuState.categories,
@@ -316,6 +344,39 @@ async function executeIntent(input: {
     })
   }
 
+  if (intent.action === "reorder_item") {
+    const categoryMatches = findItemCategoryMatches({
+      categories: menuState.categories,
+      itemId: match.id,
+    })
+
+    if (categoryMatches.length === 0) {
+      return {
+        reply: `I couldn't determine which category currently contains ${match.label}.`,
+        changes: [],
+        refresh: [],
+      }
+    }
+
+    if (categoryMatches.length > 1) {
+      return {
+        reply: `I found ${match.label} in multiple categories. Which section should I reorder it within?`,
+        changes: [],
+        refresh: [],
+        needsClarification: true,
+        options: categoryMatches,
+      }
+    }
+
+    return assistantMutationTools.reorder_item.execute(toolContext, {
+      itemId: match.id,
+      itemName: match.label,
+      categoryId: categoryMatches[0].id,
+      categoryName: categoryMatches[0].label,
+      position: intent.position,
+    })
+  }
+
   if (intent.action === "create_modifier_group") {
     return assistantMutationTools.create_modifier_group.execute(toolContext, {
       itemId: match.id,
@@ -369,6 +430,31 @@ async function executeIntent(input: {
     })
   }
 
+  if (intent.action === "update_item_tags") {
+    return assistantMutationTools.update_item_tags.execute(toolContext, {
+      itemId: match.id,
+      itemName: match.label,
+      addTags: intent.addTags,
+      removeTags: intent.removeTags,
+    })
+  }
+
+  if (intent.action === "update_prep_time") {
+    return assistantMutationTools.update_prep_time.execute(toolContext, {
+      itemId: match.id,
+      itemName: match.label,
+      prepTimeMinutes: intent.prepTimeMinutes,
+    })
+  }
+
+  if (intent.action === "toggle_special_instructions") {
+    return assistantMutationTools.toggle_special_instructions.execute(toolContext, {
+      itemId: match.id,
+      itemName: match.label,
+      enabled: intent.enabled,
+    })
+  }
+
   if (intent.action === "set_item_price") {
     return assistantMutationTools.set_item_price.execute(toolContext, {
       itemId: match.id,
@@ -383,6 +469,14 @@ async function executeIntent(input: {
       availableFrom: intent.availableFrom,
       availableUntil: intent.availableUntil,
       daysOfWeek: intent.daysOfWeek,
+    })
+  }
+
+  if (intent.action === "reorder_category") {
+    return assistantMutationTools.reorder_category.execute(toolContext, {
+      categoryId: match.id,
+      categoryName: match.label,
+      position: intent.position,
     })
   }
 

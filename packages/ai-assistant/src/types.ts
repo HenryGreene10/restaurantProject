@@ -38,6 +38,8 @@ export type AssistantScheduleDay =
   | "saturday"
   | "sunday"
 
+export type AssistantReorderPosition = "top" | "bottom" | number
+
 export type AssistantExecutableIntent =
   | {
       action: "set_item_visibility"
@@ -121,6 +123,45 @@ export type AssistantExecutableIntent =
       targetType: "item"
       targetQuery: string
       photoUrl: string
+    }
+  | {
+      action: "reorder_item"
+      targetType: "item"
+      targetQuery: string
+      position: AssistantReorderPosition
+    }
+  | {
+      action: "reorder_category"
+      targetType: "category"
+      targetQuery: string
+      position: AssistantReorderPosition
+    }
+  | {
+      action: "update_item_tags"
+      targetType: "item"
+      targetQuery: string
+      addTags?: string[]
+      removeTags?: string[]
+    }
+  | {
+      action: "update_prep_time"
+      targetType: "item"
+      targetQuery: string
+      prepTimeMinutes: number
+    }
+  | {
+      action: "toggle_special_instructions"
+      targetType: "item"
+      targetQuery: string
+      enabled: boolean
+    }
+  | {
+      action: "update_theme"
+      accentColor?: string
+      primaryColor?: string
+      backgroundColor?: string
+      headingFont?: string
+      bodyFont?: string
     }
   | {
       action: "update_brand_config"

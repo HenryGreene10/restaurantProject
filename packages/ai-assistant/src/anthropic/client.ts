@@ -32,6 +32,12 @@ const modelToolSchema = {
                 "create_modifier_option",
                 "schedule_category",
                 "set_item_image",
+                "reorder_item",
+                "reorder_category",
+                "update_item_tags",
+                "update_prep_time",
+                "toggle_special_instructions",
+                "update_theme",
                 "set_item_price",
                 "update_brand_config",
               ],
@@ -139,6 +145,47 @@ const modelToolSchema = {
               type: "string",
             },
             promoBannerText: {
+              type: "string",
+            },
+            position: {
+              anyOf: [
+                {
+                  type: "string",
+                  enum: ["top", "bottom"],
+                },
+                {
+                  type: "number",
+                },
+              ],
+            },
+            addTags: {
+              type: "array",
+              items: {
+                type: "string",
+              },
+            },
+            removeTags: {
+              type: "array",
+              items: {
+                type: "string",
+              },
+            },
+            enabled: {
+              type: "boolean",
+            },
+            accentColor: {
+              type: "string",
+            },
+            primaryColor: {
+              type: "string",
+            },
+            backgroundColor: {
+              type: "string",
+            },
+            headingFont: {
+              type: "string",
+            },
+            bodyFont: {
               type: "string",
             },
           },
@@ -256,6 +303,62 @@ const actionSchema = z.union([
     photoUrl: z.string().url(),
   }),
   z.object({
+    action: z.literal("reorder_item"),
+    targetType: z.literal("item"),
+    targetQuery: z.string().min(1),
+    position: z.union([z.literal("top"), z.literal("bottom"), z.number().int().positive()]),
+  }),
+  z.object({
+    action: z.literal("reorder_category"),
+    targetType: z.literal("category"),
+    targetQuery: z.string().min(1),
+    position: z.union([z.literal("top"), z.literal("bottom"), z.number().int().positive()]),
+  }),
+  z
+    .object({
+      action: z.literal("update_item_tags"),
+      targetType: z.literal("item"),
+      targetQuery: z.string().min(1),
+      addTags: z.array(z.string()).optional(),
+      removeTags: z.array(z.string()).optional(),
+    })
+    .refine(
+      (value) =>
+        (Array.isArray(value.addTags) && value.addTags.length > 0) ||
+        (Array.isArray(value.removeTags) && value.removeTags.length > 0),
+      { message: "update_item_tags requires at least one tag change" },
+    ),
+  z.object({
+    action: z.literal("update_prep_time"),
+    targetType: z.literal("item"),
+    targetQuery: z.string().min(1),
+    prepTimeMinutes: z.number().int().nonnegative(),
+  }),
+  z.object({
+    action: z.literal("toggle_special_instructions"),
+    targetType: z.literal("item"),
+    targetQuery: z.string().min(1),
+    enabled: z.boolean(),
+  }),
+  z
+    .object({
+      action: z.literal("update_theme"),
+      accentColor: z.string().optional(),
+      primaryColor: z.string().optional(),
+      backgroundColor: z.string().optional(),
+      headingFont: z.string().optional(),
+      bodyFont: z.string().optional(),
+    })
+    .refine(
+      (value) =>
+        typeof value.accentColor === "string" ||
+        typeof value.primaryColor === "string" ||
+        typeof value.backgroundColor === "string" ||
+        typeof value.headingFont === "string" ||
+        typeof value.bodyFont === "string",
+      { message: "update_theme requires at least one field" },
+    ),
+  z.object({
     action: z.literal("set_item_price"),
     targetType: z.literal("item"),
     targetQuery: z.string().min(1),
@@ -342,6 +445,10 @@ function normalizePlannedAction(action: unknown) {
     actionName === "create_modifier_group" ||
     actionName === "create_modifier_option" ||
     actionName === "set_item_image" ||
+    actionName === "reorder_item" ||
+    actionName === "update_item_tags" ||
+    actionName === "update_prep_time" ||
+    actionName === "toggle_special_instructions" ||
     actionName === "set_item_price"
   ) {
     if (typeof normalized.targetType !== "string") {
@@ -369,7 +476,11 @@ function normalizePlannedAction(action: unknown) {
     return normalized
   }
 
-  if (actionName === "set_category_visibility" || actionName === "schedule_category") {
+  if (
+    actionName === "set_category_visibility" ||
+    actionName === "schedule_category" ||
+    actionName === "reorder_category"
+  ) {
     if (typeof normalized.targetType !== "string") {
       normalized.targetType = "category"
     }

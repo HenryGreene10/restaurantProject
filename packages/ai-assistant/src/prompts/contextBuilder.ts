@@ -1,11 +1,13 @@
 type MenuCategory = {
   id: string
   name: string
+  sortOrder?: number
   visibility: string
   availableFrom?: Date | null
   availableUntil?: Date | null
   daysOfWeek?: unknown
   categoryItems: Array<{
+    sortOrder?: number
     item: {
       id: string
       name: string
@@ -74,7 +76,7 @@ export function buildAssistantContext(input: BuildAssistantContextInput) {
     .filter((line): line is string => Boolean(line))
 
   const categoryLines = input.categories.map((category) => {
-    const itemLines = category.categoryItems.map(({ item }) => {
+    const itemLines = category.categoryItems.map(({ item, sortOrder }) => {
       const modifierSummary =
         item.itemModifierGroups?.length
           ? item.itemModifierGroups
@@ -92,11 +94,11 @@ export function buildAssistantContext(input: BuildAssistantContextInput) {
               .join("; ")
           : "none"
 
-      return `  - item ${item.id} | ${item.name} | price=${item.basePriceCents ?? 0} | description=${item.description ?? ""} | visibility=${item.visibility} | featured=${item.isFeatured} | prep=${item.prepTimeMinutes ?? 0} | tags=${(item.tags ?? []).join(",") || "none"} | specialInstructions=${item.specialInstructionsEnabled ? "on" : "off"} | photo=${item.photoUrl ?? "none"} | modifiers=${modifierSummary}`
+      return `  - item ${item.id} | sortOrder=${sortOrder ?? "unknown"} | ${item.name} | price=${item.basePriceCents ?? 0} | description=${item.description ?? ""} | visibility=${item.visibility} | featured=${item.isFeatured} | prep=${item.prepTimeMinutes ?? 0} | tags=${(item.tags ?? []).join(",") || "none"} | specialInstructions=${item.specialInstructionsEnabled ? "on" : "off"} | photo=${item.photoUrl ?? "none"} | modifiers=${modifierSummary}`
     })
 
     return [
-      `- category ${category.id} | ${category.name} | visibility=${category.visibility} | availableFrom=${formatTime(category.availableFrom)} | availableUntil=${formatTime(category.availableUntil)} | daysOfWeek=${formatDays(category.daysOfWeek)}`,
+      `- category ${category.id} | sortOrder=${category.sortOrder ?? "unknown"} | ${category.name} | visibility=${category.visibility} | availableFrom=${formatTime(category.availableFrom)} | availableUntil=${formatTime(category.availableUntil)} | daysOfWeek=${formatDays(category.daysOfWeek)}`,
       ...itemLines,
     ].join("\n")
   })
