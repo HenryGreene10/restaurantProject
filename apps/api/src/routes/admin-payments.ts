@@ -1,8 +1,19 @@
 import type { Router } from 'express'
-import { createOnboardingLink, createStandardConnectedAccount, deriveStripeConnectionState } from '@repo/payments'
+import {
+  createOnboardingLink,
+  createStandardConnectedAccount,
+  deriveStripeConnectionState,
+  registerApplePayDomains,
+} from '@repo/payments'
 import { createTenantDataAccess, createTenantScope } from '@repo/data-access'
 import type { TenantRequest } from '../middleware/tenant.js'
 import { env } from '../config/env.js'
+
+const APPLE_PAY_BASE_DOMAIN = 'easymenu.website'
+
+function applePayDomainsForTenant(tenantSlug: string) {
+  return [APPLE_PAY_BASE_DOMAIN, `${tenantSlug}.${APPLE_PAY_BASE_DOMAIN}`]
+}
 
 function tenantDataAccessFor(req: TenantRequest) {
   if (!req.tenant) {
@@ -65,6 +76,12 @@ export function registerAdminPaymentsRoutes(r: Router) {
         stripeAccountId = account.id
         await tenantDataAccess.payments.setStripeAccountId(account.id)
       }
+
+      await registerApplePayDomains({
+        secretKey: runtime.STRIPE_SECRET_KEY,
+        stripeAccountId,
+        domains: applePayDomainsForTenant(connection.slug),
+      })
 
       const onboardingLink = await createOnboardingLink({
         config: {

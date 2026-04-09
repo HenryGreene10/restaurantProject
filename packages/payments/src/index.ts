@@ -93,6 +93,51 @@ export async function createOnboardingLink(input: {
   })
 }
 
+export async function registerApplePayDomains(input: {
+  secretKey: string
+  stripeAccountId: string
+  domains: string[]
+}) {
+  const stripe = createStripeClient(input.secretKey)
+  const domains = Array.from(
+    new Set(input.domains.map((domain) => domain.trim().toLowerCase()).filter(Boolean)),
+  )
+
+  if (domains.length === 0) {
+    return []
+  }
+
+  const existingDomains = new Set<string>()
+  const existing = await stripe.applePayDomains.list(
+    {
+      limit: 100,
+    },
+    {
+      stripeAccount: input.stripeAccountId,
+    },
+  )
+
+  for (const domain of existing.data) {
+    existingDomains.add(domain.domain_name.toLowerCase())
+  }
+
+  const createdDomains: string[] = []
+
+  for (const domain of domains) {
+    if (existingDomains.has(domain)) {
+      continue
+    }
+
+    await stripe.applePayDomains.create(
+      { domain_name: domain },
+      { stripeAccount: input.stripeAccountId },
+    )
+    createdDomains.push(domain)
+  }
+
+  return createdDomains
+}
+
 export async function createDirectChargePaymentIntent(input: {
   config: DirectChargePaymentIntentConfig
   amount: number
