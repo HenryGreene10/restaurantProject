@@ -51,14 +51,27 @@ export const createModifierGroupTool: AssistantTool<z.infer<typeof inputSchema>>
     const selection =
       maxSelections === null || maxSelections > 1 || minSelections > 1 ? "MULTIPLE" : "SINGLE"
 
-    const createdGroup = await ctx.dataAccess.menu.createModifierGroup({
-      name: groupName,
-      selection,
-    })
+    const tenantModifierGroups = await ctx.dataAccess.menu.listModifierGroups()
+    const reusableGroup = tenantModifierGroups.find(
+      (entry) => normalize(entry.name) === normalize(groupName),
+    )
+
+    const targetGroup =
+      reusableGroup ??
+      (await ctx.dataAccess.menu.createModifierGroup({
+        name: groupName,
+        selection,
+      }))
+
+    if (reusableGroup && reusableGroup.selection !== selection) {
+      throw new Error(
+        `Modifier group "${reusableGroup.name}" already exists with ${reusableGroup.selection.toLowerCase()} selection rules.`,
+      )
+    }
 
     await ctx.dataAccess.menu.attachModifierGroup({
       itemId: input.itemId,
-      groupId: createdGroup.id,
+      groupId: targetGroup.id,
       isRequired: required,
       minSelections,
       maxSelections: maxSelections ?? null,
@@ -73,7 +86,7 @@ export const createModifierGroupTool: AssistantTool<z.infer<typeof inputSchema>>
           : `${minSelections}-${maxSelections} selections`
 
     return {
-      reply: `Added ${createdGroup.name} to ${input.itemName} (${required ? "required" : "optional"}, ${selectionSummary}).`,
+      reply: `Added ${targetGroup.name} to ${input.itemName} (${required ? "required" : "optional"}, ${selectionSummary}).`,
       changes: [
         {
           resource: "item",
