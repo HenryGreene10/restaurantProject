@@ -406,6 +406,9 @@ export function CartSummary({
                               disabled={Boolean(paymentSession)}
                               placeholder="(555) 555-5555"
                             />
+                            <div className="text-xs text-muted-foreground">
+                              By providing your phone number, you agree to receive order status updates via SMS. Reply STOP to opt out.
+                            </div>
                             {showPhoneError ? (
                               <div className="text-sm text-red-600">{phoneError}</div>
                             ) : null}
