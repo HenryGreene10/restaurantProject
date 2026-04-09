@@ -11,6 +11,7 @@ import type {
   AssistantExecutableIntent,
   AssistantHistoryMessage,
   AssistantRefreshTarget,
+  AssistantOption,
 } from "../types.js"
 
 function brandConfigRecord(value: unknown) {
@@ -33,6 +34,112 @@ function clarificationReply(entityType: "item" | "category", query: string) {
 
 function notFoundReply(entityType: "item" | "category", query: string) {
   return `I couldn't find a ${entityType} matching "${query}".`
+}
+
+function modifierGroupClarificationReply(query: string, itemName: string) {
+  return `I found multiple modifier groups on ${itemName} matching "${query}". Which one did you mean?`
+}
+
+function modifierGroupNotFoundReply(query: string, itemName: string) {
+  return `I couldn't find a modifier group matching "${query}" on ${itemName}.`
+}
+
+function normalize(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/\b(the|a|an)\b/g, " ")
+    .replace(/\b(modifier|group|option|choices?)\b/g, " ")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+}
+
+type ItemModifierGroupMatch =
+  | {
+      kind: "exact_match"
+      id: string
+      label: string
+    }
+  | {
+      kind: "ambiguous_match"
+      query: string
+      options: AssistantOption[]
+    }
+  | {
+      kind: "not_found"
+      query: string
+    }
+
+async function findModifierGroupOnItem(input: {
+  dataAccess: ToolContext["dataAccess"]
+  itemId: string
+  query: string
+}): Promise<ItemModifierGroupMatch> {
+  const itemModifierGroups = await input.dataAccess.menu.listItemModifierGroups(input.itemId)
+  const normalizedQuery = normalize(input.query)
+
+  if (!normalizedQuery) {
+    return {
+      kind: "not_found",
+      query: input.query,
+    }
+  }
+
+  const candidates = itemModifierGroups.map((entry) => ({
+    id: entry.group.id,
+    label: entry.group.name,
+    normalizedLabel: normalize(entry.group.name),
+  }))
+
+  const exactMatches = candidates.filter((candidate) => candidate.normalizedLabel === normalizedQuery)
+  if (exactMatches.length === 1) {
+    return {
+      kind: "exact_match",
+      id: exactMatches[0].id,
+      label: exactMatches[0].label,
+    }
+  }
+
+  if (exactMatches.length > 1) {
+    return {
+      kind: "ambiguous_match",
+      query: input.query,
+      options: exactMatches.map((candidate) => ({
+        id: candidate.id,
+        label: candidate.label,
+      })),
+    }
+  }
+
+  const containsMatches = candidates.filter(
+    (candidate) =>
+      candidate.normalizedLabel.includes(normalizedQuery) ||
+      normalizedQuery.includes(candidate.normalizedLabel),
+  )
+
+  if (containsMatches.length === 1) {
+    return {
+      kind: "exact_match",
+      id: containsMatches[0].id,
+      label: containsMatches[0].label,
+    }
+  }
+
+  if (containsMatches.length > 1) {
+    return {
+      kind: "ambiguous_match",
+      query: input.query,
+      options: containsMatches.map((candidate) => ({
+        id: candidate.id,
+        label: candidate.label,
+      })),
+    }
+  }
+
+  return {
+    kind: "not_found",
+    query: input.query,
+  }
 }
 
 async function loadTenantContext(dataAccess: ToolContext["dataAccess"]) {
@@ -178,6 +285,63 @@ async function executeIntent(input: {
       name: intent.name,
       price: intent.price,
       description: intent.description,
+      prepTimeMinutes: intent.prepTimeMinutes,
+      tags: intent.tags,
+      specialInstructionsEnabled: intent.specialInstructionsEnabled,
+      visibility: intent.visibility,
+    })
+  }
+
+  if (intent.action === "create_modifier_group") {
+    return assistantMutationTools.create_modifier_group.execute(toolContext, {
+      itemId: match.id,
+      itemName: match.label,
+      groupName: intent.groupName,
+      required: intent.required,
+      minSelections: intent.minSelections,
+      maxSelections: intent.maxSelections,
+    })
+  }
+
+  if (intent.action === "create_modifier_option") {
+    const modifierGroupMatch = await findModifierGroupOnItem({
+      dataAccess: toolContext.dataAccess,
+      itemId: match.id,
+      query: intent.groupName,
+    })
+
+    if (modifierGroupMatch.kind === "ambiguous_match") {
+      return {
+        reply: modifierGroupClarificationReply(intent.groupName, match.label),
+        changes: [],
+        refresh: [],
+        needsClarification: true,
+        options: modifierGroupMatch.options,
+      }
+    }
+
+    if (modifierGroupMatch.kind === "not_found") {
+      return {
+        reply: modifierGroupNotFoundReply(intent.groupName, match.label),
+        changes: [],
+        refresh: [],
+      }
+    }
+
+    return assistantMutationTools.create_modifier_option.execute(toolContext, {
+      itemId: match.id,
+      groupId: modifierGroupMatch.id,
+      groupName: modifierGroupMatch.label,
+      optionName: intent.optionName,
+      priceAdjustment: intent.priceAdjustment,
+    })
+  }
+
+  if (intent.action === "set_item_image") {
+    return assistantMutationTools.set_item_image.execute(toolContext, {
+      itemId: match.id,
+      itemName: match.label,
+      photoUrl: intent.photoUrl,
     })
   }
 
@@ -185,6 +349,16 @@ async function executeIntent(input: {
     return assistantMutationTools.set_item_price.execute(toolContext, {
       itemId: match.id,
       price: intent.price,
+    })
+  }
+
+  if (intent.action === "schedule_category") {
+    return assistantMutationTools.schedule_category.execute(toolContext, {
+      categoryId: match.id,
+      categoryName: match.label,
+      availableFrom: intent.availableFrom,
+      availableUntil: intent.availableUntil,
+      daysOfWeek: intent.daysOfWeek,
     })
   }
 

@@ -28,6 +28,10 @@ const modelToolSchema = {
                 "set_category_visibility",
                 "add_item",
                 "update_item",
+                "create_modifier_group",
+                "create_modifier_option",
+                "schedule_category",
+                "set_item_image",
                 "set_item_price",
                 "update_brand_config",
               ],
@@ -40,6 +44,12 @@ const modelToolSchema = {
               type: "string",
             },
             targetQuery: {
+              type: "string",
+            },
+            itemQuery: {
+              type: "string",
+            },
+            categoryQuery: {
               type: "string",
             },
             visibility: {
@@ -59,10 +69,64 @@ const modelToolSchema = {
             price: {
               type: "number",
             },
+            priceAdjustment: {
+              type: "number",
+            },
             description: {
               type: "string",
             },
             name: {
+              type: "string",
+            },
+            prepTimeMinutes: {
+              type: "number",
+            },
+            tags: {
+              type: "array",
+              items: {
+                type: "string",
+              },
+            },
+            specialInstructionsEnabled: {
+              type: "boolean",
+            },
+            groupName: {
+              type: "string",
+            },
+            required: {
+              type: "boolean",
+            },
+            minSelections: {
+              type: "number",
+            },
+            maxSelections: {
+              anyOf: [{ type: "number" }, { type: "null" }],
+            },
+            optionName: {
+              type: "string",
+            },
+            availableFrom: {
+              type: "string",
+            },
+            availableUntil: {
+              type: "string",
+            },
+            daysOfWeek: {
+              type: "array",
+              items: {
+                type: "string",
+                enum: [
+                  "monday",
+                  "tuesday",
+                  "wednesday",
+                  "thursday",
+                  "friday",
+                  "saturday",
+                  "sunday",
+                ],
+              },
+            },
+            photoUrl: {
               type: "string",
             },
             heroHeadline: {
@@ -132,14 +196,65 @@ const actionSchema = z.union([
       name: z.string().optional(),
       price: z.number().positive().optional(),
       description: z.string().optional(),
+      prepTimeMinutes: z.number().int().nonnegative().optional(),
+      tags: z.array(z.string()).optional(),
+      specialInstructionsEnabled: z.boolean().optional(),
+      visibility: z.enum(["AVAILABLE", "SOLD_OUT", "HIDDEN"]).optional(),
     })
     .refine(
       (value) =>
         typeof value.name === "string" ||
         typeof value.price === "number" ||
-        typeof value.description === "string",
+        typeof value.description === "string" ||
+        typeof value.prepTimeMinutes === "number" ||
+        Array.isArray(value.tags) ||
+        typeof value.specialInstructionsEnabled === "boolean" ||
+        typeof value.visibility === "string",
       { message: "update_item requires at least one field" },
     ),
+  z.object({
+    action: z.literal("create_modifier_group"),
+    targetType: z.literal("item"),
+    targetQuery: z.string().min(1),
+    groupName: z.string().min(1),
+    required: z.boolean().optional(),
+    minSelections: z.number().int().nonnegative().optional(),
+    maxSelections: z.number().int().positive().nullable().optional(),
+  }),
+  z.object({
+    action: z.literal("create_modifier_option"),
+    targetType: z.literal("item"),
+    targetQuery: z.string().min(1),
+    groupName: z.string().min(1),
+    optionName: z.string().min(1),
+    priceAdjustment: z.number().min(0).optional(),
+  }),
+  z.object({
+    action: z.literal("schedule_category"),
+    targetType: z.literal("category"),
+    targetQuery: z.string().min(1),
+    availableFrom: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/),
+    availableUntil: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/),
+    daysOfWeek: z
+      .array(
+        z.enum([
+          "monday",
+          "tuesday",
+          "wednesday",
+          "thursday",
+          "friday",
+          "saturday",
+          "sunday",
+        ]),
+      )
+      .optional(),
+  }),
+  z.object({
+    action: z.literal("set_item_image"),
+    targetType: z.literal("item"),
+    targetQuery: z.string().min(1),
+    photoUrl: z.string().url(),
+  }),
   z.object({
     action: z.literal("set_item_price"),
     targetType: z.literal("item"),
@@ -224,10 +339,21 @@ function normalizePlannedAction(action: unknown) {
     actionName === "set_item_visibility" ||
     actionName === "set_item_featured" ||
     actionName === "update_item" ||
+    actionName === "create_modifier_group" ||
+    actionName === "create_modifier_option" ||
+    actionName === "set_item_image" ||
     actionName === "set_item_price"
   ) {
     if (typeof normalized.targetType !== "string") {
       normalized.targetType = "item"
+    }
+
+    if (
+      typeof normalized.targetQuery !== "string" &&
+      typeof normalized.itemQuery === "string" &&
+      normalized.itemQuery.trim()
+    ) {
+      normalized.targetQuery = normalized.itemQuery
     }
 
     if (
@@ -238,13 +364,22 @@ function normalizePlannedAction(action: unknown) {
       normalized.targetQuery = normalized.itemName
     }
 
+    delete normalized.itemQuery
     delete normalized.itemName
     return normalized
   }
 
-  if (actionName === "set_category_visibility") {
+  if (actionName === "set_category_visibility" || actionName === "schedule_category") {
     if (typeof normalized.targetType !== "string") {
       normalized.targetType = "category"
+    }
+
+    if (
+      typeof normalized.targetQuery !== "string" &&
+      typeof normalized.categoryQuery === "string" &&
+      normalized.categoryQuery.trim()
+    ) {
+      normalized.targetQuery = normalized.categoryQuery
     }
 
     if (
@@ -255,6 +390,7 @@ function normalizePlannedAction(action: unknown) {
       normalized.targetQuery = normalized.categoryName
     }
 
+    delete normalized.categoryQuery
     delete normalized.categoryName
     return normalized
   }

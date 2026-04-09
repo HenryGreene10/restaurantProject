@@ -126,13 +126,10 @@ type MenuCategoryCreateInput = {
   visibility?: CatalogVisibility
   availableFrom?: Date | null
   availableUntil?: Date | null
+  daysOfWeek?: Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput | null
 }
 
-type MenuCategoryUpdateInput = Partial<
-  Omit<MenuCategoryCreateInput, "menuId"> & {
-    menuId: string
-  }
->
+type MenuCategoryUpdateInput = Partial<Omit<MenuCategoryCreateInput, "menuId">>
 
 type MenuItemCreateInput = {
   name: string
@@ -716,6 +713,7 @@ export function createTenantDataAccess(scope: TenantScope) {
             visibility: data.visibility ?? "AVAILABLE",
             availableFrom: data.availableFrom ?? null,
             availableUntil: data.availableUntil ?? null,
+            daysOfWeek: data.daysOfWeek ?? Prisma.DbNull,
           }),
         })
       })
@@ -726,9 +724,17 @@ export function createTenantDataAccess(scope: TenantScope) {
       data: WithoutRestaurantId<MenuCategoryUpdateInput>,
     ) {
       return withTenantConnection(scope.restaurantId, async (prisma) => {
+        const { daysOfWeek, ...rest } = data
         const result = await prisma.menuCategory.updateMany({
           where: scoped.scopeWhere({ id: categoryId }),
-          data,
+          data: {
+            ...rest,
+            ...(daysOfWeek !== undefined
+              ? {
+                  daysOfWeek: daysOfWeek ?? Prisma.DbNull,
+                }
+              : {}),
+          },
         })
 
         if (result.count === 0) {

@@ -53,6 +53,18 @@ function routeParam(req: TenantRequest, key: string): string {
   return Array.isArray(value) ? value[0] : value
 }
 
+function parseDaysOfWeek(value: unknown): string[] | null | undefined {
+  if (value === null) {
+    return null
+  }
+
+  if (!Array.isArray(value)) {
+    return undefined
+  }
+
+  return value.map(String)
+}
+
 export function registerAdminMenuRoutes(r: Router) {
   r.get('/admin/menu/categories', async (req: TenantRequest, res) => {
     try {
@@ -76,6 +88,7 @@ export function registerAdminMenuRoutes(r: Router) {
         visibility: parseVisibility(req.body?.visibility) ?? 'AVAILABLE',
         availableFrom: req.body?.availableFrom ? new Date(req.body.availableFrom) : null,
         availableUntil: req.body?.availableUntil ? new Date(req.body.availableUntil) : null,
+        daysOfWeek: parseDaysOfWeek(req.body?.daysOfWeek) ?? null,
       })
       res.status(201).json(category)
     } catch (error) {
@@ -88,7 +101,6 @@ export function registerAdminMenuRoutes(r: Router) {
       const tenantDataAccess = tenantDataAccessFor(req)
       const categoryId = routeParam(req, 'categoryId')
       const category = await tenantDataAccess.menu.updateCategory(categoryId, {
-        menuId: typeof req.body?.menuId === 'string' ? req.body.menuId : undefined,
         name: typeof req.body?.name === 'string' ? req.body.name : undefined,
         sortOrder: typeof req.body?.sortOrder === 'number' ? req.body.sortOrder : undefined,
         visibility: parseVisibility(req.body?.visibility),
@@ -104,6 +116,7 @@ export function registerAdminMenuRoutes(r: Router) {
             : req.body?.availableUntil
               ? new Date(req.body.availableUntil)
               : undefined,
+        daysOfWeek: parseDaysOfWeek(req.body?.daysOfWeek),
       })
 
       if (!category) {

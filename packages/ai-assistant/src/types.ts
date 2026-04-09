@@ -29,6 +29,15 @@ export type AssistantCommandResponse = {
   options?: AssistantOption[]
 }
 
+export type AssistantScheduleDay =
+  | "monday"
+  | "tuesday"
+  | "wednesday"
+  | "thursday"
+  | "friday"
+  | "saturday"
+  | "sunday"
+
 export type AssistantExecutableIntent =
   | {
       action: "set_item_visibility"
@@ -71,12 +80,47 @@ export type AssistantExecutableIntent =
       name?: string
       price?: number
       description?: string
+      prepTimeMinutes?: number
+      tags?: string[]
+      specialInstructionsEnabled?: boolean
+      visibility?: "AVAILABLE" | "SOLD_OUT" | "HIDDEN"
     }
   | {
       action: "set_item_price"
       targetType: "item"
       targetQuery: string
       price: number
+    }
+  | {
+      action: "create_modifier_group"
+      targetType: "item"
+      targetQuery: string
+      groupName: string
+      required?: boolean
+      minSelections?: number
+      maxSelections?: number | null
+    }
+  | {
+      action: "create_modifier_option"
+      targetType: "item"
+      targetQuery: string
+      groupName: string
+      optionName: string
+      priceAdjustment?: number
+    }
+  | {
+      action: "schedule_category"
+      targetType: "category"
+      targetQuery: string
+      availableFrom: string
+      availableUntil: string
+      daysOfWeek?: AssistantScheduleDay[]
+    }
+  | {
+      action: "set_item_image"
+      targetType: "item"
+      targetQuery: string
+      photoUrl: string
     }
   | {
       action: "update_brand_config"
