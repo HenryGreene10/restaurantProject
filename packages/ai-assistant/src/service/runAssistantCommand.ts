@@ -14,6 +14,30 @@ import type {
   AssistantOption,
 } from "../types.js"
 
+function serializeError(error: unknown) {
+  if (error instanceof Error) {
+    const details = error as Error & {
+      cause?: unknown
+      status?: unknown
+      response?: unknown
+    }
+
+    return {
+      name: details.name,
+      message: details.message,
+      stack: details.stack,
+      cause: details.cause,
+      status: details.status,
+      response: details.response,
+    }
+  }
+
+  return {
+    message: typeof error === "string" ? error : "Unknown assistant error",
+    raw: error,
+  }
+}
+
 function brandConfigRecord(value: unknown) {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return null
@@ -464,10 +488,11 @@ export async function runAssistantCommand(input: {
   } catch (error) {
     console.error("Assistant command failed", {
       tenantSlug: input.tenantSlug,
+      restaurantId: input.restaurantId,
       message: input.message,
       history: input.history ?? [],
       classifiedAction: plan,
-      error,
+      error: serializeError(error),
     })
     throw error
   }

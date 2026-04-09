@@ -166,9 +166,13 @@ export const AssistantPanel: React.FC<{
       setMessages((current) => [...current, ...nextMessages])
     } catch (error) {
       console.error("Assistant request failed", error)
+      const message =
+        error instanceof Error && error.message.trim()
+          ? error.message.trim()
+          : FRIENDLY_ERROR_MESSAGE
       setMessages((current) => [
         ...current,
-        createMessage("assistant", FRIENDLY_ERROR_MESSAGE),
+        createMessage("assistant", message),
       ])
     } finally {
       setIsSending(false)

@@ -44,6 +44,30 @@ function historyFromBody(body: unknown): AssistantHistoryMessage[] {
   })
 }
 
+function serializeError(error: unknown) {
+  if (error instanceof Error) {
+    const details = error as Error & {
+      cause?: unknown
+      status?: unknown
+      response?: unknown
+    }
+
+    return {
+      name: details.name,
+      message: details.message,
+      stack: details.stack,
+      cause: details.cause,
+      status: details.status,
+      response: details.response,
+    }
+  }
+
+  return {
+    message: typeof error === "string" ? error : "Unknown assistant error",
+    raw: error,
+  }
+}
+
 export async function assistantCommandHandler(req: AssistantRequest, res: Response) {
   const message = messageFromBody(req.body)
   const history = historyFromBody(req.body)
@@ -71,6 +95,14 @@ export async function assistantCommandHandler(req: AssistantRequest, res: Respon
 
     return res.json(response)
   } catch (error) {
+    console.error("assistantCommandHandler failed", {
+      tenantSlug: req.tenant.slug,
+      restaurantId: req.tenant.id,
+      message,
+      history,
+      error: serializeError(error),
+    })
+
     return res.status(400).json({
       error: error instanceof Error ? error.message : "Assistant command failed",
     })
