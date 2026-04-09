@@ -1519,7 +1519,7 @@ export function createTenantDataAccess(scope: TenantScope) {
       return withTenantConnection(scope.restaurantId, async (prisma) => {
         const rows = await prisma.$queryRaw<CheckoutSessionRow[]>(Prisma.sql`
           UPDATE "CheckoutSession"
-          SET "status" = ${"REQUIRES_ACTION" satisfies CheckoutSessionStatus},
+          SET "status" = ${Prisma.sql`${"REQUIRES_ACTION" satisfies CheckoutSessionStatus}::"CheckoutSessionStatus"`},
               "updatedAt" = NOW()
           WHERE "restaurantId" = ${scope.restaurantId}
             AND "id" = ${checkoutSessionId}
@@ -1534,7 +1534,7 @@ export function createTenantDataAccess(scope: TenantScope) {
       return withTenantConnection(scope.restaurantId, async (prisma) => {
         const rows = await prisma.$queryRaw<CheckoutSessionRow[]>(Prisma.sql`
           UPDATE "CheckoutSession"
-          SET "status" = ${"PAYMENT_FAILED" satisfies CheckoutSessionStatus},
+          SET "status" = ${Prisma.sql`${"PAYMENT_FAILED" satisfies CheckoutSessionStatus}::"CheckoutSessionStatus"`},
               "updatedAt" = NOW()
           WHERE "restaurantId" = ${scope.restaurantId}
             AND "stripePaymentIntentId" = ${paymentIntentId}
@@ -1549,7 +1549,7 @@ export function createTenantDataAccess(scope: TenantScope) {
       return withTenantConnection(scope.restaurantId, async (prisma) => {
         const rows = await prisma.$queryRaw<CheckoutSessionRow[]>(Prisma.sql`
           UPDATE "CheckoutSession"
-          SET "status" = ${"PAYMENT_SUCCEEDED" satisfies CheckoutSessionStatus},
+          SET "status" = ${Prisma.sql`${"PAYMENT_SUCCEEDED" satisfies CheckoutSessionStatus}::"CheckoutSessionStatus"`},
               "updatedAt" = NOW()
           WHERE "restaurantId" = ${scope.restaurantId}
             AND "stripePaymentIntentId" = ${paymentIntentId}
@@ -1612,7 +1612,7 @@ export function createTenantDataAccess(scope: TenantScope) {
         await prisma.$executeRaw(Prisma.sql`
           UPDATE "CheckoutSession"
           SET "createdOrderId" = ${createdOrder.id},
-              "status" = ${"ORDER_CREATED" satisfies CheckoutSessionStatus},
+              "status" = ${Prisma.sql`${"ORDER_CREATED" satisfies CheckoutSessionStatus}::"CheckoutSessionStatus"`},
               "updatedAt" = NOW()
           WHERE "restaurantId" = ${scope.restaurantId}
             AND "id" = ${checkoutSession.id}
