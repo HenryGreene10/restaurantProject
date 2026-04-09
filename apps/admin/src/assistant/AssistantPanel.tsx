@@ -5,7 +5,7 @@ import { Bot, CheckCircle2, ChefHat, Sparkles, UserRound } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import type { ClerkTokenGetter } from "@/lib/api"
+import { adminFetchJson, type ClerkTokenGetter } from "@/lib/api"
 import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
 
@@ -127,31 +127,18 @@ export const AssistantPanel: React.FC<{
     setIsSending(true)
 
     try {
-      const token = await getToken()
-      if (!token) {
-        throw new Error("Missing Clerk token")
-      }
-
-      const response = await fetch("/api/v1/assistant/command", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-          "x-tenant-slug": tenantSlug,
+      const data = await adminFetchJson<AssistantCommandResponse>(
+        "/v1/assistant/command",
+        {
+          method: "POST",
+          tenantSlug,
+          getToken,
+          body: {
+            message,
+            history: nextHistory,
+          },
         },
-        body: JSON.stringify({
-          message,
-          history: nextHistory,
-        }),
-      })
-      const data = (await response
-        .json()
-        .catch(() => null)) as (AssistantCommandResponse & { error?: string }) | null
-
-      if (!response.ok) {
-        throw new Error(data?.error || `Command failed (${response.status})`)
-      }
-
+      )
       const nextMessages: ChatMessage[] = [
         createMessage("assistant", data?.reply || "Done.", data?.options),
       ]
