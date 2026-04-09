@@ -230,7 +230,8 @@ function mergeRefreshTargets(results: AssistantCommandResponse[]) {
 }
 
 async function summarizeResults(input: {
-  apiKey: string
+  groqApiKey?: string
+  anthropicApiKey?: string
   message: string
   results: AssistantCommandResponse[]
 }) {
@@ -240,7 +241,8 @@ async function summarizeResults(input: {
 
   try {
     return await summarizeExecutedActions({
-      apiKey: input.apiKey,
+      groqApiKey: input.groqApiKey,
+      anthropicApiKey: input.anthropicApiKey,
       message: input.message,
       actionReplies: input.results.map((result) => result.reply),
     })
@@ -488,7 +490,8 @@ async function executeIntent(input: {
 }
 
 export async function runAssistantCommand(input: {
-  apiKey: string
+  groqApiKey?: string
+  anthropicApiKey?: string
   tenantSlug: string
   restaurantId: string
   message: string
@@ -501,7 +504,8 @@ export async function runAssistantCommand(input: {
     const { assistantContext } = await loadTenantContext(dataAccess)
 
     const plannerResult = await classifyAdminCommand({
-      apiKey: input.apiKey,
+      groqApiKey: input.groqApiKey,
+      anthropicApiKey: input.anthropicApiKey,
       message: input.message,
       systemPrompt: ASSISTANT_SYSTEM_PROMPT,
       context: assistantContext,
@@ -549,7 +553,8 @@ export async function runAssistantCommand(input: {
         }
 
         const completedReply = await summarizeResults({
-          apiKey: input.apiKey,
+          groqApiKey: input.groqApiKey,
+          anthropicApiKey: input.anthropicApiKey,
           message: input.message,
           results: completedResults,
         })
@@ -572,7 +577,8 @@ export async function runAssistantCommand(input: {
 
     return {
       reply: await summarizeResults({
-        apiKey: input.apiKey,
+        groqApiKey: input.groqApiKey,
+        anthropicApiKey: input.anthropicApiKey,
         message: input.message,
         results: completedResults,
       }),

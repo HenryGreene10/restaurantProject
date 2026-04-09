@@ -1,3 +1,4 @@
+import Groq from "groq-sdk"
 import { z } from "zod"
 import type { AssistantHistoryMessage, AssistantPlannerResult } from "../types.js"
 
@@ -413,6 +414,25 @@ type AnthropicMessageResponse = {
   content: AnthropContentBlock[]
 }
 
+type GroqToolCall = {
+  function?: {
+    name?: string | null
+    arguments?: string | null
+  } | null
+}
+
+type GroqChatCompletion = {
+  choices?: Array<{
+    message?: {
+      content?: string | null
+      tool_calls?: GroqToolCall[] | null
+    } | null
+  }>
+}
+
+const GROQ_MODEL = "llama-3.3-70b-versatile"
+const ANTHROPIC_MODEL = "claude-haiku-4-5-20251001"
+
 function normalizePlannedAction(action: unknown) {
   if (!action || typeof action !== "object" || Array.isArray(action)) {
     return action
@@ -544,8 +564,40 @@ async function requestAnthropicMessage(input: {
   return (await response.json()) as AnthropicMessageResponse
 }
 
-export async function classifyAdminCommand(input: {
+async function requestGroqChatCompletion(input: {
   apiKey: string
+  body: Record<string, unknown>
+}): Promise<GroqChatCompletion> {
+  const groq = new Groq({
+    apiKey: input.apiKey,
+  })
+
+  return groq.chat.completions.create(input.body as never) as Promise<GroqChatCompletion>
+}
+
+function parseGroqToolArguments(toolCall: GroqToolCall) {
+  const raw = toolCall.function?.arguments
+  if (!raw) {
+    throw new Error("Groq tool call did not include function arguments")
+  }
+
+  try {
+    return JSON.parse(raw) as unknown
+  } catch (error) {
+    throw new Error(
+      `Groq tool call returned invalid JSON arguments: ${error instanceof Error ? error.message : String(error)}`,
+    )
+  }
+}
+
+function warnGroqFallback(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error)
+  console.warn(`Groq failed, falling back to Anthropic: ${message}`)
+}
+
+export async function classifyAdminCommand(input: {
+  groqApiKey?: string
+  anthropicApiKey?: string
   message: string
   systemPrompt: string
   context: string
@@ -556,10 +608,69 @@ export async function classifyAdminCommand(input: {
     content: entry.content,
   }))
 
+  if (input.groqApiKey) {
+    try {
+      const payload = await requestGroqChatCompletion({
+        apiKey: input.groqApiKey,
+        body: {
+          model: GROQ_MODEL,
+          temperature: 0,
+          messages: [
+            {
+              role: "system",
+              content: input.systemPrompt,
+            },
+            ...historyMessages,
+            {
+              role: "user",
+              content: `Tenant context:\n${input.context}\n\nUser command:\n${input.message}`,
+            },
+          ],
+          tools: [
+            {
+              type: "function",
+              function: {
+                name: modelToolSchema.name,
+                description: modelToolSchema.description,
+                parameters: modelToolSchema.input_schema,
+              },
+            },
+          ],
+          tool_choice: {
+            type: "function",
+            function: {
+              name: modelToolSchema.name,
+            },
+          },
+        },
+      })
+
+      const toolCall = payload.choices?.[0]?.message?.tool_calls?.find(
+        (entry) => entry.function?.name === modelToolSchema.name,
+      )
+
+      if (!toolCall) {
+        throw new Error("Groq response did not include classify_admin_command output")
+      }
+
+      return toolInputSchema.parse(normalizeToolInput(parseGroqToolArguments(toolCall)))
+    } catch (error) {
+      if (!input.anthropicApiKey) {
+        throw error
+      }
+
+      warnGroqFallback(error)
+    }
+  }
+
+  if (!input.anthropicApiKey) {
+    throw new Error("No AI provider configured for assistant planning")
+  }
+
   const payload = await requestAnthropicMessage({
-    apiKey: input.apiKey,
+    apiKey: input.anthropicApiKey,
     body: {
-      model: "claude-haiku-4-5-20251001",
+      model: ANTHROPIC_MODEL,
       max_tokens: 768,
       system: input.systemPrompt,
       tools: [modelToolSchema],
@@ -589,24 +700,67 @@ export async function classifyAdminCommand(input: {
 }
 
 export async function summarizeExecutedActions(input: {
-  apiKey: string
+  groqApiKey?: string
+  anthropicApiKey?: string
   message: string
   actionReplies: string[]
 }): Promise<string> {
+  const systemPrompt =
+    "You summarize already-completed restaurant admin actions into one concise natural sentence. Do not mention actions that did not happen. Be specific about item names, category names, and prices when provided."
+  const userPrompt =
+    `Original user command:\n${input.message}\n\n` +
+    `Completed action results:\n${input.actionReplies.map((reply) => `- ${reply}`).join("\n")}\n\n` +
+    "Write one short, natural confirmation sentence."
+
+  if (input.groqApiKey) {
+    try {
+      const payload = await requestGroqChatCompletion({
+        apiKey: input.groqApiKey,
+        body: {
+          model: GROQ_MODEL,
+          temperature: 0.2,
+          messages: [
+            {
+              role: "system",
+              content: systemPrompt,
+            },
+            {
+              role: "user",
+              content: userPrompt,
+            },
+          ],
+        },
+      })
+
+      const text = payload.choices?.[0]?.message?.content?.trim()
+      if (!text) {
+        throw new Error("Groq response did not include a summary")
+      }
+
+      return text
+    } catch (error) {
+      if (!input.anthropicApiKey) {
+        throw error
+      }
+
+      warnGroqFallback(error)
+    }
+  }
+
+  if (!input.anthropicApiKey) {
+    throw new Error("No AI provider configured for assistant summarization")
+  }
+
   const payload = await requestAnthropicMessage({
-    apiKey: input.apiKey,
+    apiKey: input.anthropicApiKey,
     body: {
-      model: "claude-haiku-4-5-20251001",
+      model: ANTHROPIC_MODEL,
       max_tokens: 120,
-      system:
-        "You summarize already-completed restaurant admin actions into one concise natural sentence. Do not mention actions that did not happen. Be specific about item names, category names, and prices when provided.",
+      system: systemPrompt,
       messages: [
         {
           role: "user",
-          content:
-            `Original user command:\n${input.message}\n\n` +
-            `Completed action results:\n${input.actionReplies.map((reply) => `- ${reply}`).join("\n")}\n\n` +
-            "Write one short, natural confirmation sentence.",
+          content: userPrompt,
         },
       ],
     },

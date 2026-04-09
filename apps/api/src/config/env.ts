@@ -14,7 +14,8 @@ const EnvSchema = z
     CUSTOMER_REFRESH_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().default(2592000),
     BASE_DOMAIN: z.string().optional(),
     TENANT_DOMAIN_SUFFIX: z.string().optional(),
-    ANTHROPIC_API_KEY: z.string(),
+    ANTHROPIC_API_KEY: z.string().optional(),
+    GROQ_API_KEY: z.string().optional(),
     CLERK_SECRET_KEY: z.string(),
     SENTRY_DSN: z.string().default(''),
     STRIPE_SECRET_KEY: z.string().default(''),
@@ -37,6 +38,10 @@ const EnvSchema = z
   .refine((input) => Boolean(input.BASE_DOMAIN), {
     message: 'BASE_DOMAIN or TENANT_DOMAIN_SUFFIX is required',
     path: ['BASE_DOMAIN'],
+  })
+  .refine((input) => Boolean(input.GROQ_API_KEY || input.ANTHROPIC_API_KEY), {
+    message: 'GROQ_API_KEY or ANTHROPIC_API_KEY is required',
+    path: ['GROQ_API_KEY'],
   })
 
 type Env = z.infer<typeof EnvSchema>

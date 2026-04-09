@@ -11,26 +11,10 @@ type MenuCategory = {
     item: {
       id: string
       name: string
-      description?: string | null
       basePriceCents?: number
       visibility: string
-      isFeatured: boolean
       prepTimeMinutes?: number
       tags?: string[]
-      specialInstructionsEnabled?: boolean
-      photoUrl?: string | null
-      itemModifierGroups?: Array<{
-        isRequired?: boolean
-        minSelections?: number
-        maxSelections?: number | null
-        group: {
-          name: string
-          options: Array<{
-            name: string
-            priceDeltaCents?: number
-          }>
-        }
-      }>
     }
   }>
 }
@@ -38,14 +22,6 @@ type MenuCategory = {
 type BuildAssistantContextInput = {
   brandConfig: Record<string, unknown> | null
   categories: MenuCategory[]
-}
-
-function printConfigValue(value: unknown) {
-  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
-    return String(value)
-  }
-
-  return null
 }
 
 function formatTime(value: Date | null | undefined) {
@@ -67,47 +43,74 @@ function formatDays(value: unknown) {
   return days.length ? days.join(",") : "every day"
 }
 
+function formatPrice(cents: number | undefined) {
+  const value = typeof cents === "number" ? cents / 100 : 0
+  return `$${value.toFixed(2)}`
+}
+
+function categoryScheduleSummary(category: MenuCategory) {
+  const from = formatTime(category.availableFrom)
+  const until = formatTime(category.availableUntil)
+
+  if (from === "none" && until === "none") {
+    return null
+  }
+
+  return `${from}-${until} ${formatDays(category.daysOfWeek)}`
+}
+
 export function buildAssistantContext(input: BuildAssistantContextInput) {
-  const brandLines = Object.entries(input.brandConfig ?? {})
-    .map(([key, value]) => {
-      const printable = printConfigValue(value)
-      return printable ? `- ${key}: ${printable}` : null
-    })
-    .filter((line): line is string => Boolean(line))
+  const orderedCategories = input.categories
+    .slice()
+    .sort((left, right) => (left.sortOrder ?? Number.MAX_SAFE_INTEGER) - (right.sortOrder ?? Number.MAX_SAFE_INTEGER))
 
-  const categoryLines = input.categories.map((category) => {
-    const itemLines = category.categoryItems.map(({ item, sortOrder }) => {
-      const modifierSummary =
-        item.itemModifierGroups?.length
-          ? item.itemModifierGroups
-              .map((entry) => {
-                const optionSummary = entry.group.options
-                  .map((option) =>
-                    option.priceDeltaCents
-                      ? `${option.name}(+${option.priceDeltaCents})`
-                      : option.name,
-                  )
-                  .join(", ")
+  const categoryLines = orderedCategories.map((category, categoryIndex) => {
+    const schedule = categoryScheduleSummary(category)
+    return `${categoryIndex + 1}. ${category.name} (id: ${category.id}) - ${category.categoryItems.length} item${category.categoryItems.length === 1 ? "" : "s"} - ${category.visibility}${schedule ? ` - schedule: ${schedule}` : ""}`
+  })
 
-                return `${entry.group.name}[required=${entry.isRequired ? "yes" : "no"},min=${entry.minSelections ?? 0},max=${entry.maxSelections ?? "none"},options=${optionSummary || "none"}]`
-              })
-              .join("; ")
-          : "none"
+  const itemSections = orderedCategories.map((category) => {
+    const itemLines = category.categoryItems
+      .slice()
+      .sort((left, right) => (left.sortOrder ?? Number.MAX_SAFE_INTEGER) - (right.sortOrder ?? Number.MAX_SAFE_INTEGER))
+      .map(({ item }, index) => {
+        const details = [
+          `${index + 1}. ${item.name} (id: ${item.id}) ${formatPrice(item.basePriceCents)} - ${item.visibility}`,
+          item.tags?.length ? `tags: [${item.tags.join(", ")}]` : null,
+          typeof item.prepTimeMinutes === "number" ? `prep: ${item.prepTimeMinutes}min` : null,
+        ].filter((value): value is string => Boolean(value))
 
-      return `  - item ${item.id} | sortOrder=${sortOrder ?? "unknown"} | ${item.name} | price=${item.basePriceCents ?? 0} | description=${item.description ?? ""} | visibility=${item.visibility} | featured=${item.isFeatured} | prep=${item.prepTimeMinutes ?? 0} | tags=${(item.tags ?? []).join(",") || "none"} | specialInstructions=${item.specialInstructionsEnabled ? "on" : "off"} | photo=${item.photoUrl ?? "none"} | modifiers=${modifierSummary}`
-    })
+        return `  ${details.join(" - ")}`
+      })
 
-    return [
-      `- category ${category.id} | sortOrder=${category.sortOrder ?? "unknown"} | ${category.name} | visibility=${category.visibility} | availableFrom=${formatTime(category.availableFrom)} | availableUntil=${formatTime(category.availableUntil)} | daysOfWeek=${formatDays(category.daysOfWeek)}`,
-      ...itemLines,
-    ].join("\n")
+    return [ `${category.name}:`, ...(itemLines.length ? itemLines : ["  (no items)"]) ].join("\n")
+  })
+
+  const config = input.brandConfig ?? {}
+  const themeKeys = [
+    "accentColor",
+    "primaryColor",
+    "backgroundColor",
+    "headingFont",
+    "fontFamily",
+  ] as const
+  const themeLines = themeKeys.flatMap((key) => {
+    const value = config[key]
+    if (typeof value !== "string" || !value.trim()) {
+      return []
+    }
+
+    return [`${key}: ${value}`]
   })
 
   return [
-    "Brand config:",
-    ...(brandLines.length ? brandLines : ["- (none)"]),
+    "CATEGORIES (in order):",
+    ...(categoryLines.length ? categoryLines : ["(none)"]),
     "",
-    "Menu categories and items:",
-    ...(categoryLines.length ? categoryLines : ["- (none)"]),
+    "ITEMS (in order within category):",
+    ...(itemSections.length ? itemSections : ["(none)"]),
+    "",
+    "THEME:",
+    ...(themeLines.length ? themeLines : ["(none)"]),
   ].join("\n")
 }

@@ -79,14 +79,16 @@ export async function assistantCommandHandler(req: AssistantRequest, res: Respon
     return res.status(500).json({ error: "No tenant in request" })
   }
 
-  const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey) {
-    return res.status(500).json({ error: "Missing ANTHROPIC_API_KEY" })
+  const groqApiKey = process.env.GROQ_API_KEY
+  const anthropicApiKey = process.env.ANTHROPIC_API_KEY
+  if (!groqApiKey && !anthropicApiKey) {
+    return res.status(500).json({ error: "Missing GROQ_API_KEY or ANTHROPIC_API_KEY" })
   }
 
   try {
     const response = await runAssistantCommand({
-      apiKey,
+      groqApiKey,
+      anthropicApiKey,
       tenantSlug: req.tenant.slug,
       restaurantId: req.tenant.id,
       message,
