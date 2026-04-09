@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react"
-import { UserButton, useAuth, useUser } from "@clerk/react"
+import { UserButton, useAuth, useClerk, useUser } from "@clerk/react"
 import {
   DndContext,
   PointerSensor,
@@ -17,15 +17,20 @@ import {
 import { CSS } from "@dnd-kit/utilities"
 import { AnimatePresence, motion } from "framer-motion"
 import {
+  BarChart3,
+  Bot,
   CheckCircle2,
   CreditCard,
   ExternalLink,
   Eye,
   EyeOff,
   ImageIcon,
+  LayoutDashboard,
+  LogOut,
   Palette,
   Sparkles,
   Star,
+  Store,
   Trash2,
 } from "lucide-react"
 
@@ -137,6 +142,12 @@ function buildDraft(menu: MenuResponse): ThemeDraft {
   const backgroundColor = clampToLightBackground(
     getString(config, "backgroundColor") ?? defaultThemeDraft.backgroundColor,
   )
+  const accentColor = getString(config, "accentColor") ?? derivedAccentColor(primaryColor)
+  const surfaceColor = getString(config, "surfaceColor") ?? defaultThemeDraft.surfaceColor
+  const textColor = getString(config, "textColor") ?? defaultThemeDraft.textColor
+  const mutedColor = getString(config, "mutedColor") ?? defaultThemeDraft.mutedColor
+  const borderColor =
+    getString(config, "borderColor") ?? derivedBorderColor(primaryColor, backgroundColor)
 
   return {
     ...defaultThemeDraft,
@@ -149,12 +160,12 @@ function buildDraft(menu: MenuResponse): ThemeDraft {
     promoBannerText: getString(config, "promoBannerText") ?? defaultThemeDraft.promoBannerText,
     heroImageUrl: getString(config, "heroImageUrl") ?? defaultThemeDraft.heroImageUrl,
     primaryColor,
-    accentColor: derivedAccentColor(primaryColor),
+    accentColor,
     backgroundColor,
-    surfaceColor: defaultThemeDraft.surfaceColor,
-    textColor: defaultThemeDraft.textColor,
-    mutedColor: defaultThemeDraft.mutedColor,
-    borderColor: derivedBorderColor(primaryColor, backgroundColor),
+    surfaceColor,
+    textColor,
+    mutedColor,
+    borderColor,
     onPrimary: getString(config, "onPrimary") ?? defaultThemeDraft.onPrimary,
     bodyFont: getString(config, "fontFamily", "bodyFont") ?? defaultThemeDraft.bodyFont,
     headingFont: getString(config, "headingFont") ?? defaultThemeDraft.headingFont,
@@ -167,11 +178,20 @@ function buildDraft(menu: MenuResponse): ThemeDraft {
   }
 }
 
-type AdminTab = "branding" | "menu"
-type AdminShellView = "assistant" | "controls"
+type AdminSection =
+  | "overview"
+  | "branding"
+  | "menu"
+  | "insights"
+  | "payments"
+  | "assistant"
 type ThemeChangeHandler = <K extends keyof ThemeDraft>(key: K, value: ThemeDraft[K]) => void
 type CategoryItemEntry = MenuCategory["categoryItems"][number]
 type BrandingImageField = "logoUrl" | "heroImageUrl"
+type OverviewOrder = {
+  id: string
+  createdAt: string
+}
 
 function currentAdminPath() {
   return window.location.pathname
@@ -183,8 +203,8 @@ function areThemesEqual(left: ThemeDraft, right: ThemeDraft) {
 
 function themePayload(theme: ThemeDraft) {
   const backgroundColor = clampToLightBackground(theme.backgroundColor)
-  const accentColor = derivedAccentColor(theme.primaryColor)
-  const borderColor = derivedBorderColor(theme.primaryColor, backgroundColor)
+  const accentColor = theme.accentColor
+  const borderColor = theme.borderColor
 
   return {
     appTitle: theme.appTitle,
@@ -198,9 +218,9 @@ function themePayload(theme: ThemeDraft) {
     primaryColor: theme.primaryColor,
     accentColor,
     backgroundColor,
-    surfaceColor: defaultThemeDraft.surfaceColor,
-    textColor: defaultThemeDraft.textColor,
-    mutedColor: defaultThemeDraft.mutedColor,
+    surfaceColor: theme.surfaceColor,
+    textColor: theme.textColor,
+    mutedColor: theme.mutedColor,
     borderColor,
     onPrimary: theme.onPrimary,
     fontFamily: theme.bodyFont,
@@ -350,16 +370,16 @@ function previewCategories(categories: MenuCategory[]) {
 
 function previewStyle(theme: ThemeDraft): React.CSSProperties {
   const backgroundColor = clampToLightBackground(theme.backgroundColor)
-  const accentColor = derivedAccentColor(theme.primaryColor)
-  const borderColor = derivedBorderColor(theme.primaryColor, backgroundColor)
+  const accentColor = theme.accentColor
+  const borderColor = theme.borderColor
 
   return {
     ["--preview-primary" as string]: theme.primaryColor,
     ["--preview-accent" as string]: accentColor,
     ["--preview-background" as string]: backgroundColor,
-    ["--preview-surface" as string]: defaultThemeDraft.surfaceColor,
-    ["--preview-text" as string]: defaultThemeDraft.textColor,
-    ["--preview-muted" as string]: defaultThemeDraft.mutedColor,
+    ["--preview-surface" as string]: theme.surfaceColor,
+    ["--preview-text" as string]: theme.textColor,
+    ["--preview-muted" as string]: theme.mutedColor,
     ["--preview-border" as string]: borderColor,
     ["--preview-on-primary" as string]: theme.onPrimary,
     ["--preview-radius" as string]: `${defaultThemeDraft.radius}px`,
@@ -430,13 +450,14 @@ function PreviewPane({
         >
           <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start" }}>
             {theme.logoUrl ? (
-              <div
+              <img
+                src={theme.logoUrl}
+                alt={`${theme.appTitle} logo`}
                 style={{
-                  width: 64,
-                  height: 64,
-                  borderRadius: 12,
-                  border: "1px solid var(--preview-border)",
-                  background: `url(${theme.logoUrl}) center/contain no-repeat, var(--preview-surface)`,
+                  maxHeight: 56,
+                  width: "auto",
+                  maxWidth: 180,
+                  objectFit: "contain",
                   flexShrink: 0,
                 }}
               />
@@ -685,7 +706,8 @@ function PreviewPane({
                               borderRadius: cardRadius,
                               border: "1px solid transparent",
                               padding: "10px 14px",
-                              background: "var(--preview-primary)",
+                              background:
+                                "linear-gradient(135deg, var(--preview-primary), var(--preview-accent))",
                               color: "var(--preview-on-primary)",
                               fontWeight: 600,
                             }}
@@ -708,6 +730,7 @@ function PreviewPane({
 
 export const App: React.FC = () => {
   const { getToken } = useAuth()
+  const { signOut } = useClerk()
   const { isLoaded, user } = useUser()
   const tenantSlug = tenantSlugFromMetadata(user?.publicMetadata?.tenantSlug)
   const linkedTenantSlug = tenantSlug ?? ""
@@ -725,8 +748,9 @@ export const App: React.FC = () => {
   const [isStripeLoading, setIsStripeLoading] = useState(true)
   const [isStripeLaunching, setIsStripeLaunching] = useState(false)
   const [isBrandingUploadInProgress, setIsBrandingUploadInProgress] = useState(false)
-  const [activeTab, setActiveTab] = useState<AdminTab>("branding")
-  const [activeShellView, setActiveShellView] = useState<AdminShellView>("assistant")
+  const [activeSection, setActiveSection] = useState<AdminSection>("overview")
+  const [overviewOrdersToday, setOverviewOrdersToday] = useState(0)
+  const [isOverviewLoading, setIsOverviewLoading] = useState(true)
 
   const handleOnboardingCompleted = useCallback(async () => {
     await user?.reload()
@@ -820,6 +844,13 @@ export const App: React.FC = () => {
     })
   }
 
+  async function loadOverviewOrders() {
+    return adminFetchJson<{ orders: OverviewOrder[] }>("/v1/kitchen/orders", {
+      tenantSlug: linkedTenantSlug,
+      getToken,
+    })
+  }
+
   useEffect(() => {
     if (!isLoaded) {
       return
@@ -828,6 +859,8 @@ export const App: React.FC = () => {
     if (!tenantSlug) {
       setIsLoading(false)
       setIsStripeLoading(false)
+      setIsOverviewLoading(false)
+      setOverviewOrdersToday(0)
       setMenuData(null)
       setSavedTheme(defaultThemeDraft)
       setDraftTheme(defaultThemeDraft)
@@ -841,6 +874,7 @@ export const App: React.FC = () => {
 
     async function load() {
       setIsLoading(true)
+      setIsOverviewLoading(true)
       setError(null)
       setSaveMessage(null)
       setMenuActionMessage(null)
@@ -851,12 +885,19 @@ export const App: React.FC = () => {
           fetchTenantMenu(linkedTenantSlug, getToken),
           loadStripeStatus(),
         ])
+        const overviewOrdersResult = await loadOverviewOrders().catch(() => ({ orders: [] }))
         if (cancelled) return
         const nextTheme = buildDraft(menu)
+        const startOfToday = new Date()
+        startOfToday.setHours(0, 0, 0, 0)
         setMenuData(menu)
         setSavedTheme(nextTheme)
         setDraftTheme(nextTheme)
         setStripeStatus(nextStripeStatus)
+        setOverviewOrdersToday(
+          overviewOrdersResult.orders.filter((order) => new Date(order.createdAt) >= startOfToday)
+            .length,
+        )
       } catch (nextError) {
         if (cancelled) return
         setError(nextError instanceof Error ? nextError.message : "Failed to load menu")
@@ -864,6 +905,7 @@ export const App: React.FC = () => {
         if (!cancelled) {
           setIsLoading(false)
           setIsStripeLoading(false)
+          setIsOverviewLoading(false)
         }
       }
     }
@@ -907,7 +949,28 @@ export const App: React.FC = () => {
   )
 
   const updateTheme = <K extends keyof ThemeDraft>(key: K, value: ThemeDraft[K]) => {
-    setDraftTheme((current) => ({ ...current, [key]: value }))
+    setDraftTheme((current) => {
+      if (key === "primaryColor") {
+        const nextPrimary = value as ThemeDraft["primaryColor"]
+        return {
+          ...current,
+          primaryColor: nextPrimary,
+          accentColor: derivedAccentColor(nextPrimary),
+          borderColor: derivedBorderColor(nextPrimary, clampToLightBackground(current.backgroundColor)),
+        }
+      }
+
+      if (key === "backgroundColor") {
+        const nextBackground = clampToLightBackground(value as ThemeDraft["backgroundColor"])
+        return {
+          ...current,
+          backgroundColor: nextBackground,
+          borderColor: derivedBorderColor(current.primaryColor, nextBackground),
+        }
+      }
+
+      return { ...current, [key]: value }
+    })
     setSaveMessage(null)
   }
 
@@ -1229,168 +1292,337 @@ export const App: React.FC = () => {
       : stripeStatus?.status === "onboarding_required"
         ? "Onboarding required"
         : "Not connected"
+  const restaurantDisplayName =
+    draftTheme.appTitle.trim() || stripeStatus?.displayName || linkedTenantSlug
+  const userDisplayName =
+    user?.fullName ||
+    user?.firstName ||
+    user?.primaryEmailAddress?.emailAddress ||
+    "Admin"
 
-  const controlsPanel = (
+  const paymentsPanel = (
+    <SectionCard
+      title="Stripe payouts"
+      subtitle="Connect the restaurant to Stripe before enabling live card payments."
+    >
+      <div className="grid gap-4">
+        <div className="flex items-start justify-between gap-4 rounded-[var(--radius)] border border-border/70 bg-background px-4 py-4">
+          <div className="grid gap-2">
+            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+              <CreditCard className="h-4 w-4 text-primary" />
+              {stripeStatus?.displayName ?? "Restaurant payouts"}
+            </div>
+            <div className="text-sm text-muted-foreground">
+              {isStripeLoading ? "Checking Stripe onboarding status…" : stripeStatusLabel}
+            </div>
+          </div>
+          <Badge
+            variant="outline"
+            className={cn(
+              "border-border bg-card",
+              stripeStatus?.status === "active" && "border-primary/30 text-foreground",
+            )}
+          >
+            {stripeStatusLabel}
+          </Badge>
+        </div>
+
+        {stripeStatus ? (
+          <div className="grid gap-2 rounded-[var(--radius)] border border-border/70 bg-background px-4 py-4 text-sm text-muted-foreground">
+            <div className="flex items-center justify-between gap-4">
+              <span>Charges enabled</span>
+              <span className="font-medium text-foreground">
+                {stripeStatus.chargesEnabled ? "Yes" : "No"}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-4">
+              <span>Payouts enabled</span>
+              <span className="font-medium text-foreground">
+                {stripeStatus.payoutsEnabled ? "Yes" : "No"}
+              </span>
+            </div>
+            {stripeStatus.stripeAccountId ? (
+              <div className="flex items-center justify-between gap-4">
+                <span>Stripe account</span>
+                <span className="truncate text-xs text-foreground">
+                  {stripeStatus.stripeAccountId}
+                </span>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        {stripeMessage ? (
+          <div className="rounded-[var(--radius)] border border-destructive/20 bg-destructive/10 px-4 py-4 text-sm text-destructive">
+            {stripeMessage}
+          </div>
+        ) : null}
+
+        <Button
+          type="button"
+          className="min-h-11 justify-between"
+          disabled={isStripeLaunching || !stripeStatus?.configured}
+          onClick={() => void launchStripeOnboarding()}
+        >
+          <span>
+            {stripeStatus?.status === "active"
+              ? "Review Stripe account"
+              : stripeStatus?.status === "onboarding_required"
+                ? "Continue Stripe onboarding"
+                : "Connect Stripe"}
+          </span>
+          <ExternalLink className="h-4 w-4" />
+        </Button>
+
+        {!stripeStatus?.configured ? (
+          <div className="text-sm text-muted-foreground">
+            Stripe is not configured yet. Add the Stripe env values before onboarding a restaurant.
+          </div>
+        ) : null}
+
+        {stripeStatus?.status === "active" ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <CheckCircle2 className="h-4 w-4 text-primary" />
+            This restaurant can take live card payments.
+          </div>
+        ) : null}
+      </div>
+    </SectionCard>
+  )
+
+  const overviewPanel = (
     <div className="grid gap-6">
       <SectionCard
-        title="Stripe payouts"
-        subtitle="Connect the restaurant to Stripe before enabling live card payments."
+        title="Overview"
+        subtitle="A quick snapshot of the restaurant setup before you edit the storefront."
       >
-        <div className="grid gap-4">
-          <div className="flex items-start justify-between gap-4 rounded-[var(--radius)] border border-border/70 bg-background px-4 py-4">
-            <div className="grid gap-2">
-              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-                <CreditCard className="h-4 w-4 text-primary" />
-                {stripeStatus?.displayName ?? "Restaurant payouts"}
-              </div>
-              <div className="text-sm text-muted-foreground">
-                {isStripeLoading
-                  ? "Checking Stripe onboarding status…"
-                  : stripeStatusLabel}
-              </div>
-            </div>
-            <Badge
-              variant="outline"
-              className={cn(
-                "border-border bg-card",
-                stripeStatus?.status === "active" && "border-primary/30 text-foreground",
-              )}
-            >
-              {stripeStatusLabel}
-            </Badge>
-          </div>
+        <div className="grid gap-4 xl:grid-cols-3">
+          <OverviewMetricCard
+            label="Stripe status"
+            value={isStripeLoading ? "Checking…" : stripeStatusLabel}
+            hint={stripeStatus?.status === "active" ? "Payments live" : "Needs review"}
+          />
+          <OverviewMetricCard
+            label="Orders today"
+            value={isOverviewLoading ? "Loading…" : String(overviewOrdersToday)}
+            hint="Current kitchen feed"
+          />
+          <OverviewMetricCard
+            label="Restaurant slug"
+            value={linkedTenantSlug}
+            hint="Tenant routing key"
+          />
+        </div>
 
-          {stripeStatus ? (
-            <div className="grid gap-2 rounded-[var(--radius)] border border-border/70 bg-background px-4 py-4 text-sm text-muted-foreground">
-              <div className="flex items-center justify-between gap-4">
-                <span>Charges enabled</span>
-                <span className="font-medium text-foreground">
-                  {stripeStatus.chargesEnabled ? "Yes" : "No"}
-                </span>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <span>Payouts enabled</span>
-                <span className="font-medium text-foreground">
-                  {stripeStatus.payoutsEnabled ? "Yes" : "No"}
-                </span>
-              </div>
-              {stripeStatus.stripeAccountId ? (
-                <div className="flex items-center justify-between gap-4">
-                  <span>Stripe account</span>
-                  <span className="truncate text-xs text-foreground">
-                    {stripeStatus.stripeAccountId}
-                  </span>
-                </div>
-              ) : null}
-            </div>
-          ) : null}
-
-          {stripeMessage ? (
-            <div className="rounded-[var(--radius)] border border-destructive/20 bg-destructive/10 px-4 py-4 text-sm text-destructive">
-              {stripeMessage}
-            </div>
-          ) : null}
-
-          <Button
-            type="button"
-            className="min-h-11 justify-between"
-            disabled={isStripeLaunching || !stripeStatus?.configured}
-            onClick={() => void launchStripeOnboarding()}
-          >
-            <span>
-              {stripeStatus?.status === "active"
-                ? "Review Stripe account"
-                : stripeStatus?.status === "onboarding_required"
-                  ? "Continue Stripe onboarding"
-                  : "Connect Stripe"}
-            </span>
-            <ExternalLink className="h-4 w-4" />
+        <div className="mt-6 flex flex-wrap gap-3">
+          <Button type="button" onClick={() => setActiveSection("branding")}>
+            Open branding
           </Button>
-
-          {!stripeStatus?.configured ? (
-            <div className="text-sm text-muted-foreground">
-              Stripe is not configured yet. Add the Stripe env values before onboarding a restaurant.
-            </div>
-          ) : null}
-
-          {stripeStatus?.status === "active" ? (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <CheckCircle2 className="h-4 w-4 text-primary" />
-              This restaurant can finish payment setup next.
-            </div>
-          ) : null}
+          <Button type="button" variant="outline" onClick={() => setActiveSection("menu")}>
+            Open menu
+          </Button>
         </div>
       </SectionCard>
 
+      {paymentsPanel}
+    </div>
+  )
+
+  const brandingPanel = (
+    <div className="grid gap-6">
+      {error ? (
+        <div className="rounded-[var(--radius)] border border-destructive/20 bg-destructive/10 px-4 py-4 text-sm text-destructive">
+          {error}
+        </div>
+      ) : null}
       <SectionCard
-        title="Storefront controls"
-        subtitle="Draft edits update the preview instantly. Save persists them to the backend."
+        title="Branding"
+        subtitle="Logo, hero copy, colors, and fonts update the preview immediately."
       >
-        <div className="grid gap-5">
-          <div className="grid gap-2">
-            <Label className="text-sm text-muted-foreground">
-              Linked restaurant
-            </Label>
-            <div className="rounded-[var(--radius)] border border-border/70 bg-background px-4 py-3 text-sm text-foreground">
-              {linkedTenantSlug}
+        <BrandingTab
+          theme={draftTheme}
+          onThemeChange={updateTheme}
+          onUploadImage={uploadBrandingImage}
+        />
+      </SectionCard>
+    </div>
+  )
+
+  const menuPanel = (
+    <div className="grid gap-6">
+      {error ? (
+        <div className="rounded-[var(--radius)] border border-destructive/20 bg-destructive/10 px-4 py-4 text-sm text-destructive">
+          {error}
+        </div>
+      ) : null}
+      <SectionCard
+        title="Menu management"
+        subtitle="Organize categories, control visibility, reorder items, and manage featured dishes."
+      >
+        <MenuTab
+          categories={categories}
+          menuActionMessage={menuActionMessage}
+          onAddItem={addItemToCategory}
+          onCategoryVisibilityChange={updateCategoryVisibility}
+          onCategoryReorder={reorderCategories}
+          onDeleteItem={deleteItemFromMenu}
+          onItemFeaturedChange={(itemId, isFeatured) =>
+            void updateItemPresentation(itemId, { isFeatured }, "Featured state updated.")
+          }
+          onItemImageChange={(itemId, photoUrl) =>
+            void updateItemPresentation(
+              itemId,
+              { photoUrl },
+              photoUrl ? "Item image updated." : "Item image removed.",
+            )
+          }
+          onItemReorder={reorderCategoryItem}
+          onItemVisibilityChange={updateItemVisibility}
+        />
+      </SectionCard>
+    </div>
+  )
+
+  const insightsPanel = (
+    <SectionCard
+      title="Insights"
+      subtitle="Analytics is the next build. This section is reserved for that dashboard."
+    >
+      <div className="rounded-[var(--radius)] border border-border/70 bg-background px-5 py-8 text-sm text-muted-foreground">
+        Coming soon — your analytics will appear here.
+      </div>
+    </SectionCard>
+  )
+
+  const assistantPanel = (
+    <SectionCard
+      title="Assistant"
+      subtitle="Use the AI operator to make menu and storefront changes in one place."
+    >
+      <AssistantPanel
+        className="min-h-[620px]"
+        getToken={getToken}
+        tenantSlug={linkedTenantSlug}
+        onRefreshTargets={(targets) => {
+          if (targets.includes("menu")) {
+            void reloadMenuData(true)
+          }
+        }}
+      />
+    </SectionCard>
+  )
+
+  const activeSectionContent = (() => {
+    switch (activeSection) {
+      case "overview":
+        return overviewPanel
+      case "branding":
+        return brandingPanel
+      case "menu":
+        return menuPanel
+      case "insights":
+        return insightsPanel
+      case "payments":
+        return paymentsPanel
+      case "assistant":
+        return assistantPanel
+    }
+  })()
+
+  return (
+    <motion.main
+      className="flex h-[100dvh] min-h-[100dvh] flex-col overflow-hidden bg-background"
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.22, ease: "easeOut" }}
+    >
+      <header className="shrink-0 border-b border-border/70 bg-background/95 backdrop-blur">
+        <div className="mx-auto flex h-20 w-full max-w-[1800px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+          <div className="flex min-w-0 items-center gap-4">
+            <div className="inline-flex h-11 items-center rounded-full border border-border bg-card px-4 font-heading text-lg text-foreground shadow-sm">
+              EasyMenu
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs uppercase tracking-[0.14em] text-muted-foreground">
+                Restaurant admin
+              </div>
+              <div className="truncate text-lg font-semibold text-foreground">
+                {restaurantDisplayName}
+              </div>
             </div>
           </div>
-
-          {error ? (
-            <div className="rounded-[var(--radius)] border border-destructive/20 bg-destructive/10 px-4 py-4 text-sm text-destructive">
-              {error}
+          <div className="flex items-center gap-3">
+            <div className="hidden text-right sm:block">
+              <div className="text-sm font-medium text-foreground">{userDisplayName}</div>
+              <div className="text-xs text-muted-foreground">{linkedTenantSlug}</div>
             </div>
-          ) : null}
+            <UserButton />
+          </div>
+        </div>
+      </header>
 
-          <TabBar activeTab={activeTab} onChange={setActiveTab} />
+      <div className="mx-auto grid min-h-0 flex-1 w-full max-w-[1800px] gap-4 px-4 py-4 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:px-8 xl:grid-cols-[240px_minmax(0,1fr)_420px]">
+        <aside className="hidden min-h-0 flex-col justify-between rounded-[calc(var(--radius)+8px)] border border-border/80 bg-card p-4 shadow-sm lg:flex">
+          <div className="grid gap-6">
+            <div className="rounded-[var(--radius)] border border-border/70 bg-background px-4 py-4">
+              <div className="flex items-center gap-3">
+                {user?.imageUrl ? (
+                  <img
+                    src={user.imageUrl}
+                    alt={userDisplayName}
+                    className="h-11 w-11 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-sm font-semibold text-primary-foreground">
+                    {userDisplayName.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <div className="min-w-0">
+                  <div className="truncate text-sm font-semibold text-foreground">
+                    {restaurantDisplayName}
+                  </div>
+                  <div className="truncate text-xs text-muted-foreground">{linkedTenantSlug}</div>
+                </div>
+              </div>
+            </div>
 
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.div
-              key={activeTab}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -8 }}
-              transition={{ duration: 0.18, ease: "easeOut" }}
-              className="grid gap-5"
-            >
-              {activeTab === "branding" ? (
-                <BrandingTab
-                  theme={draftTheme}
-                  onThemeChange={updateTheme}
-                  onUploadImage={uploadBrandingImage}
-                />
-              ) : null}
+            <SectionNav activeSection={activeSection} onChange={setActiveSection} />
+          </div>
 
-              {activeTab === "menu" ? (
-                <MenuTab
-                  categories={categories}
-                  menuActionMessage={menuActionMessage}
-                  onAddItem={addItemToCategory}
-                  onCategoryVisibilityChange={updateCategoryVisibility}
-                  onCategoryReorder={reorderCategories}
-                  onDeleteItem={deleteItemFromMenu}
-                  onItemFeaturedChange={(itemId, isFeatured) =>
-                    void updateItemPresentation(
-                      itemId,
-                      { isFeatured },
-                      "Featured state updated.",
-                    )
-                  }
-                  onItemImageChange={(itemId, photoUrl) =>
-                    void updateItemPresentation(
-                      itemId,
-                      { photoUrl },
-                      photoUrl ? "Item image updated." : "Item image removed.",
-                    )
-                  }
-                  onItemReorder={reorderCategoryItem}
-                  onItemVisibilityChange={updateItemVisibility}
-                />
-              ) : null}
-            </motion.div>
-          </AnimatePresence>
+          <Button
+            type="button"
+            variant="ghost"
+            className="justify-start rounded-[var(--radius)] text-muted-foreground"
+            onClick={() => {
+              void signOut()
+            }}
+          >
+            <LogOut className="h-4 w-4" />
+            Sign out
+          </Button>
+        </aside>
 
-          {(activeTab === "branding" || isThemeDirty || saveMessage) ? (
+        <section className="flex min-h-0 flex-col overflow-hidden rounded-[calc(var(--radius)+8px)] border border-border/80 bg-card shadow-sm">
+          <div className="shrink-0 border-b border-border/70 px-4 py-3 lg:hidden">
+            <CompactSectionNav activeSection={activeSection} onChange={setActiveSection} />
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-6">
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={activeSection}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.18, ease: "easeOut" }}
+                className="grid gap-6"
+              >
+                {activeSectionContent}
+              </motion.div>
+            </AnimatePresence>
+          </div>
+
+          <div className="shrink-0 border-t border-border/70 bg-background/95 p-4 backdrop-blur sm:px-6">
             <ThemeSaveBar
               isDirty={isThemeDirty}
               isLoading={isLoading}
@@ -1399,169 +1631,117 @@ export const App: React.FC = () => {
               onSave={() => void saveTheme()}
               saveMessage={saveMessage}
             />
-          ) : null}
-        </div>
-      </SectionCard>
-    </div>
-  )
+          </div>
+        </section>
 
-  const previewPanel = (
-    <SectionCard
-      title="Live storefront preview"
-      subtitle="Uses the tenant's real menu data and the current dashboard draft settings."
-    >
-      <PreviewPane theme={draftTheme} categories={categories} />
-    </SectionCard>
-  )
-
-  const assistantPanel = (
-    <AssistantPanel
-      className="h-full"
-      getToken={getToken}
-      tenantSlug={linkedTenantSlug}
-      onRefreshTargets={(targets) => {
-        if (targets.includes("menu")) {
-          void reloadMenuData(true)
-        }
-      }}
-    />
-  )
-
-  return (
-    <motion.main
-      className="mx-auto flex h-[100dvh] min-h-[100dvh] w-full max-w-[1680px] flex-col gap-6 overflow-hidden px-4 py-6 sm:px-6 lg:px-8"
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.22, ease: "easeOut" }}
-    >
-      <header className="grid gap-4">
-        <div className="flex items-start justify-between gap-4">
-          <div className="grid gap-4">
-            <Badge variant="outline" className="w-fit border-border bg-background text-muted-foreground">
-              Restaurant admin dashboard
-            </Badge>
-            <div className="grid gap-3">
-              <h1 className="font-heading text-4xl text-foreground sm:text-5xl">
-                Storefront customization
-              </h1>
-              <p className="max-w-4xl text-base leading-7 text-muted-foreground">
-                Tune the customer-facing storefront in one place. Theme, hero content, promo
-                messaging, category visibility, featured states, and ordering all live here while
-                kitchen workflows stay standardized.
-              </p>
+        <aside className="hidden min-h-0 flex-col overflow-hidden rounded-[calc(var(--radius)+8px)] border border-border/80 bg-card shadow-sm xl:flex">
+          <div className="shrink-0 border-b border-border/70 px-5 py-4">
+            <div className="text-sm font-semibold text-foreground">Live storefront preview</div>
+            <div className="mt-1 text-sm text-muted-foreground">
+              Draft changes render here immediately from the current editor state.
             </div>
           </div>
-          <UserButton />
-        </div>
-      </header>
-
-      <div className="flex flex-wrap gap-2 md:hidden">
-        <ShellViewBar activeView={activeShellView} onChange={setActiveShellView} />
-      </div>
-
-      <div className="flex-1 min-h-0">
-        <div className="hidden h-full min-h-0 gap-6 min-[1100px]:grid min-[1100px]:grid-cols-[320px_420px_minmax(0,1fr)]">
-          <div className="min-h-0 overflow-hidden">
-            {assistantPanel}
+          <div className="min-h-0 flex-1 overflow-y-auto p-4">
+            <PreviewPane theme={draftTheme} categories={categories} />
           </div>
-          <div className="min-h-0 overflow-y-auto pr-1">
-            {controlsPanel}
-          </div>
-          <div className="min-h-0 overflow-y-auto">
-            {previewPanel}
-          </div>
-        </div>
-
-        <div className="hidden h-full min-h-0 gap-6 md:grid min-[1100px]:hidden md:grid-cols-[320px_minmax(0,1fr)]">
-          <div className="min-h-0 overflow-hidden">
-            {assistantPanel}
-          </div>
-          <div className="min-h-0 overflow-y-auto">
-            {controlsPanel}
-          </div>
-        </div>
-
-        <div className="grid h-full min-h-0 gap-6 md:hidden">
-          {activeShellView === "assistant" ? assistantPanel : null}
-          {activeShellView === "controls" ? controlsPanel : null}
-        </div>
+        </aside>
       </div>
     </motion.main>
   )
 }
 
-function ShellViewBar({
-  activeView,
+function SectionNav({
+  activeSection,
   onChange,
 }: {
-  activeView: AdminShellView
-  onChange: (value: AdminShellView) => void
+  activeSection: AdminSection
+  onChange: (value: AdminSection) => void
 }) {
-  const views: Array<{ id: AdminShellView; label: string }> = [
-    { id: "assistant", label: "Assistant" },
-    { id: "controls", label: "Controls" },
+  const sections: Array<{ id: AdminSection; icon: React.ReactNode; label: string }> = [
+    { id: "overview", icon: <LayoutDashboard className="h-4 w-4" />, label: "Overview" },
+    { id: "branding", icon: <Palette className="h-4 w-4" />, label: "Branding" },
+    { id: "menu", icon: <Store className="h-4 w-4" />, label: "Menu" },
+    { id: "insights", icon: <BarChart3 className="h-4 w-4" />, label: "Insights" },
+    { id: "payments", icon: <CreditCard className="h-4 w-4" />, label: "Payments" },
+    { id: "assistant", icon: <Bot className="h-4 w-4" />, label: "Assistant" },
   ]
 
   return (
-    <div className="flex w-full flex-wrap gap-2 rounded-[var(--radius)] border border-border/70 bg-background/70 p-2">
-      {views.map((view) => {
-        const isActive = activeView === view.id
+    <nav className="grid gap-2">
+      {sections.map((section) => {
+        const isActive = activeSection === section.id
 
         return (
           <Button
-            key={view.id}
+            key={section.id}
             type="button"
-            variant={isActive ? "secondary" : "ghost"}
-            onClick={() => onChange(view.id)}
+            variant="ghost"
             className={cn(
-              "min-h-11 flex-1 rounded-[calc(var(--radius)-8px)] px-4 text-sm sm:flex-none",
+              "justify-start gap-3 rounded-[var(--radius)] px-4",
               isActive
-                ? "border border-border/70 bg-card text-foreground shadow-sm"
-                : "text-muted-foreground",
+                ? "border border-primary/25 bg-primary/10 text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
             )}
+            onClick={() => onChange(section.id)}
           >
-            {view.label}
+            {section.icon}
+            {section.label}
           </Button>
         )
       })}
+    </nav>
+  )
+}
+
+function CompactSectionNav({
+  activeSection,
+  onChange,
+}: {
+  activeSection: AdminSection
+  onChange: (value: AdminSection) => void
+}) {
+  const sections: Array<{ id: AdminSection; label: string }> = [
+    { id: "overview", label: "Overview" },
+    { id: "branding", label: "Branding" },
+    { id: "menu", label: "Menu" },
+    { id: "insights", label: "Insights" },
+    { id: "payments", label: "Payments" },
+    { id: "assistant", label: "Assistant" },
+  ]
+
+  return (
+    <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex w-max min-w-full gap-2">
+        {sections.map((section) => (
+          <Button
+            key={section.id}
+            type="button"
+            variant={activeSection === section.id ? "default" : "outline"}
+            className="rounded-full"
+            onClick={() => onChange(section.id)}
+          >
+            {section.label}
+          </Button>
+        ))}
+      </div>
     </div>
   )
 }
 
-function TabBar({
-  activeTab,
-  onChange,
+function OverviewMetricCard({
+  hint,
+  label,
+  value,
 }: {
-  activeTab: AdminTab
-  onChange: (value: AdminTab) => void
+  hint: string
+  label: string
+  value: string
 }) {
-  const tabs: Array<{ id: AdminTab; label: string; icon: React.ReactNode }> = [
-    { id: "branding", label: "Branding", icon: <Palette className="h-4 w-4" /> },
-    { id: "menu", label: "Menu", icon: <Sparkles className="h-4 w-4" /> },
-  ]
-
   return (
-    <div className="flex flex-wrap gap-2 rounded-[var(--radius)] border border-border/70 bg-background/70 p-2">
-      {tabs.map((tab) => {
-        const isActive = activeTab === tab.id
-        return (
-          <Button
-            key={tab.id}
-            type="button"
-            variant={isActive ? "secondary" : "ghost"}
-            onClick={() => onChange(tab.id)}
-            className={cn(
-              "gap-2 rounded-[calc(var(--radius)-8px)] px-3 text-sm",
-              isActive
-                ? "border border-border/70 bg-card text-foreground shadow-sm"
-                : "text-muted-foreground",
-            )}
-          >
-            {tab.icon}
-            {tab.label}
-          </Button>
-        )
-      })}
+    <div className="grid gap-2 rounded-[var(--radius)] border border-border/70 bg-background px-4 py-4">
+      <div className="text-xs uppercase tracking-[0.14em] text-muted-foreground">{label}</div>
+      <div className="text-2xl font-semibold text-foreground">{value}</div>
+      <div className="text-sm text-muted-foreground">{hint}</div>
     </div>
   )
 }
@@ -1698,6 +1878,14 @@ function BrandingTab({
             label="Brand color"
             value={theme.primaryColor}
             onChange={(value) => onThemeChange("primaryColor", value)}
+          />
+        </FieldShell>
+
+        <FieldShell>
+          <ColorField
+            label="Accent color"
+            value={theme.accentColor}
+            onChange={(value) => onThemeChange("accentColor", value)}
           />
         </FieldShell>
 

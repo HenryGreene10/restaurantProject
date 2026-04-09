@@ -192,22 +192,27 @@ export function CartSummary({
     <>
       {itemCount > 0 && !open && !hideStickyCartBar ? (
         <div className="fixed inset-x-4 bottom-4 z-30 isolate md:inset-x-auto md:right-6 md:w-full md:max-w-md">
-          <Card className="gap-0 border border-border/80 bg-card py-0 shadow-xl [backdrop-filter:none] [transform:translateZ(0)]">
+          <Card className="gap-0 border border-primary/80 bg-primary py-0 text-primary-foreground shadow-[0_24px_48px_rgba(15,23,42,0.22)] [backdrop-filter:none] [transform:translateZ(0)]">
             <CardContent className="flex items-center justify-between gap-4 px-4 py-4 sm:px-6">
               <div className="flex items-center gap-4">
-                <div className="rounded-[var(--radius)] border border-border bg-background p-2 text-primary">
+                <div className="rounded-[var(--radius)] border border-white/20 bg-white/10 p-2 text-primary-foreground">
                   <ShoppingBag className="h-5 w-5" />
                 </div>
                 <div className="space-y-2">
-                  <div className="text-sm font-semibold text-foreground">
+                  <div className="text-sm font-semibold text-primary-foreground">
                     {itemCount} item{itemCount === 1 ? "" : "s"} in cart
                   </div>
-                  <div className="text-sm text-muted-foreground">
+                  <div className="text-sm text-primary-foreground/80">
                     Total so far {formatPrice(subtotal)}
                   </div>
                 </div>
               </div>
-              <Button className="min-h-11" onClick={onOpen}>View cart</Button>
+              <Button
+                className="min-h-11 border border-white/20 bg-white text-primary hover:bg-white/90"
+                onClick={onOpen}
+              >
+                View cart
+              </Button>
             </CardContent>
           </Card>
         </div>
