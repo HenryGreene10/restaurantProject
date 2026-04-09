@@ -1,6 +1,6 @@
 # Project Compaction / Handoff
 
-Last updated: 2026-04-06
+Last updated: 2026-04-09
 
 ## What Changed Since Last Compaction
 - Stripe Connect Phase 1 is implemented:
@@ -33,7 +33,17 @@ Last updated: 2026-04-06
   - existing-admin recovery via `GET /v1/onboarding/me`
   - admin tenant scope now comes from DB-linked restaurant membership, not trusted frontend tenant headers
 - Existing-admin migration still uses a temporary Clerk-email auto-link bridge for first login.
-- Checkout raw SQL enum casts were fixed for `fulfillmentType` and `status` in `CheckoutSession` inserts.
+- Checkout raw SQL enum casts were fixed for `fulfillmentType` and `status` in `CheckoutSession` inserts and updates.
+- Full Stripe payment flow is now working end to end:
+  - connected-account onboarding
+  - direct-charge checkout
+  - webhook-authoritative order creation
+  - checkout status transitions
+- Apple Pay domain registration is now wired into Stripe onboarding for connected accounts.
+- Kitchen dashboard now uses Clerk auth and tenant resolution from Clerk metadata.
+- Admin image uploads now use Cloudflare R2 public URLs instead of base64 data URLs in the database.
+- Mobile storefront polish is implemented for card layout, hero/logo treatment, sticky cart treatment, and category chip behavior.
+- Twilio verification work remains in progress for the fuller customer auth / verification experience.
 
 ## Product Direction
 - Multi-tenant white-label restaurant ordering platform for independent restaurants.
@@ -65,6 +75,7 @@ Last updated: 2026-04-06
 - Payments:
   - Stripe Connect Standard for restaurant onboarding/payouts
   - Stripe Phase 2 direct-charge customer payment collection is implemented
+  - Apple Pay is enabled on the platform domain path
   - production QA and rollout hardening are still pending
 - Hosting:
   - API: Render
@@ -211,9 +222,16 @@ Current state:
   - subdomain-based in production via `VITE_TENANT_DOMAIN_SUFFIX`
   - `?tenant=` fallback in local development
 - OTP infrastructure remains in the codebase for future customer-account/session work, but it does not block basic ordering.
+- Mobile storefront polish is now implemented:
+  - smaller right-aligned item thumbnails on mobile
+  - consistent item card layout with stable price / add-button positions
+  - active category chips follow scroll
+  - sticky cart bar uses a solid surface
+  - hero logo rendering is more intentional and contained
+  - empty categories and placeholder promo blocks are hidden
 
 Limitations:
-- mobile QA is still pending across the full checkout flow
+- full cross-device QA is still pending across the full checkout flow
 - receipt printing flow is not implemented
 - loyalty / rewards UI is not implemented
 
@@ -247,6 +265,7 @@ Current state:
   - item sold-out state
   - item image upload
 - Preview pane renders the customer storefront using the real menu and current draft settings.
+- Image uploads now use Cloudflare R2-backed public URLs instead of base64 data URLs.
 - Admin AI assistant is a persistent chat panel in the dashboard layout.
 - Assistant command route is `POST /v1/assistant/command`.
 - Assistant currently supports:
@@ -275,14 +294,17 @@ Purpose:
 
 Current state:
 - Real runnable kitchen dashboard exists in `apps/kiosk`
+- Clerk sign-in is required for kitchen access
+- Tenant resolution comes from Clerk `publicMetadata.tenantSlug`
 - Uses:
   - `GET /v1/kitchen/orders`
   - `PATCH /admin/orders/:orderId/status`
 - Polls every 10 seconds
-- Shows active orders newest first
+- Shows pending, active, and completed tabs
 - Supports full status progression:
   - `PENDING -> CONFIRMED -> PREPARING -> READY -> COMPLETED`
 - Tablet-first card UI is implemented
+- New-order sound alerts, status-tinted cards, elapsed-time display, and highlighted special instructions are implemented
 
 ## What Is Not Done Yet
 - Full mobile QA across:
@@ -300,10 +322,10 @@ Current state:
   - real connected-account webhook verification
   - end-to-end QA on live domains
   - refund / failure-path validation
+- Twilio verification completion and rollout for the fuller customer verification flow
 - Drag-and-drop composition controls beyond current category/item ordering
 - Promo section stacking / richer page-builder behavior
 - AI assistant broader natural-language coverage for theme updates and reorder actions
-- Image storage migration away from data URLs toward real object storage
 
 ## Current Recommended Next Step
 Finish launch-hardening for the first real restaurant deployment.
