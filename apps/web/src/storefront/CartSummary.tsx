@@ -57,6 +57,11 @@ function validateCustomerPhone(value: string) {
 
 type CartSummaryProps = {
   items: CartItem[]
+  brandColors?: {
+    accent: string
+    primary: string
+    primaryForeground: string
+  }
   customerName: string
   customerPhone: string
   orderNotes: string
@@ -84,6 +89,7 @@ type CartSummaryProps = {
 
 export function CartSummary({
   items,
+  brandColors,
   customerName,
   customerPhone,
   orderNotes,
@@ -192,7 +198,17 @@ export function CartSummary({
     <>
       {itemCount > 0 && !open && !hideStickyCartBar ? (
         <div className="fixed inset-x-4 bottom-4 z-30 isolate md:inset-x-auto md:right-6 md:w-full md:max-w-md">
-          <Card className="gap-0 border border-primary/80 bg-primary py-0 text-primary-foreground shadow-[0_24px_48px_rgba(15,23,42,0.22)] [backdrop-filter:none] [transform:translateZ(0)]">
+          <Card
+            className="gap-0 py-0 shadow-[0_24px_48px_rgba(15,23,42,0.22)] [backdrop-filter:none] [transform:translateZ(0)]"
+            style={{
+              borderColor: brandColors?.primary ?? "var(--primary)",
+              background:
+                brandColors
+                  ? `linear-gradient(135deg, ${brandColors.primary}, ${brandColors.accent})`
+                  : "var(--primary)",
+              color: brandColors?.primaryForeground ?? "var(--primary-foreground)",
+            }}
+          >
             <CardContent className="flex items-center justify-between gap-4 px-4 py-4 sm:px-6">
               <div className="flex items-center gap-4">
                 <div className="rounded-[var(--radius)] border border-white/20 bg-white/10 p-2 text-primary-foreground">
@@ -209,6 +225,9 @@ export function CartSummary({
               </div>
               <Button
                 className="min-h-11 border border-white/20 bg-white text-primary hover:bg-white/90"
+                style={{
+                  color: brandColors?.primary ?? "var(--primary)",
+                }}
                 onClick={onOpen}
               >
                 View cart

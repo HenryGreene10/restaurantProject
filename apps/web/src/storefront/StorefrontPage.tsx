@@ -373,6 +373,15 @@ export function StorefrontPage({
               className="grid gap-8"
             >
               <section className="overflow-hidden rounded-[var(--radius)] border border-border/80 bg-card shadow-sm">
+                {theme.logoUrl ? (
+                  <div className="border-b border-border/70 bg-card px-4 py-4 sm:px-6 lg:px-8">
+                    <img
+                      src={theme.logoUrl}
+                      alt={`${theme.appTitle} logo`}
+                      className="max-h-16 w-auto max-w-[12rem] object-contain"
+                    />
+                  </div>
+                ) : null}
                 <div
                   className="flex min-h-[200px] items-end px-4 py-8 sm:px-6 sm:py-12 lg:min-h-[320px] lg:px-8 lg:py-12"
                   style={{
@@ -382,26 +391,14 @@ export function StorefrontPage({
                   }}
                 >
                   <div className="grid max-w-4xl gap-6 justify-items-center text-center sm:justify-items-start sm:text-left">
-                    {theme.logoUrl || theme.heroBadgeText.trim() ? (
-                      <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center">
-                        {theme.logoUrl ? (
-                          <img
-                            src={theme.logoUrl}
-                            alt={`${theme.appTitle} logo`}
-                            className="max-h-16 w-auto max-w-[12rem] object-contain drop-shadow-[0_10px_24px_rgba(15,23,42,0.18)]"
-                          />
-                        ) : null}
-
-                        {theme.heroBadgeText.trim() ? (
-                          <Badge
-                            variant="outline"
-                            className="w-fit border-border/80 bg-card/90 px-4 py-2 text-sm text-muted-foreground backdrop-blur"
-                          >
-                            <Sparkles className="h-4 w-4" />
-                            {theme.heroBadgeText}
-                          </Badge>
-                        ) : null}
-                      </div>
+                    {theme.heroBadgeText.trim() ? (
+                      <Badge
+                        variant="outline"
+                        className="w-fit border-border/80 bg-card/90 px-4 py-2 text-sm text-muted-foreground backdrop-blur"
+                      >
+                        <Sparkles className="h-4 w-4" />
+                        {theme.heroBadgeText}
+                      </Badge>
                     ) : null}
 
                     <div className="grid gap-4">
@@ -445,13 +442,22 @@ export function StorefrontPage({
                         <Button
                           key={category.id}
                           type="button"
-                          variant={activeCategoryId === category.id ? "default" : "outline"}
+                          variant="outline"
                           className={cn(
                             "min-h-11 rounded-full px-4",
                             activeCategoryId === category.id
                               ? "shadow-sm"
                               : "bg-card text-foreground hover:bg-card",
                           )}
+                          style={
+                            activeCategoryId === category.id
+                              ? {
+                                  backgroundColor: theme.palette.accent,
+                                  borderColor: theme.palette.accent,
+                                  color: theme.palette.text,
+                                }
+                              : undefined
+                          }
                           onClick={() => scrollToCategory(category.id)}
                         >
                           {category.name}
@@ -565,6 +571,11 @@ export function StorefrontPage({
 
       <CartSummary
         items={cartItems}
+        brandColors={{
+          accent: theme.palette.accent,
+          primary: theme.palette.primary,
+          primaryForeground: theme.palette.primaryForeground,
+        }}
         customerName={customerName}
         customerPhone={customerPhone}
         orderNotes={orderNotes}
@@ -607,6 +618,7 @@ function MenuItemCard({
   featured?: boolean
   onCustomize: () => void
 }) {
+  const { theme } = useTheme()
   const isPhotoFirst = Boolean(item.photoUrl)
   const meta = [
     item.tags[0] ?? null,
@@ -688,7 +700,12 @@ function MenuItemCard({
             ) : (
               <Button
                 variant="outline"
-                className="min-h-11 rounded-full border-border bg-background px-5"
+                className="min-h-11 rounded-full px-5"
+                style={{
+                  borderColor: theme.palette.accent,
+                  backgroundColor: theme.palette.accent,
+                  color: theme.palette.text,
+                }}
                 onClick={onCustomize}
               >
                 Add
