@@ -74,6 +74,7 @@ function visibleCategories(categories: MenuCategory[]) {
         (entry) => entry.item.visibility !== "HIDDEN",
       ),
     }))
+    .filter((category) => category.categoryItems.length > 0)
 }
 
 const placeholderPromoBannerMessages = new Set([
@@ -179,15 +180,24 @@ export function StorefrontPage({
       (entries) => {
         const visible = entries
           .filter((entry) => entry.isIntersecting)
-          .sort((left, right) => right.intersectionRatio - left.intersectionRatio)[0]
+          .sort((left, right) => {
+            const leftTopDistance = Math.abs(left.boundingClientRect.top)
+            const rightTopDistance = Math.abs(right.boundingClientRect.top)
+
+            if (leftTopDistance !== rightTopDistance) {
+              return leftTopDistance - rightTopDistance
+            }
+
+            return right.intersectionRatio - left.intersectionRatio
+          })[0]
 
         if (!visible) return
 
         setActiveCategoryId(visible.target.id.replace("category-", ""))
       },
       {
-        rootMargin: "-20% 0px -55% 0px",
-        threshold: [0.2, 0.45, 0.7],
+        rootMargin: "-88px 0px -55% 0px",
+        threshold: [0.05, 0.2, 0.4, 0.65],
       },
     )
 
@@ -269,9 +279,17 @@ export function StorefrontPage({
   }
 
   function scrollToCategory(categoryId: string) {
-    document.getElementById(`category-${categoryId}`)?.scrollIntoView({
+    const section = document.getElementById(`category-${categoryId}`)
+    if (!section) {
+      return
+    }
+
+    const stickyOffset = window.innerWidth < 640 ? 96 : 112
+    const top = section.getBoundingClientRect().top + window.scrollY - stickyOffset
+
+    window.scrollTo({
+      top: Math.max(0, top),
       behavior: "smooth",
-      block: "start",
     })
     setActiveCategoryId(categoryId)
   }
@@ -367,12 +385,11 @@ export function StorefrontPage({
                     {theme.logoUrl || theme.heroBadgeText.trim() ? (
                       <div className="flex flex-col items-center gap-3 sm:flex-row sm:items-center">
                         {theme.logoUrl ? (
-                          <div className="flex h-20 w-20 items-center justify-center rounded-[22px] border border-white/15 bg-card/90 p-3 shadow-lg backdrop-blur sm:h-24 sm:w-24">
-                            <div
-                              className="h-full w-full bg-contain bg-center bg-no-repeat"
-                              style={{ backgroundImage: `url(${theme.logoUrl})` }}
-                            />
-                          </div>
+                          <img
+                            src={theme.logoUrl}
+                            alt={`${theme.appTitle} logo`}
+                            className="max-h-16 w-auto max-w-[12rem] object-contain drop-shadow-[0_10px_24px_rgba(15,23,42,0.18)]"
+                          />
                         ) : null}
 
                         {theme.heroBadgeText.trim() ? (
@@ -501,26 +518,18 @@ export function StorefrontPage({
                         </div>
                       </div>
 
-                      {category.categoryItems.length > 0 ? (
-                        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-                          {category.categoryItems.map((entry) => (
-                            <MenuItemCard
-                              key={entry.id}
-                              item={entry.item}
-                              onCustomize={() => {
-                                setEditingCartItem(null)
-                                setSelectedItem(entry.item)
-                              }}
-                            />
-                          ))}
-                        </div>
-                      ) : (
-                        <EmptyStateCard
-                          icon={ChefHat}
-                          title="No items available in this category"
-                          description="The kitchen team has this section hidden for now. Check another category."
-                        />
-                      )}
+                      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                        {category.categoryItems.map((entry) => (
+                          <MenuItemCard
+                            key={entry.id}
+                            item={entry.item}
+                            onCustomize={() => {
+                              setEditingCartItem(null)
+                              setSelectedItem(entry.item)
+                            }}
+                          />
+                        ))}
+                      </div>
                     </section>
                   ))}
                 </section>
@@ -611,13 +620,18 @@ function MenuItemCard({
     <motion.div whileTap={{ scale: 0.988 }} transition={{ duration: 0.12, ease: "easeOut" }}>
       <Card
         className={cn(
-          "overflow-hidden border-border/80 bg-card shadow-sm",
+          "h-full overflow-hidden border-border/80 bg-card shadow-sm",
           isPhotoFirst &&
             "grid grid-cols-[minmax(0,1fr)_7.5rem] items-stretch gap-0 sm:grid-cols-[minmax(0,1fr)_8.5rem] lg:grid-cols-[minmax(0,1fr)_10rem]",
           item.visibility === "SOLD_OUT" && "opacity-70",
         )}
       >
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div
+          className={cn(
+            "flex min-w-0 flex-1 flex-col",
+            !isPhotoFirst && "min-h-[11rem] sm:min-h-[12rem]",
+          )}
+        >
           <CardHeader className="grid gap-3 px-4 pb-3 pt-4 sm:px-5 sm:pb-4 sm:pt-5">
             <div className="flex items-start justify-between gap-4">
               <h3
@@ -658,11 +672,14 @@ function MenuItemCard({
             ) : null}
           </CardHeader>
 
-          <CardFooter className="justify-start px-4 pb-4 pt-0 sm:justify-end sm:px-5 sm:pb-5">
+          <CardFooter className="mt-auto justify-end px-4 pb-4 pt-0 sm:px-5 sm:pb-5">
             {item.visibility === "SOLD_OUT" ? (
               <div className="text-sm text-muted-foreground">Sold out today</div>
             ) : (
-              <Button className="min-h-11 w-full sm:w-auto" onClick={onCustomize}>
+              <Button
+                className={cn("min-h-11", isPhotoFirst ? "w-full sm:w-auto" : "w-auto")}
+                onClick={onCustomize}
+              >
                 Add
                 <ArrowRight className="h-4 w-4" />
               </Button>
