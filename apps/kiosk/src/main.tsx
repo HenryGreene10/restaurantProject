@@ -4,6 +4,7 @@ import {
   SignIn,
   SignedIn,
   SignedOut,
+  useAuth,
   useClerk,
   useUser,
 } from "@clerk/clerk-react"
@@ -57,6 +58,8 @@ const EIGHT_HOURS_MS = 8 * 60 * 60 * 1000
 const FOUR_HOURS_MS = 4 * 60 * 60 * 1000
 const SOUND_PREF_STORAGE_KEY = "kitchen-dashboard-sound-enabled"
 const COMPLETED_CACHE_STORAGE_KEY = "kitchen-dashboard-completed-orders"
+
+type ClerkTokenGetter = () => Promise<string | null>
 
 const statusAction: Record<
   OrderStatus,
@@ -263,13 +266,20 @@ async function fetchKitchenOrders(tenantSlug: string) {
 }
 
 async function transitionKitchenOrder(
+  getToken: ClerkTokenGetter,
   tenantSlug: string,
   orderId: string,
   nextStatus: OrderStatus,
 ) {
+  const token = await getToken()
+  if (!token) {
+    throw new Error("Unable to authenticate your kitchen session.")
+  }
+
   const response = await fetch(`${API_BASE_URL}/admin/orders/${orderId}/status`, {
     method: "PATCH",
     headers: {
+      Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
       "x-tenant-slug": tenantSlug,
     },
@@ -635,9 +645,11 @@ function OrderCard({
 }
 
 const KitchenDashboard: React.FC<{
+  getToken: ClerkTokenGetter
   onSignOut: () => Promise<void>
   tenantSlug: string
 }> = ({
+  getToken,
   onSignOut,
   tenantSlug,
 }) => {
@@ -718,7 +730,7 @@ const KitchenDashboard: React.FC<{
 
     setUpdatingOrderId(order.id)
     try {
-      await transitionKitchenOrder(tenantSlug, order.id, action.nextStatus)
+      await transitionKitchenOrder(getToken, tenantSlug, order.id, action.nextStatus)
 
       if (action.nextStatus === "COMPLETED") {
         const nextCompleted = mergeCompletedOrders(tenantSlug, [], [
@@ -992,6 +1004,7 @@ const ClerkProviderWithEnv = ClerkProvider as unknown as React.ComponentType<
 
 function SignedInKitchenApp() {
   const { signOut } = useClerk()
+  const { getToken } = useAuth()
   const { user } = useUser()
   const tenantSlug = tenantSlugFromMetadata(user?.publicMetadata?.tenantSlug)
 
@@ -1065,6 +1078,7 @@ function SignedInKitchenApp() {
 
   return (
     <KitchenDashboard
+      getToken={getToken}
       tenantSlug={tenantSlug}
       onSignOut={() => signOut()}
     />
