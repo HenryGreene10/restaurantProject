@@ -373,23 +373,23 @@ export function StorefrontPage({
               className="grid gap-8"
             >
               <section className="overflow-hidden rounded-[var(--radius)] border border-border/80 bg-card shadow-sm">
-                {theme.logoUrl ? (
-                  <div className="border-b border-border/70 bg-card px-4 py-4 sm:px-6 lg:px-8">
-                    <img
-                      src={theme.logoUrl}
-                      alt={`${theme.appTitle} logo`}
-                      className="max-h-16 w-auto max-w-[12rem] object-contain"
-                    />
-                  </div>
-                ) : null}
                 <div
-                  className="flex min-h-[200px] items-end px-4 py-8 sm:px-6 sm:py-12 lg:min-h-[320px] lg:px-8 lg:py-12"
+                  className="relative flex min-h-[200px] items-end px-4 py-8 sm:px-6 sm:py-12 lg:min-h-[320px] lg:px-8 lg:py-12"
                   style={{
                     background: theme.heroImageUrl
                       ? `linear-gradient(${hexToRgba(theme.palette.text, 0.56)}, ${hexToRgba(theme.palette.text, 0.56)}), url(${theme.heroImageUrl}) center/cover`
                       : `linear-gradient(135deg, ${hexToRgba(theme.palette.primary, 0.15)}, ${hexToRgba(theme.palette.primary, 0.1)}), ${theme.palette.surface}`,
                   }}
                 >
+                  {theme.logoUrl ? (
+                    <div className="absolute left-4 top-4 sm:left-6 sm:top-6 lg:left-8 lg:top-8">
+                      <img
+                        src={theme.logoUrl}
+                        alt={`${theme.appTitle} logo`}
+                        className="max-h-16 w-auto max-w-[10rem] object-contain"
+                      />
+                    </div>
+                  ) : null}
                   <div className="grid max-w-4xl gap-6 justify-items-center text-center sm:justify-items-start sm:text-left">
                     {theme.heroBadgeText.trim() ? (
                       <Badge
@@ -632,7 +632,7 @@ function MenuItemCard({
     <motion.div whileTap={{ scale: 0.988 }} transition={{ duration: 0.12, ease: "easeOut" }}>
       <Card
         className={cn(
-          "h-full overflow-hidden border-border/80 bg-card shadow-sm",
+          "h-full overflow-hidden border border-stone-200 bg-white shadow-[0_10px_24px_rgba(39,28,23,0.08)]",
           item.visibility === "SOLD_OUT" && "opacity-70",
         )}
       >
