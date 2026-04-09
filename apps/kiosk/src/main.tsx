@@ -1,4 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from "react"
+import {
+  ClerkProvider,
+  SignIn,
+  SignedIn,
+  SignedOut,
+  useClerk,
+  useUser,
+} from "@clerk/clerk-react"
 import { createRoot } from "react-dom/client"
 
 type OrderStatus =
@@ -43,17 +51,12 @@ type CompletedOrderRecord = {
 type KitchenTab = "pending" | "active" | "completed"
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api"
-const TENANT_DOMAIN_SUFFIX = (
-  import.meta.env.VITE_TENANT_DOMAIN_SUFFIX ?? "kitchen.easymenu.website"
-)
-  .trim()
-  .toLowerCase()
+const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY ?? ""
 const POLL_INTERVAL_MS = 10_000
 const EIGHT_HOURS_MS = 8 * 60 * 60 * 1000
 const FOUR_HOURS_MS = 4 * 60 * 60 * 1000
 const SOUND_PREF_STORAGE_KEY = "kitchen-dashboard-sound-enabled"
 const COMPLETED_CACHE_STORAGE_KEY = "kitchen-dashboard-completed-orders"
-const RESERVED_SUBDOMAINS = new Set(["www", "admin", "api", "app", "kiosk", "kitchen"])
 
 const statusAction: Record<
   OrderStatus,
@@ -71,37 +74,13 @@ const statusAction: Record<
   CANCELLED: null,
 }
 
-function localHostname(hostname: string) {
-  return (
-    hostname === "localhost" ||
-    hostname === "127.0.0.1" ||
-    hostname === "0.0.0.0"
-  )
-}
-
-function queryParamTenantSlug() {
-  const queryTenant = new URLSearchParams(window.location.search).get("tenant")?.trim()
-  return queryTenant ? queryTenant : null
-}
-
-function resolveTenantSlug() {
-  const hostname = window.location.hostname.toLowerCase()
-
-  if (TENANT_DOMAIN_SUFFIX && hostname.endsWith(`.${TENANT_DOMAIN_SUFFIX}`)) {
-    const subdomain = hostname
-      .slice(0, -1 * (`.${TENANT_DOMAIN_SUFFIX}`.length))
-      .trim()
-
-    if (subdomain && !RESERVED_SUBDOMAINS.has(subdomain)) {
-      return subdomain
-    }
+function tenantSlugFromMetadata(value: unknown) {
+  if (typeof value !== "string") {
+    return null
   }
 
-  if (import.meta.env.DEV || localHostname(hostname)) {
-    return queryParamTenantSlug()
-  }
-
-  return null
+  const nextValue = value.trim()
+  return nextValue.length > 0 ? nextValue : null
 }
 
 function completedCacheKey(tenantSlug: string) {
@@ -655,8 +634,13 @@ function OrderCard({
   )
 }
 
-const App: React.FC = () => {
-  const tenantSlug = resolveTenantSlug()
+const KitchenDashboard: React.FC<{
+  onSignOut: () => Promise<void>
+  tenantSlug: string
+}> = ({
+  onSignOut,
+  tenantSlug,
+}) => {
   const [orders, setOrders] = useState<KitchenOrder[]>([])
   const [completedOrders, setCompletedOrders] = useState<CompletedOrderRecord[]>([])
   const [loading, setLoading] = useState(true)
@@ -669,13 +653,6 @@ const App: React.FC = () => {
   const hasLoadedOnceRef = useRef(false)
 
   async function loadOrders() {
-    if (!tenantSlug) {
-      setOrders([])
-      setCompletedOrders([])
-      setLoading(false)
-      return
-    }
-
     try {
       const nextOrders = await fetchKitchenOrders(tenantSlug)
       const currentLiveIds = new Set(
@@ -719,11 +696,6 @@ const App: React.FC = () => {
   }
 
   useEffect(() => {
-    if (!tenantSlug) {
-      setLoading(false)
-      return
-    }
-
     void loadOrders()
     const intervalId = window.setInterval(() => {
       void loadOrders()
@@ -806,65 +778,6 @@ const App: React.FC = () => {
         return visibleCompletedOrders.map((entry) => entry.order)
     }
   }, [activeTab, activeOrders, pendingOrders, visibleCompletedOrders])
-
-  if (!tenantSlug) {
-    return (
-      <main
-        style={{
-          minHeight: "100vh",
-          margin: 0,
-          background: "#111827",
-          color: "#ffffff",
-          fontFamily: "Inter, system-ui, sans-serif",
-          display: "grid",
-          placeItems: "center",
-          padding: "24px",
-        }}
-      >
-        <section
-          style={{
-            maxWidth: "640px",
-            borderRadius: "24px",
-            background: "#1f2937",
-            border: "1px solid rgba(255,255,255,0.08)",
-            padding: "32px",
-            display: "grid",
-            gap: "12px",
-            textAlign: "center",
-          }}
-        >
-          <div
-            style={{
-              fontSize: "14px",
-              color: "#9ca3af",
-              textTransform: "uppercase",
-              letterSpacing: "0.08em",
-            }}
-          >
-            Kitchen dashboard
-          </div>
-          <h1 style={{ margin: 0, fontSize: "34px", lineHeight: 1.05 }}>
-            Enter your restaurant URL
-          </h1>
-          <p style={{ margin: 0, color: "#d1d5db", fontSize: "18px", lineHeight: 1.6 }}>
-            Open this dashboard on your restaurant subdomain, like
-            {" "}
-            <span style={{ color: "#ffffff", fontWeight: 700 }}>
-              joes-pizza.kitchen.easymenu.website
-            </span>
-            .
-            {" "}
-            In local development, use
-            {" "}
-            <span style={{ color: "#ffffff", fontWeight: 700 }}>
-              ?tenant=your-slug
-            </span>
-            .
-          </p>
-        </section>
-      </main>
-    )
-  }
 
   return (
     <main
@@ -954,6 +867,26 @@ const App: React.FC = () => {
                 }}
               >
                 Sound {soundEnabled ? "on" : "off"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  void onSignOut()
+                }}
+                style={{
+                  minHeight: "44px",
+                  borderRadius: "999px",
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  background: "rgba(255,255,255,0.05)",
+                  color: "#f9fafb",
+                  padding: "0 16px",
+                  fontSize: "14px",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                Sign out
               </button>
             </div>
           </div>
@@ -1050,4 +983,169 @@ const App: React.FC = () => {
   )
 }
 
-createRoot(document.getElementById("root")!).render(<App />)
+const ClerkProviderWithEnv = ClerkProvider as unknown as React.ComponentType<
+  React.PropsWithChildren<{
+    afterSignOutUrl?: string
+    publishableKey: string
+  }>
+>
+
+function SignedInKitchenApp() {
+  const { signOut } = useClerk()
+  const { user } = useUser()
+  const tenantSlug = tenantSlugFromMetadata(user?.publicMetadata?.tenantSlug)
+
+  if (!tenantSlug) {
+    return (
+      <main
+        style={{
+          minHeight: "100vh",
+          margin: 0,
+          background: "#111827",
+          color: "#ffffff",
+          fontFamily: "Inter, system-ui, sans-serif",
+          display: "grid",
+          placeItems: "center",
+          padding: "24px",
+        }}
+      >
+        <section
+          style={{
+            maxWidth: "640px",
+            borderRadius: "24px",
+            background: "#1f2937",
+            border: "1px solid rgba(255,255,255,0.08)",
+            padding: "32px",
+            display: "grid",
+            gap: "12px",
+            textAlign: "center",
+          }}
+        >
+          <div
+            style={{
+              fontSize: "14px",
+              color: "#9ca3af",
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+            }}
+          >
+            Kitchen dashboard
+          </div>
+          <h1 style={{ margin: 0, fontSize: "34px", lineHeight: 1.05 }}>
+            Account not linked
+          </h1>
+          <p style={{ margin: 0, color: "#d1d5db", fontSize: "18px", lineHeight: 1.6 }}>
+            Your account is not linked to a restaurant. Please contact support.
+          </p>
+          <div>
+            <button
+              type="button"
+              onClick={() => {
+                void signOut()
+              }}
+              style={{
+                minHeight: "44px",
+                borderRadius: "999px",
+                border: "1px solid rgba(255,255,255,0.12)",
+                background: "rgba(255,255,255,0.05)",
+                color: "#f9fafb",
+                padding: "0 16px",
+                fontSize: "14px",
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              Sign out
+            </button>
+          </div>
+        </section>
+      </main>
+    )
+  }
+
+  return (
+    <KitchenDashboard
+      tenantSlug={tenantSlug}
+      onSignOut={() => signOut()}
+    />
+  )
+}
+
+function Root() {
+  if (!CLERK_PUBLISHABLE_KEY) {
+    return (
+      <main
+        style={{
+          minHeight: "100vh",
+          margin: 0,
+          background: "#111827",
+          color: "#ffffff",
+          fontFamily: "Inter, system-ui, sans-serif",
+          display: "grid",
+          placeItems: "center",
+          padding: "24px",
+        }}
+      >
+        <section
+          style={{
+            maxWidth: "640px",
+            borderRadius: "24px",
+            background: "#1f2937",
+            border: "1px solid rgba(255,255,255,0.08)",
+            padding: "32px",
+            display: "grid",
+            gap: "12px",
+            textAlign: "center",
+          }}
+        >
+          <div
+            style={{
+              fontSize: "14px",
+              color: "#9ca3af",
+              textTransform: "uppercase",
+              letterSpacing: "0.08em",
+            }}
+          >
+            Kitchen dashboard
+          </div>
+          <h1 style={{ margin: 0, fontSize: "34px", lineHeight: 1.05 }}>
+            Clerk is not configured
+          </h1>
+          <p style={{ margin: 0, color: "#d1d5db", fontSize: "18px", lineHeight: 1.6 }}>
+            Add <code>VITE_CLERK_PUBLISHABLE_KEY</code> to the kiosk environment.
+          </p>
+        </section>
+      </main>
+    )
+  }
+
+  return (
+    <ClerkProviderWithEnv publishableKey={CLERK_PUBLISHABLE_KEY} afterSignOutUrl="/">
+      <SignedOut>
+        <main
+          style={{
+            minHeight: "100vh",
+            margin: 0,
+            background: "#111827",
+            color: "#ffffff",
+            fontFamily: "Inter, system-ui, sans-serif",
+            display: "grid",
+            placeItems: "center",
+            padding: "24px",
+          }}
+        >
+          <SignIn />
+        </main>
+      </SignedOut>
+      <SignedIn>
+        <SignedInKitchenApp />
+      </SignedIn>
+    </ClerkProviderWithEnv>
+  )
+}
+
+createRoot(document.getElementById("root")!).render(
+  <React.StrictMode>
+    <Root />
+  </React.StrictMode>
+)
