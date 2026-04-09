@@ -1561,7 +1561,7 @@ export const App: React.FC = () => {
         </div>
       </header>
 
-      <div className="mx-auto grid min-h-0 flex-1 w-full max-w-[1800px] gap-4 px-4 py-4 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:px-8 xl:grid-cols-[240px_minmax(0,1fr)_420px]">
+      <div className="mx-auto grid min-h-0 flex-1 w-full max-w-[1800px] gap-4 px-4 py-4 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:px-8 xl:grid-cols-[240px_minmax(0,1fr)_minmax(560px,38vw)]">
         <aside className="hidden min-h-0 flex-col justify-between rounded-[calc(var(--radius)+8px)] border border-border/80 bg-card p-4 shadow-sm lg:flex">
           <div className="grid gap-6">
             <div className="rounded-[var(--radius)] border border-border/70 bg-background px-4 py-4">
