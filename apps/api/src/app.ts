@@ -7,6 +7,7 @@ import { tenantMiddleware } from './middleware/tenant.js'
 import { registerHealthRoutes } from './routes/health.js'
 import { registerMenuRoutes } from './routes/menu.js'
 import { registerAdminBrandRoutes } from './routes/admin-brand.js'
+import { registerAdminInsightsRoutes } from './routes/admin-insights.js'
 import { registerAdminMenuRoutes } from './routes/admin-menu.js'
 import { registerAdminPaymentsRoutes } from './routes/admin-payments.js'
 import { registerOrderRoutes } from './routes/orders.js'
@@ -34,6 +35,7 @@ export function createApp() {
   registerMenuRoutes(app)
   registerCheckoutRoutes(app)
   registerAdminBrandRoutes(app)
+  registerAdminInsightsRoutes(app)
   registerAdminPaymentsRoutes(app)
   registerAdminMenuRoutes(app)
   registerOrderRoutes(app)
