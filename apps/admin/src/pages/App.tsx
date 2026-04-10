@@ -197,6 +197,29 @@ function currentAdminPath() {
   return window.location.pathname
 }
 
+function localHostname(hostname: string) {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "0.0.0.0"
+}
+
+function storefrontUrlForTenant(tenantSlug: string) {
+  if (typeof window === "undefined") {
+    return `https://${tenantSlug}.easymenu.website`
+  }
+
+  const hostname = window.location.hostname.toLowerCase()
+  const protocol = window.location.protocol
+
+  if (localHostname(hostname)) {
+    return `http://localhost:5173/?tenant=${encodeURIComponent(tenantSlug)}`
+  }
+
+  if (hostname.endsWith(".easymenu.website")) {
+    return `${protocol}//${tenantSlug}.easymenu.website`
+  }
+
+  return `https://${tenantSlug}.easymenu.website`
+}
+
 function areThemesEqual(left: ThemeDraft, right: ThemeDraft) {
   return JSON.stringify(left) === JSON.stringify(right)
 }
@@ -1087,6 +1110,23 @@ export const App: React.FC = () => {
     }
   }
 
+  const deleteCategoryFromMenu = async (categoryId: string) => {
+    const previousCategories = categories
+    updateMenuCategories((current) => current.filter((category) => category.id !== categoryId))
+
+    try {
+      setMenuActionMessage("Deleting section…")
+      await deleteAdmin(`/admin/menu/categories/${categoryId}`)
+      await reloadMenuData()
+      setMenuActionMessage("Section deleted.")
+    } catch (nextError) {
+      updateMenuCategories(() => previousCategories)
+      setMenuActionMessage(
+        nextError instanceof Error ? nextError.message : "Failed to delete section",
+      )
+    }
+  }
+
   const reorderCategoryItem = async (categoryId: string, nextItemIds: string[]) => {
     const category = categories.find((entry) => entry.id === categoryId)
     if (!category) return
@@ -1299,6 +1339,7 @@ export const App: React.FC = () => {
     user?.firstName ||
     user?.primaryEmailAddress?.emailAddress ||
     "Admin"
+  const storefrontUrl = storefrontUrlForTenant(linkedTenantSlug)
 
   const paymentsPanel = (
     <SectionCard
@@ -1462,6 +1503,7 @@ export const App: React.FC = () => {
         <MenuTab
           categories={categories}
           menuActionMessage={menuActionMessage}
+          onCategoryDelete={deleteCategoryFromMenu}
           onAddItem={addItemToCategory}
           onCategoryVisibilityChange={updateCategoryVisibility}
           onCategoryReorder={reorderCategories}
@@ -1552,6 +1594,17 @@ export const App: React.FC = () => {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              className="hidden min-h-11 sm:inline-flex"
+              onClick={() => {
+                window.open(storefrontUrl, "_blank", "noopener,noreferrer")
+              }}
+            >
+              Live view
+              <ExternalLink className="h-4 w-4" />
+            </Button>
             <div className="hidden text-right sm:block">
               <div className="text-sm font-medium text-foreground">{userDisplayName}</div>
               <div className="text-xs text-muted-foreground">{linkedTenantSlug}</div>
@@ -1636,9 +1689,24 @@ export const App: React.FC = () => {
 
         <aside className="hidden min-h-0 flex-col overflow-hidden rounded-[calc(var(--radius)+8px)] border border-border/80 bg-card shadow-sm xl:flex">
           <div className="shrink-0 border-b border-border/70 px-5 py-4">
-            <div className="text-sm font-semibold text-foreground">Live storefront preview</div>
-            <div className="mt-1 text-sm text-muted-foreground">
-              Draft changes render here immediately from the current editor state.
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <div className="text-sm font-semibold text-foreground">Live storefront preview</div>
+                <div className="mt-1 text-sm text-muted-foreground">
+                  Draft changes render here immediately from the current editor state.
+                </div>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="min-h-10 shrink-0"
+                onClick={() => {
+                  window.open(storefrontUrl, "_blank", "noopener,noreferrer")
+                }}
+              >
+                Open live site
+                <ExternalLink className="h-4 w-4" />
+              </Button>
             </div>
           </div>
           <div className="min-h-0 flex-1 overflow-y-auto p-4">
@@ -2017,6 +2085,7 @@ function MenuTab({
   onAddItem,
   categories,
   menuActionMessage,
+  onCategoryDelete,
   onCategoryReorder,
   onCategoryVisibilityChange,
   onDeleteItem,
@@ -2031,6 +2100,7 @@ function MenuTab({
   ) => void | Promise<void>
   categories: MenuCategory[]
   menuActionMessage: string | null
+  onCategoryDelete: (categoryId: string) => void | Promise<void>
   onCategoryReorder: (nextCategoryIds: string[]) => void
   onCategoryVisibilityChange: (categoryId: string, visibility: MenuCategory["visibility"]) => void
   onDeleteItem: (itemId: string) => void | Promise<void>
@@ -2133,6 +2203,7 @@ function MenuTab({
                 category={category}
                 categoryIds={categoryIds}
                 onAddItem={onAddItem}
+                onCategoryDelete={onCategoryDelete}
                 onCategoryVisibilityChange={onCategoryVisibilityChange}
                 onDeleteItem={onDeleteItem}
                 onItemFeaturedChange={onItemFeaturedChange}
@@ -2155,6 +2226,7 @@ function SortableCategoryCard({
   category,
   categoryIds,
   onAddItem,
+  onCategoryDelete,
   onCategoryVisibilityChange,
   onDeleteItem,
   onItemFeaturedChange,
@@ -2171,6 +2243,7 @@ function SortableCategoryCard({
     categoryId: string,
     input: { name: string; description: string; priceCents: number },
   ) => void | Promise<void>
+  onCategoryDelete: (categoryId: string) => void | Promise<void>
   onCategoryVisibilityChange: (categoryId: string, visibility: MenuCategory["visibility"]) => void
   onDeleteItem: (itemId: string) => void | Promise<void>
   onItemFeaturedChange: (itemId: string, isFeatured: boolean) => void
@@ -2244,18 +2317,39 @@ function SortableCategoryCard({
                 </div>
               </div>
 
-              <IconToggleButton
-                active={!isHidden}
-                label={isHidden ? `Show ${category.name}` : `Hide ${category.name}`}
-                onClick={() =>
-                  onCategoryVisibilityChange(
-                    category.id,
-                    isHidden ? "AVAILABLE" : "HIDDEN",
-                  )
-                }
-              >
-                {isHidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </IconToggleButton>
+              <div className="flex items-center gap-2">
+                <IconToggleButton
+                  active={!isHidden}
+                  label={isHidden ? `Show ${category.name}` : `Hide ${category.name}`}
+                  onClick={() =>
+                    onCategoryVisibilityChange(
+                      category.id,
+                      isHidden ? "AVAILABLE" : "HIDDEN",
+                    )
+                  }
+                >
+                  {isHidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </IconToggleButton>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        `Delete the ${category.name} section? Items in that section will no longer appear there.`,
+                      )
+                    ) {
+                      void Promise.resolve(onCategoryDelete(category.id))
+                    }
+                  }}
+                  className="rounded-[calc(var(--radius)-8px)] border-destructive/20 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete section
+                </Button>
+              </div>
             </div>
 
             <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
