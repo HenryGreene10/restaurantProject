@@ -129,7 +129,9 @@ export function StorefrontPage({
     queryKey: ["tenant-menu", tenantSlug],
     queryFn: () => fetchTenantMenu(tenantSlug),
     enabled: source === "api",
-    staleTime: 60_000,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   })
 
   const categories = useMemo(

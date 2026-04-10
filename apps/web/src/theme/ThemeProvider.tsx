@@ -23,7 +23,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     queryKey: ["tenant-menu", tenantSlug],
     queryFn: () => fetchTenantMenu(tenantSlug),
     enabled: source === "api" && Boolean(tenantSlug),
-    staleTime: 60_000,
+    staleTime: 0,
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   })
 
   const theme = useMemo(() => {

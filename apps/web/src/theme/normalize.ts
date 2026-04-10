@@ -99,7 +99,7 @@ export function normalizeApiTheme(data: MenuResponse, tenantSlug: string): Brand
       "Live brand config loaded from the API.",
     heroBadgeText: pickString(config, "heroBadgeText") ?? "Live API theme",
     promoBannerText: pickString(config, "promoBannerText") ?? "",
-    heroImageUrl: pickString(config, "heroImageUrl") ?? "",
+    heroImageUrl: pickString(config, "heroImageUrl", "bannerImageUrl") ?? "",
     tenantSlug,
     palette: {
       background,
@@ -114,7 +114,9 @@ export function normalizeApiTheme(data: MenuResponse, tenantSlug: string): Brand
       accent: pickString(config, "accentColor") ?? mixHexColors(background, primary, 0.18),
     },
     typography: {
-      bodyFont: pickString(config, "fontFamily", "bodyFont") ?? cleanMinimalTheme.typography.bodyFont,
+      bodyFont:
+        pickString(config, "bodyFont", "fontFamily") ??
+        cleanMinimalTheme.typography.bodyFont,
       headingFont:
         pickString(config, "headingFont", "fontFamily") ?? cleanMinimalTheme.typography.headingFont,
     },

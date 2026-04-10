@@ -85,6 +85,10 @@ function parseBrandConfig(body: unknown): BrandConfig {
       ? (body as Record<string, unknown>)
       : {}
 
+  const fontFamily = pickString(payload.fontFamily) ?? pickString(payload.bodyFont)
+  const heroImageUrl =
+    pickString(payload.heroImageUrl) ?? pickString(payload.bannerImageUrl)
+
   return {
     appTitle: pickString(payload.appTitle),
     tagline: pickString(payload.tagline),
@@ -101,7 +105,7 @@ function parseBrandConfig(body: unknown): BrandConfig {
     borderColor: pickString(payload.borderColor),
     onPrimary: pickString(payload.onPrimary),
     logoUrl: pickString(payload.logoUrl),
-    fontFamily: pickString(payload.fontFamily),
+    fontFamily,
     headingFont: pickString(payload.headingFont),
     radius: pickNumber(payload.radius),
     buttonStyle:
@@ -118,7 +122,7 @@ function parseBrandConfig(body: unknown): BrandConfig {
       payload.menuCardLayout === 'photo-first'
         ? payload.menuCardLayout
         : undefined,
-    heroImageUrl: pickString(payload.heroImageUrl),
+    heroImageUrl,
     showFeaturedBadges: pickBoolean(payload.showFeaturedBadges),
     showCategoryChips: pickBoolean(payload.showCategoryChips),
   }
