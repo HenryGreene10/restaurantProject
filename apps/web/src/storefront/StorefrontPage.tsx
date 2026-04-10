@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { AnimatePresence, motion } from "framer-motion"
-import { ArrowRight, ChefHat, ShieldCheck, Sparkles, UtensilsCrossed } from "lucide-react"
+import { ArrowRight, ChefHat, ShieldCheck, UtensilsCrossed } from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -376,33 +376,38 @@ export function StorefrontPage({
             >
               <section className="overflow-hidden rounded-[var(--radius)] border border-border/80 bg-card shadow-sm">
                 <div
-                  className="relative flex min-h-[200px] items-end px-4 py-8 sm:px-6 sm:py-12 lg:min-h-[320px] lg:px-8 lg:py-12"
+                  className="relative grid min-h-[200px] gap-6 px-4 py-6 sm:px-6 sm:py-8 lg:min-h-[320px] lg:px-8 lg:py-10"
                   style={{
                     background: theme.heroImageUrl
-                      ? `linear-gradient(${hexToRgba(theme.palette.text, 0.56)}, ${hexToRgba(theme.palette.text, 0.56)}), url(${theme.heroImageUrl}) center/cover`
+                      ? `linear-gradient(to bottom, rgba(0,0,0,0.45), rgba(0,0,0,0.65)), url(${theme.heroImageUrl}) center/cover`
                       : `linear-gradient(135deg, ${hexToRgba(theme.palette.primary, 0.15)}, ${hexToRgba(theme.palette.primary, 0.1)}), ${theme.palette.surface}`,
                   }}
                 >
-                  {theme.logoUrl ? (
-                    <div className="absolute left-4 top-4 sm:left-6 sm:top-6 lg:left-8 lg:top-8">
+                  <div className="flex items-start justify-between gap-4">
+                    {theme.logoUrl ? (
                       <img
                         src={theme.logoUrl}
                         alt={`${theme.appTitle} logo`}
-                        className="max-h-16 w-auto max-w-[10rem] object-contain"
+                        className="max-h-16 w-auto max-w-[11.25rem] shrink-0 object-contain"
                       />
-                    </div>
-                  ) : null}
-                  <div className="grid max-w-4xl gap-6 justify-items-center text-center sm:justify-items-start sm:text-left">
+                    ) : (
+                      <div />
+                    )}
                     {theme.heroBadgeText.trim() ? (
-                      <Badge
-                        variant="outline"
-                        className="w-fit border-border/80 bg-card/90 px-4 py-2 text-sm text-muted-foreground backdrop-blur"
+                      <div
+                        className="inline-flex w-fit rounded-full border px-3 py-1.5 text-xs sm:text-sm"
+                        style={{
+                          backgroundColor: "rgba(255, 252, 247, 0.84)",
+                          borderColor: theme.palette.border,
+                          color: theme.palette.muted,
+                        }}
                       >
-                        <Sparkles className="h-4 w-4" />
                         {theme.heroBadgeText}
-                      </Badge>
+                      </div>
                     ) : null}
+                  </div>
 
+                  <div className="grid max-w-4xl content-end gap-4 justify-items-center text-center sm:justify-items-start sm:text-left">
                     <div className="grid gap-4">
                       <h1
                         className="max-w-4xl font-bold leading-[0.95]"
@@ -456,7 +461,8 @@ export function StorefrontPage({
                               ? {
                                   backgroundColor: theme.palette.accent,
                                   borderColor: theme.palette.accent,
-                                  color: theme.palette.text,
+                                  color: theme.palette.primaryForeground,
+                                  boxShadow: `0 10px 24px ${hexToRgba(theme.palette.primary, 0.18)}`,
                                 }
                               : undefined
                           }
@@ -704,9 +710,9 @@ function MenuItemCard({
                 variant="outline"
                 className="min-h-11 rounded-full px-5"
                 style={{
-                  borderColor: theme.palette.accent,
-                  backgroundColor: theme.palette.accent,
-                  color: theme.palette.text,
+                  borderColor: "transparent",
+                  background: `linear-gradient(135deg, ${theme.palette.primary}, ${theme.palette.accent})`,
+                  color: theme.palette.primaryForeground,
                 }}
                 onClick={onCustomize}
               >
