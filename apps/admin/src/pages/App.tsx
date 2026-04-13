@@ -1967,8 +1967,8 @@ export const App: React.FC = () => {
         </div>
       </header>
 
-      <div className="mx-auto grid min-h-0 flex-1 w-full max-w-[1800px] gap-4 px-4 py-4 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:px-8 xl:grid-cols-[240px_minmax(0,1fr)_minmax(560px,38vw)]">
-        <aside className="hidden min-h-0 flex-col justify-between rounded-[calc(var(--radius)+8px)] border border-border/80 bg-card p-4 shadow-sm lg:flex">
+      <div className="mx-auto grid min-h-0 flex-1 w-full max-w-[1800px] gap-4 px-4 py-4 sm:px-6 lg:grid-cols-[272px_minmax(0,1fr)] lg:px-8 xl:grid-cols-[272px_minmax(0,1fr)_minmax(560px,38vw)]">
+        <aside className="hidden min-h-0 flex-col justify-between rounded-[calc(var(--radius)+8px)] border border-border/80 bg-card p-5 shadow-sm lg:flex">
           <div className="grid gap-6">
             <div className="rounded-[var(--radius)] border border-border/70 bg-background px-4 py-4">
               <div className="flex items-center gap-3">
@@ -1998,7 +1998,7 @@ export const App: React.FC = () => {
           <Button
             type="button"
             variant="ghost"
-            className="justify-start rounded-[var(--radius)] text-muted-foreground"
+            className="justify-start rounded-[var(--radius)] px-4 text-muted-foreground"
             onClick={() => {
               void signOut()
             }}
@@ -2098,7 +2098,7 @@ function SectionNav({
             type="button"
             variant="ghost"
             className={cn(
-              "justify-start gap-3 rounded-[var(--radius)] px-4",
+              "w-full justify-start gap-3 rounded-[var(--radius)] px-4 py-3 text-left",
               isActive
                 ? "border border-primary/25 bg-primary/10 text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground",
@@ -3141,7 +3141,7 @@ function SortableCategoryCard({
           )}
         >
           <CardContent className="grid gap-4 px-4 py-4">
-            <div className="flex items-center justify-between gap-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="flex min-w-0 items-center gap-3">
                 <DragHandleButton
                   attributes={attributes}
@@ -3164,7 +3164,7 @@ function SortableCategoryCard({
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:justify-end">
                 <IconToggleButton
                   active={!isHidden}
                   label={isHidden ? `Show ${category.name}` : `Hide ${category.name}`}
@@ -3218,7 +3218,7 @@ function SortableCategoryCard({
             </div>
 
             {scheduleEditorOpen ? (
-              <div className="grid gap-4 rounded-[var(--radius)] border border-border/70 bg-background/70 p-4">
+              <div className="grid w-full min-w-0 gap-4 rounded-[var(--radius)] border border-border/70 bg-background/70 p-4">
                 <div className="grid gap-3 sm:grid-cols-2">
                   <FieldShell>
                     <Label htmlFor={`category-${category.id}-available-from`}>Available from</Label>
@@ -3252,10 +3252,10 @@ function SortableCategoryCard({
                           type="button"
                           onClick={() => toggleScheduleDay(day)}
                           className={cn(
-                            "rounded-full border px-3 py-1.5 text-sm transition-colors",
+                            "rounded-full border px-3 py-1.5 text-sm font-medium transition-colors",
                             active
-                              ? "border-primary/30 bg-primary/10 text-foreground"
-                              : "border-border/70 bg-background text-muted-foreground",
+                              ? "border-[#1a1a1a] bg-[#1a1a1a] text-white shadow-sm"
+                              : "border-border/70 bg-transparent text-muted-foreground hover:border-border hover:text-foreground",
                           )}
                         >
                           {scheduleDayLabels[day]}
