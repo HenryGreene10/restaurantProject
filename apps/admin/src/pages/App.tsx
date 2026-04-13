@@ -36,7 +36,12 @@ import {
 } from "lucide-react"
 
 import { AssistantPanel } from "../assistant/AssistantPanel"
-import { fetchTenantMenu, type MenuCategory, type MenuResponse } from "../lib/menu"
+import {
+  fetchTenantMenu,
+  isCategoryAvailableNow,
+  type MenuCategory,
+  type MenuResponse,
+} from "../lib/menu"
 import { adminFetchJson, adminUploadFileJson } from "../lib/api"
 import { OnboardingPage } from "./OnboardingPage"
 import { Badge } from "@/components/ui/badge"
@@ -460,7 +465,9 @@ function tenantSlugFromMetadata(value: unknown) {
 
 function previewCategories(categories: MenuCategory[]) {
   return categories
-    .filter((category) => category.visibility !== "HIDDEN")
+    .filter(
+      (category) => category.visibility !== "HIDDEN" && isCategoryAvailableNow(category),
+    )
     .map((category) => ({
       ...category,
       categoryItems: category.categoryItems.filter((entry) => entry.item.visibility !== "HIDDEN"),
@@ -3073,6 +3080,7 @@ function SortableCategoryCard({
   const itemIds = category.categoryItems.map((entry) => entry.item.id)
   const isHidden = category.visibility === "HIDDEN"
   const isScheduled = category.visibility === "SCHEDULED"
+  const isScheduledAvailableNow = isCategoryAvailableNow(category)
   const [scheduleEditorOpen, setScheduleEditorOpen] = useState(false)
   const [availableFrom, setAvailableFrom] = useState(scheduleTimeInputValue(category.availableFrom))
   const [availableUntil, setAvailableUntil] = useState(scheduleTimeInputValue(category.availableUntil))
@@ -3158,6 +3166,14 @@ function SortableCategoryCard({
                     {isScheduled ? (
                       <Badge variant="outline" className="border-primary/20 bg-primary/5 text-foreground">
                         {formatCategorySchedule(category)}
+                      </Badge>
+                    ) : null}
+                    {isScheduled && !isScheduledAvailableNow ? (
+                      <Badge
+                        variant="outline"
+                        className="border-border/70 bg-background text-muted-foreground"
+                      >
+                        Currently hidden - outside scheduled hours
                       </Badge>
                     ) : null}
                   </div>

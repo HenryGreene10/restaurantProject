@@ -316,6 +316,10 @@ export function StorefrontPage({
   return (
     <motion.main
       className="min-h-screen bg-background text-foreground"
+      style={{
+        backgroundColor: theme.palette.background,
+        color: theme.palette.text,
+      }}
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.24, ease: "easeOut" }}
