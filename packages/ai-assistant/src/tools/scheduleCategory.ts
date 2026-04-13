@@ -58,7 +58,7 @@ export const scheduleCategoryTool: AssistantTool<z.infer<typeof inputSchema>> = 
     }
 
     return {
-      reply: `Scheduled ${input.categoryName} for ${input.availableFrom}-${input.availableUntil} ${formatDays(input.daysOfWeek)}.`,
+      reply: `Scheduled ${input.categoryName} for ${input.availableFrom}-${input.availableUntil} ${formatDays(input.daysOfWeek)}. It will now appear automatically during those scheduled hours.`,
       changes: [
         {
           resource: "category",

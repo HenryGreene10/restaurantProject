@@ -19,7 +19,7 @@ import {
   fetchCheckoutStatus,
   type CheckoutPaymentIntentSession,
 } from "../lib/payments"
-import { fetchTenantMenu } from "../lib/menu"
+import { fetchTenantMenu, isCategoryAvailableNow } from "../lib/menu"
 import type { MenuCategory, MenuItem } from "../lib/menu"
 import { CartSummary } from "./CartSummary"
 import {
@@ -67,7 +67,9 @@ function hexToRgba(hex: string, alpha: number) {
 
 function visibleCategories(categories: MenuCategory[]) {
   return categories
-    .filter((category) => category.visibility !== "HIDDEN")
+    .filter(
+      (category) => category.visibility !== "HIDDEN" && isCategoryAvailableNow(category),
+    )
     .map((category) => ({
       ...category,
       categoryItems: category.categoryItems.filter(

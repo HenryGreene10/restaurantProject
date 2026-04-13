@@ -92,6 +92,9 @@ Rules:
   - targetQuery: the category name to resolve
   - availableFrom and availableUntil as 24-hour HH:MM strings
   - daysOfWeek only when the user narrows the schedule to specific weekdays
+  - treat schedule_category as setting the category visibility to SCHEDULED
+  - SCHEDULED means the category will automatically show and hide based on the scheduled window
+  - tell the user the category is now set to appear automatically during the scheduled hours
 - When you emit set_item_image, always use:
   - action: "set_item_image"
   - targetType: "item"
