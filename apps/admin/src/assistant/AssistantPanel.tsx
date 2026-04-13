@@ -42,10 +42,6 @@ const WELCOME_MESSAGE =
 const FRIENDLY_ERROR_MESSAGE =
   "Something went wrong — please try again or rephrase your request."
 
-function storageKey(tenantSlug: string) {
-  return `restaurant-assistant:${tenantSlug}`
-}
-
 function createMessage(
   role: ChatMessage["role"],
   content: string,
@@ -76,36 +72,15 @@ export const AssistantPanel: React.FC<{
   onRefreshTargets?: (targets: AssistantRefreshTarget[]) => void | Promise<void>
 }> = ({ className, tenantSlug, getToken, onRefreshTargets }) => {
   const [input, setInput] = useState("")
-  const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [isInitialized, setIsInitialized] = useState(false)
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    createMessage("assistant", WELCOME_MESSAGE),
+  ])
   const [isSending, setIsSending] = useState(false)
   const lastMessageRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
-    if (typeof window === "undefined") return
-
-    const saved = window.sessionStorage.getItem(storageKey(tenantSlug))
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved) as ChatMessage[]
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setMessages(parsed)
-          setIsInitialized(true)
-          return
-        }
-      } catch {
-        // Fall through to the welcome message.
-      }
-    }
-
     setMessages([createMessage("assistant", WELCOME_MESSAGE)])
-    setIsInitialized(true)
   }, [tenantSlug])
-
-  useEffect(() => {
-    if (!isInitialized || typeof window === "undefined") return
-    window.sessionStorage.setItem(storageKey(tenantSlug), JSON.stringify(messages))
-  }, [isInitialized, messages, tenantSlug])
 
   useEffect(() => {
     lastMessageRef.current?.scrollIntoView({ behavior: "smooth", block: "end" })
