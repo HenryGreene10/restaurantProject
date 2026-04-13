@@ -2105,7 +2105,7 @@ function SectionNav({
             type="button"
             variant="ghost"
             className={cn(
-              "w-full justify-start gap-3 rounded-[var(--radius)] px-4 py-3 text-left",
+              "w-full justify-start gap-2.5 rounded-[var(--radius)] px-3 py-2.5 text-left text-[13px] leading-5",
               isActive
                 ? "border border-primary/25 bg-primary/10 text-foreground shadow-sm"
                 : "text-muted-foreground hover:text-foreground",
@@ -2166,10 +2166,12 @@ function OverviewMetricCard({
   value: string
 }) {
   return (
-    <div className="grid gap-2 rounded-[var(--radius)] border border-border/70 bg-background px-4 py-4">
+    <div className="grid gap-1.5 rounded-[var(--radius)] border border-border/70 bg-background px-4 py-4">
       <div className="text-xs uppercase tracking-[0.14em] text-muted-foreground">{label}</div>
-      <div className="text-2xl font-semibold text-foreground">{value}</div>
-      <div className="text-sm text-muted-foreground">{hint}</div>
+      <div className="break-words text-[1.35rem] font-semibold leading-7 text-foreground sm:text-[1.5rem]">
+        {value}
+      </div>
+      <div className="text-[13px] leading-5 text-muted-foreground">{hint}</div>
     </div>
   )
 }
