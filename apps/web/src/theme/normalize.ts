@@ -59,18 +59,6 @@ function mixHexColors(base: string, overlay: string, alpha: number) {
   )
 }
 
-function clampToLightBackground(hex: string) {
-  const { red, green, blue } = parseHexColor(hex)
-  const brightestChannel = Math.max(red, green, blue)
-  const minimumChannel = Math.max(224, 244 - Math.round(brightestChannel * 0.08))
-
-  return toHexColor(
-    Math.max(red, minimumChannel),
-    Math.max(green, minimumChannel),
-    Math.max(blue, minimumChannel),
-  )
-}
-
 export function normalizeApiTheme(data: MenuResponse, tenantSlug: string): BrandTheme {
   const nestedBrand = asRecord(data.brand)
   const config =
@@ -78,9 +66,7 @@ export function normalizeApiTheme(data: MenuResponse, tenantSlug: string): Brand
     asRecord(nestedBrand?.config) ??
     nestedBrand
   const background =
-    clampToLightBackground(
-      pickString(config, "backgroundColor") ?? cleanMinimalTheme.palette.background,
-    )
+    pickString(config, "backgroundColor") ?? cleanMinimalTheme.palette.background
   const primary = pickString(config, "primaryColor") ?? cleanMinimalTheme.palette.primary
 
   return {

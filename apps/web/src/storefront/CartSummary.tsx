@@ -405,8 +405,8 @@ export function CartSummary({
                           <div className="grid grid-cols-2 gap-3">
                             <button
                               type="button"
-                              disabled={Boolean(paymentSession)}
                               onClick={() => setFulfillmentType("PICKUP")}
+                              style={{ cursor: "pointer" }}
                               className={cn(
                                 "rounded-[var(--radius)] border px-4 py-4 text-left transition-colors",
                                 fulfillmentType === "PICKUP"
@@ -419,8 +419,8 @@ export function CartSummary({
                             </button>
                             <button
                               type="button"
-                              disabled={Boolean(paymentSession)}
                               onClick={() => setFulfillmentType("DELIVERY")}
+                              style={{ cursor: "pointer" }}
                               className={cn(
                                 "rounded-[var(--radius)] border px-4 py-4 text-left transition-colors",
                                 fulfillmentType === "DELIVERY"
