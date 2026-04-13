@@ -14,3 +14,4 @@ coverage
 .aws-sam
 .codex
 apps/api/stripe.tar.gz
+packages/db/generated/

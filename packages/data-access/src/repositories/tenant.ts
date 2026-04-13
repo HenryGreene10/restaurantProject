@@ -7,7 +7,7 @@ import {
   NotificationJobType,
   OrderStatus,
   Prisma,
-} from "@prisma/client"
+} from "@repo/db"
 import type { BrandConfig } from "@repo/brand-config"
 import { withTenantConnection } from "../prisma.js"
 import {

@@ -1,4 +1,15 @@
-import { PrismaClient } from '@prisma/client'
+import { Prisma, PrismaClient } from '../generated/client/index.js'
+
+export {
+  CatalogVisibility,
+  FulfillmentType,
+  ModifierSelectionType,
+  NotificationJobType,
+  OrderStatus,
+  Prisma,
+  PrismaClient,
+} from '../generated/client/index.js'
+export type { Customer } from '../generated/client/index.js'
 
 // Single Prisma instance for the monorepo
 export const prisma = new PrismaClient({
@@ -6,7 +17,10 @@ export const prisma = new PrismaClient({
 })
 
 // Run a callback within a tenant scoped transaction.
-export async function withTenant<T>(restaurantId: string, fn: (tx: PrismaClient) => Promise<T>): Promise<T> {
+export async function withTenant<T>(
+  restaurantId: string,
+  fn: (tx: Prisma.TransactionClient) => Promise<T>
+): Promise<T> {
   return prisma.$transaction(async (tx) => {
     await tx.$executeRawUnsafe(`SET LOCAL app.restaurant_id = '${restaurantId}'`)
     return fn(tx)

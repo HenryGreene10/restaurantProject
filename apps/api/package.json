@@ -6,13 +6,10 @@
   "main": "src/index.ts",
   "scripts": {
     "dev": "node --loader ts-node/esm src/index.ts",
-    "build": "prisma generate && esbuild src/index.ts --bundle --platform=node --outfile=dist/index.js --format=cjs",
+    "build": "esbuild src/index.ts --bundle --platform=node --outfile=dist/index.js --format=cjs",
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
-  },
-  "prisma": {
-    "schema": "../../packages/db/prisma/schema.prisma"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1026.0",
@@ -20,6 +17,7 @@
     "@repo/ai-assistant": "*",
     "@repo/brand-config": "*",
     "@repo/data-access": "*",
+    "@repo/db": "*",
     "@repo/payments": "^0.1.0",
     "@sentry/node": "^10.47.0",
     "bcryptjs": "^2.4.3",

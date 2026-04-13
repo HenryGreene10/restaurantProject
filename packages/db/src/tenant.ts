@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks'
-import type { PrismaClient } from '@prisma/client'
+import type { PrismaClient } from '../generated/client/index.js'
 
 const als = new AsyncLocalStorage<{ tenantId: string }>()
 

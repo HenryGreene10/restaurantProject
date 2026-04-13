@@ -1,5 +1,5 @@
 import type { Response, Router } from 'express'
-import { Prisma } from '@prisma/client'
+import { Prisma } from '@repo/db'
 import { withTenantConnection } from '@repo/data-access'
 import type { TenantRequest } from '../middleware/tenant.js'
 

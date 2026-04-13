@@ -1,4 +1,4 @@
-import { PrismaClient, type Prisma } from "@prisma/client"
+import { PrismaClient, type Prisma } from "@repo/db"
 
 // Keep the Prisma client internal to this package. Callers only receive
 // tenant-bound repositories, never the raw client itself.

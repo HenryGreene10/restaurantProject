@@ -1,4 +1,4 @@
-import { Prisma } from "@prisma/client"
+import { Prisma } from "@repo/db"
 import { getInternalPrismaClient } from "../prisma.js"
 
 type ClaimedNotificationJobRow = {
