@@ -1787,7 +1787,7 @@ export const App: React.FC = () => {
         title="Overview"
         subtitle="A quick snapshot of the restaurant setup before you edit the storefront."
       >
-        <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+        <div className="grid min-w-0 gap-4 xl:grid-cols-2 2xl:grid-cols-3">
           <OverviewMetricCard
             label="Stripe status"
             value={isStripeLoading ? "Checking…" : stripeStatusLabel}
@@ -1994,7 +1994,7 @@ export const App: React.FC = () => {
                   <div className="truncate text-sm font-semibold text-foreground">
                     {restaurantDisplayName}
                   </div>
-                  <div className="max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-xs text-muted-foreground">
+                  <div className="block max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-xs text-muted-foreground">
                     {linkedTenantSlug}
                   </div>
                 </div>
@@ -2168,12 +2168,14 @@ function OverviewMetricCard({
   value: string
 }) {
   return (
-    <div className="min-w-0 grid gap-1.5 rounded-[var(--radius)] border border-border/70 bg-background px-4 py-4">
+    <div className="grid w-full min-w-0 gap-1.5 rounded-[var(--radius)] border border-border/70 bg-background px-4 py-4">
       <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{label}</div>
-      <div className="overflow-hidden text-ellipsis whitespace-nowrap text-base font-semibold leading-6 text-foreground">
+      <div className="max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-base font-semibold leading-6 text-foreground">
         {value}
       </div>
-      <div className="text-xs leading-4 text-muted-foreground">{hint}</div>
+      <div className="max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-xs leading-4 text-muted-foreground">
+        {hint}
+      </div>
     </div>
   )
 }
