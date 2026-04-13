@@ -141,6 +141,21 @@ export function StorefrontPage({
     [menuQuery.data?.categories],
   )
 
+  useEffect(() => {
+    const rawCategories = menuQuery.data?.categories ?? []
+
+    rawCategories.forEach((category) => {
+      console.log("[storefront] category availability", {
+        name: category.name,
+        visibility: category.visibility,
+        availableFrom: category.availableFrom,
+        availableUntil: category.availableUntil,
+        daysOfWeek: category.daysOfWeek,
+        availableNow: isCategoryAvailableNow(category),
+      })
+    })
+  }, [menuQuery.data?.categories])
+
   const featuredItems = useMemo(
     () =>
       categories.flatMap((category) =>

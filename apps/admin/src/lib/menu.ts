@@ -45,6 +45,9 @@ export type MenuCategory = {
   name: string
   sortOrder: number
   visibility: "AVAILABLE" | "SOLD_OUT" | "HIDDEN" | "SCHEDULED"
+  availableFrom?: string | null
+  availableUntil?: string | null
+  daysOfWeek?: string[] | null
   categoryItems: Array<{
     id: string
     sortOrder: number

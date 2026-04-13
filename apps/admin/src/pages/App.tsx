@@ -20,6 +20,7 @@ import {
   BarChart3,
   Bot,
   CheckCircle2,
+  Clock3,
   CreditCard,
   ExternalLink,
   Eye,
@@ -139,9 +140,8 @@ function getString(config: Record<string, unknown>, ...keys: string[]) {
 function buildDraft(menu: MenuResponse): ThemeDraft {
   const config = getBrandConfig(menu)
   const primaryColor = getString(config, "primaryColor") ?? defaultThemeDraft.primaryColor
-  const backgroundColor = clampToLightBackground(
-    getString(config, "backgroundColor") ?? defaultThemeDraft.backgroundColor,
-  )
+  const backgroundColor =
+    getString(config, "backgroundColor") ?? defaultThemeDraft.backgroundColor
   const accentColor = getString(config, "accentColor") ?? derivedAccentColor(primaryColor)
   const surfaceColor = getString(config, "surfaceColor") ?? defaultThemeDraft.surfaceColor
   const textColor = getString(config, "textColor") ?? defaultThemeDraft.textColor
@@ -279,7 +279,7 @@ function areThemesEqual(left: ThemeDraft, right: ThemeDraft) {
 }
 
 function themePayload(theme: ThemeDraft) {
-  const backgroundColor = clampToLightBackground(theme.backgroundColor)
+  const backgroundColor = theme.backgroundColor
   const accentColor = theme.accentColor
   const borderColor = theme.borderColor
 
@@ -383,18 +383,6 @@ function mixHexColors(base: string, overlay: string, alpha: number) {
   )
 }
 
-function clampToLightBackground(hex: string) {
-  const { red, green, blue } = parseHexColor(hex)
-  const brightestChannel = Math.max(red, green, blue)
-  const minimumChannel = Math.max(224, 244 - Math.round(brightestChannel * 0.08))
-
-  return toHexColor(
-    Math.max(red, minimumChannel),
-    Math.max(green, minimumChannel),
-    Math.max(blue, minimumChannel),
-  )
-}
-
 function derivedAccentColor(primaryColor: string) {
   return mixHexColors(defaultThemeDraft.backgroundColor, primaryColor, 0.18)
 }
@@ -481,7 +469,7 @@ function previewCategories(categories: MenuCategory[]) {
 }
 
 function previewStyle(theme: ThemeDraft): React.CSSProperties {
-  const backgroundColor = clampToLightBackground(theme.backgroundColor)
+  const backgroundColor = theme.backgroundColor
   const accentColor = theme.accentColor
   const borderColor = theme.borderColor
 
@@ -498,6 +486,133 @@ function previewStyle(theme: ThemeDraft): React.CSSProperties {
     ["--preview-body-font" as string]: theme.bodyFont,
     ["--preview-heading-font" as string]: theme.headingFont,
   } as React.CSSProperties
+}
+
+const scheduleDayOrder = [
+  "monday",
+  "tuesday",
+  "wednesday",
+  "thursday",
+  "friday",
+  "saturday",
+  "sunday",
+] as const
+
+const scheduleDayLabels: Record<(typeof scheduleDayOrder)[number], string> = {
+  monday: "Mon",
+  tuesday: "Tue",
+  wednesday: "Wed",
+  thursday: "Thu",
+  friday: "Fri",
+  saturday: "Sat",
+  sunday: "Sun",
+}
+
+const scheduleTimeFormatter = new Intl.DateTimeFormat("en-US", {
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true,
+  timeZone: "UTC",
+})
+
+function parseUtcScheduleDate(value?: string | null) {
+  if (!value) {
+    return null
+  }
+
+  const parsed = new Date(value)
+  if (Number.isNaN(parsed.getTime())) {
+    return null
+  }
+
+  return parsed
+}
+
+function formatScheduleTime(value?: string | null) {
+  const parsed = parseUtcScheduleDate(value)
+  return parsed ? scheduleTimeFormatter.format(parsed) : null
+}
+
+function scheduleTimeInputValue(value?: string | null) {
+  const parsed = parseUtcScheduleDate(value)
+  if (!parsed) {
+    return ""
+  }
+
+  const hours = String(parsed.getUTCHours()).padStart(2, "0")
+  const minutes = String(parsed.getUTCMinutes()).padStart(2, "0")
+  return `${hours}:${minutes}`
+}
+
+function scheduleTimeInputToIso(value: string) {
+  if (!value) {
+    return null
+  }
+
+  const [hoursString, minutesString] = value.split(":")
+  const hours = Number(hoursString)
+  const minutes = Number(minutesString)
+
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+    return null
+  }
+
+  return new Date(Date.UTC(1970, 0, 1, hours, minutes, 0, 0)).toISOString()
+}
+
+function formatScheduleDays(days?: string[] | null) {
+  const normalized = (days ?? [])
+    .map((day) => day.trim().toLowerCase())
+    .filter((day): day is (typeof scheduleDayOrder)[number] =>
+      scheduleDayOrder.includes(day as (typeof scheduleDayOrder)[number]),
+    )
+
+  if (normalized.length === 0 || normalized.length === scheduleDayOrder.length) {
+    return "Every day"
+  }
+
+  const indexes = [...new Set(normalized.map((day) => scheduleDayOrder.indexOf(day)))].sort(
+    (left, right) => left - right,
+  )
+  const ranges: string[] = []
+
+  for (let index = 0; index < indexes.length; index += 1) {
+    const start = indexes[index]
+    let end = start
+
+    while (index + 1 < indexes.length && indexes[index + 1] === end + 1) {
+      end = indexes[index + 1]
+      index += 1
+    }
+
+    ranges.push(
+      start === end
+        ? scheduleDayLabels[scheduleDayOrder[start]]
+        : `${scheduleDayLabels[scheduleDayOrder[start]]}\u2013${scheduleDayLabels[scheduleDayOrder[end]]}`,
+    )
+  }
+
+  return ranges.join(", ")
+}
+
+function formatCategorySchedule(category: MenuCategory) {
+  const from = formatScheduleTime(category.availableFrom)
+  const until = formatScheduleTime(category.availableUntil)
+  const days = formatScheduleDays(category.daysOfWeek)
+
+  if (from && until) {
+    return `${days} · ${from} – ${until}`
+  }
+
+  if (from) {
+    return `${days} · From ${from}`
+  }
+
+  if (until) {
+    return `${days} · Until ${until}`
+  }
+
+  return days
 }
 
 function SectionCard({
@@ -1165,12 +1280,12 @@ export const App: React.FC = () => {
           ...current,
           primaryColor: nextPrimary,
           accentColor: derivedAccentColor(nextPrimary),
-          borderColor: derivedBorderColor(nextPrimary, clampToLightBackground(current.backgroundColor)),
+          borderColor: derivedBorderColor(nextPrimary, current.backgroundColor),
         }
       }
 
       if (key === "backgroundColor") {
-        const nextBackground = clampToLightBackground(value as ThemeDraft["backgroundColor"])
+        const nextBackground = value as ThemeDraft["backgroundColor"]
         return {
           ...current,
           backgroundColor: nextBackground,
@@ -1292,6 +1407,48 @@ export const App: React.FC = () => {
       updateMenuCategories(() => previousCategories)
       setMenuActionMessage(
         nextError instanceof Error ? nextError.message : "Failed to update category visibility",
+      )
+    }
+  }
+
+  const updateCategorySchedule = async (
+    categoryId: string,
+    schedule: {
+      visibility: MenuCategory["visibility"]
+      availableFrom: string | null
+      availableUntil: string | null
+      daysOfWeek: string[] | null
+    },
+  ) => {
+    const previousCategories = categories
+
+    updateMenuCategories((current) =>
+      current.map((category) =>
+        category.id === categoryId
+          ? {
+              ...category,
+              visibility: schedule.visibility,
+              availableFrom: schedule.availableFrom,
+              availableUntil: schedule.availableUntil,
+              daysOfWeek: schedule.daysOfWeek,
+            }
+          : category,
+      ),
+    )
+
+    try {
+      setMenuActionMessage("Saving category schedule…")
+      await patchAdminJson(`/admin/menu/categories/${categoryId}`, schedule)
+      await reloadMenuData()
+      setMenuActionMessage(
+        schedule.visibility === "AVAILABLE"
+          ? "Category schedule removed."
+          : "Category schedule updated.",
+      )
+    } catch (nextError) {
+      updateMenuCategories(() => previousCategories)
+      setMenuActionMessage(
+        nextError instanceof Error ? nextError.message : "Failed to update category schedule",
       )
     }
   }
@@ -1691,6 +1848,7 @@ export const App: React.FC = () => {
           menuActionMessage={menuActionMessage}
           onCategoryDelete={deleteCategoryFromMenu}
           onAddItem={addItemToCategory}
+          onCategoryScheduleChange={updateCategorySchedule}
           onCategoryVisibilityChange={updateCategoryVisibility}
           onCategoryReorder={reorderCategories}
           onDeleteItem={deleteItemFromMenu}
@@ -2584,9 +2742,11 @@ function BrandingTab({
           <ColorField
             label="Background color"
             value={theme.backgroundColor}
-            onChange={(value) => onThemeChange("backgroundColor", clampToLightBackground(value))}
+            onChange={(value) => onThemeChange("backgroundColor", value)}
           />
-          <p className="mt-2 text-sm text-muted-foreground">Light backgrounds only.</p>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Any valid hex color is allowed. Dark backgrounds may reduce text contrast in some sections.
+          </p>
         </FieldShell>
 
         <FieldShell>
@@ -2710,6 +2870,7 @@ function MenuTab({
   menuActionMessage,
   onCategoryDelete,
   onCategoryReorder,
+  onCategoryScheduleChange,
   onCategoryVisibilityChange,
   onDeleteItem,
   onItemFeaturedChange,
@@ -2725,6 +2886,15 @@ function MenuTab({
   menuActionMessage: string | null
   onCategoryDelete: (categoryId: string) => void | Promise<void>
   onCategoryReorder: (nextCategoryIds: string[]) => void
+  onCategoryScheduleChange: (
+    categoryId: string,
+    schedule: {
+      visibility: MenuCategory["visibility"]
+      availableFrom: string | null
+      availableUntil: string | null
+      daysOfWeek: string[] | null
+    },
+  ) => void | Promise<void>
   onCategoryVisibilityChange: (categoryId: string, visibility: MenuCategory["visibility"]) => void
   onDeleteItem: (itemId: string) => void | Promise<void>
   onItemFeaturedChange: (itemId: string, isFeatured: boolean) => void
@@ -2827,6 +2997,7 @@ function MenuTab({
                 categoryIds={categoryIds}
                 onAddItem={onAddItem}
                 onCategoryDelete={onCategoryDelete}
+                onCategoryScheduleChange={onCategoryScheduleChange}
                 onCategoryVisibilityChange={onCategoryVisibilityChange}
                 onDeleteItem={onDeleteItem}
                 onItemFeaturedChange={onItemFeaturedChange}
@@ -2850,6 +3021,7 @@ function SortableCategoryCard({
   categoryIds,
   onAddItem,
   onCategoryDelete,
+  onCategoryScheduleChange,
   onCategoryVisibilityChange,
   onDeleteItem,
   onItemFeaturedChange,
@@ -2867,6 +3039,15 @@ function SortableCategoryCard({
     input: { name: string; description: string; priceCents: number },
   ) => void | Promise<void>
   onCategoryDelete: (categoryId: string) => void | Promise<void>
+  onCategoryScheduleChange: (
+    categoryId: string,
+    schedule: {
+      visibility: MenuCategory["visibility"]
+      availableFrom: string | null
+      availableUntil: string | null
+      daysOfWeek: string[] | null
+    },
+  ) => void | Promise<void>
   onCategoryVisibilityChange: (categoryId: string, visibility: MenuCategory["visibility"]) => void
   onDeleteItem: (itemId: string) => void | Promise<void>
   onItemFeaturedChange: (itemId: string, isFeatured: boolean) => void
@@ -2891,6 +3072,11 @@ function SortableCategoryCard({
 
   const itemIds = category.categoryItems.map((entry) => entry.item.id)
   const isHidden = category.visibility === "HIDDEN"
+  const isScheduled = category.visibility === "SCHEDULED"
+  const [scheduleEditorOpen, setScheduleEditorOpen] = useState(false)
+  const [availableFrom, setAvailableFrom] = useState(scheduleTimeInputValue(category.availableFrom))
+  const [availableUntil, setAvailableUntil] = useState(scheduleTimeInputValue(category.availableUntil))
+  const [selectedDays, setSelectedDays] = useState<string[]>(category.daysOfWeek ?? [])
   const categoryIndex = categoryIds.indexOf(category.id)
   const activeCategoryIndex = activeDragId ? categoryIds.indexOf(activeDragId) : -1
   const showTopDropIndicator =
@@ -2902,6 +3088,38 @@ function SortableCategoryCard({
     overDragId === category.id &&
     activeCategoryIndex >= 0 &&
     activeCategoryIndex < categoryIndex
+
+  useEffect(() => {
+    setAvailableFrom(scheduleTimeInputValue(category.availableFrom))
+    setAvailableUntil(scheduleTimeInputValue(category.availableUntil))
+    setSelectedDays(category.daysOfWeek ?? [])
+  }, [category.availableFrom, category.availableUntil, category.daysOfWeek])
+
+  function toggleScheduleDay(day: string) {
+    setSelectedDays((current) =>
+      current.includes(day) ? current.filter((entry) => entry !== day) : [...current, day],
+    )
+  }
+
+  async function handleSaveSchedule() {
+    await onCategoryScheduleChange(category.id, {
+      visibility: "SCHEDULED",
+      availableFrom: scheduleTimeInputToIso(availableFrom),
+      availableUntil: scheduleTimeInputToIso(availableUntil),
+      daysOfWeek: selectedDays.length > 0 ? selectedDays : null,
+    })
+    setScheduleEditorOpen(false)
+  }
+
+  async function handleRemoveSchedule() {
+    await onCategoryScheduleChange(category.id, {
+      visibility: "AVAILABLE",
+      availableFrom: null,
+      availableUntil: null,
+      daysOfWeek: null,
+    })
+    setScheduleEditorOpen(false)
+  }
 
   return (
     <div
@@ -2931,11 +3149,17 @@ function SortableCategoryCard({
                   label={`Reorder category ${category.name}`}
                 />
                 <div className="min-w-0 space-y-1">
-                  <div className={cn("truncate font-medium text-foreground", isHidden ? "opacity-60" : "")}>
-                    {category.name}
+                  <div className={cn("flex items-center gap-2 truncate font-medium text-foreground", isHidden ? "opacity-60" : "")}>
+                    {isScheduled ? <Clock3 className="h-4 w-4 shrink-0 text-muted-foreground" /> : null}
+                    <span className="truncate">{category.name}</span>
                   </div>
-                  <div className="text-sm text-muted-foreground">
-                    {category.categoryItems.length} items
+                  <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                    <span>{category.categoryItems.length} items</span>
+                    {isScheduled ? (
+                      <Badge variant="outline" className="border-primary/20 bg-primary/5 text-foreground">
+                        {formatCategorySchedule(category)}
+                      </Badge>
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -2947,12 +3171,30 @@ function SortableCategoryCard({
                   onClick={() =>
                     onCategoryVisibilityChange(
                       category.id,
-                      isHidden ? "AVAILABLE" : "HIDDEN",
+                      isHidden
+                        ? category.availableFrom || category.availableUntil || (category.daysOfWeek?.length ?? 0) > 0
+                          ? "SCHEDULED"
+                          : "AVAILABLE"
+                        : "HIDDEN",
                     )
                   }
                 >
                   {isHidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </IconToggleButton>
+
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setScheduleEditorOpen((current) => !current)}
+                  className={cn(
+                    "rounded-[calc(var(--radius)-8px)]",
+                    isScheduled ? "border-primary/20 bg-primary/5 text-foreground" : "text-muted-foreground",
+                  )}
+                >
+                  <Clock3 className="h-4 w-4" />
+                  {isScheduled ? "Edit schedule" : "Schedule"}
+                </Button>
 
                 <Button
                   type="button"
@@ -2974,6 +3216,70 @@ function SortableCategoryCard({
                 </Button>
               </div>
             </div>
+
+            {scheduleEditorOpen ? (
+              <div className="grid gap-4 rounded-[var(--radius)] border border-border/70 bg-background/70 p-4">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <FieldShell>
+                    <Label htmlFor={`category-${category.id}-available-from`}>Available from</Label>
+                    <Input
+                      id={`category-${category.id}-available-from`}
+                      type="time"
+                      value={availableFrom}
+                      onChange={(event) => setAvailableFrom(event.target.value)}
+                    />
+                  </FieldShell>
+                  <FieldShell>
+                    <Label htmlFor={`category-${category.id}-available-until`}>Available until</Label>
+                    <Input
+                      id={`category-${category.id}-available-until`}
+                      type="time"
+                      value={availableUntil}
+                      onChange={(event) => setAvailableUntil(event.target.value)}
+                    />
+                  </FieldShell>
+                </div>
+
+                <FieldShell>
+                  <Label>Days of week</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {scheduleDayOrder.map((day) => {
+                      const active = selectedDays.includes(day)
+
+                      return (
+                        <button
+                          key={day}
+                          type="button"
+                          onClick={() => toggleScheduleDay(day)}
+                          className={cn(
+                            "rounded-full border px-3 py-1.5 text-sm transition-colors",
+                            active
+                              ? "border-primary/30 bg-primary/10 text-foreground"
+                              : "border-border/70 bg-background text-muted-foreground",
+                          )}
+                        >
+                          {scheduleDayLabels[day]}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </FieldShell>
+
+                <div className="flex flex-wrap gap-3">
+                  <Button type="button" onClick={() => void handleSaveSchedule()}>
+                    Save schedule
+                  </Button>
+                  {isScheduled ? (
+                    <Button type="button" variant="outline" onClick={() => void handleRemoveSchedule()}>
+                      Remove schedule
+                    </Button>
+                  ) : null}
+                  <Button type="button" variant="ghost" onClick={() => setScheduleEditorOpen(false)}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : null}
 
             <SortableContext items={itemIds} strategy={verticalListSortingStrategy}>
               <div className="grid gap-3">

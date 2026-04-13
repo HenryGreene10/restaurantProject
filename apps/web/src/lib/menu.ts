@@ -170,5 +170,11 @@ export async function fetchTenantMenu(tenantSlug: string) {
     throw new Error(`Failed to load tenant menu (${response.status})`)
   }
 
-  return (await response.json()) as MenuResponse
+  const payload = (await response.json()) as MenuResponse
+  const breakfastSpecials = payload.categories.find((category) => category.name === "Breakfast Specials")
+
+  console.log("[storefront] /menu raw response", payload)
+  console.log("[storefront] Breakfast Specials from API", breakfastSpecials)
+
+  return payload
 }
