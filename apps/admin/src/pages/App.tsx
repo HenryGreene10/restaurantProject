@@ -129,7 +129,7 @@ function getBrandConfig(menu: MenuResponse) {
 function getString(config: Record<string, unknown>, ...keys: string[]) {
   for (const key of keys) {
     const value = config[key]
-    if (typeof value === "string" && value.trim()) {
+    if (typeof value === "string") {
       return value
     }
   }
