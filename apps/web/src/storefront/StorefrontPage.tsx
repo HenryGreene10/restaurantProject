@@ -142,6 +142,10 @@ export function StorefrontPage({
   )
 
   useEffect(() => {
+    console.log("[storefront] theme", theme)
+  }, [theme])
+
+  useEffect(() => {
     const rawCategories = menuQuery.data?.categories ?? []
 
     rawCategories.forEach((category) => {
@@ -155,6 +159,10 @@ export function StorefrontPage({
       })
     })
   }, [menuQuery.data?.categories])
+
+  useEffect(() => {
+    document.body.style.backgroundColor = theme.palette.background || "#ffffff"
+  }, [theme.palette.background])
 
   const featuredItems = useMemo(
     () =>
@@ -321,7 +329,7 @@ export function StorefrontPage({
     <motion.main
       className="min-h-screen bg-background text-foreground"
       style={{
-        backgroundColor: theme.palette.background,
+        backgroundColor: theme.palette.background || "#ffffff",
         color: theme.palette.text,
       }}
       initial={{ opacity: 0, y: 8 }}

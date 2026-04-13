@@ -9,6 +9,7 @@ export function registerMenuRoutes(r: Router) {
       createTenantScope(req.tenant.id)
     )
     const data = await tenantDataAccess.menu.getPublicMenu()
+    console.log('[menu] brandConfig', data.brandConfig)
     res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
     res.setHeader('Pragma', 'no-cache')
     res.setHeader('Expires', '0')
