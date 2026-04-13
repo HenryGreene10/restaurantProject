@@ -6,7 +6,7 @@
   "main": "src/index.ts",
   "scripts": {
     "dev": "node --loader ts-node/esm src/index.ts",
-    "build": "esbuild src/index.ts --bundle --platform=node --outfile=dist/index.js --format=cjs",
+    "build": "npm --prefix ../.. run prisma:generate -w @repo/db && esbuild src/index.ts --bundle --platform=node --outfile=dist/index.js --format=cjs",
     "start": "node dist/index.js",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run"
