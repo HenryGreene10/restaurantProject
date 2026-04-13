@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
+import { cn } from "@/lib/utils"
 import type { CheckoutPaymentIntentSession } from "@/lib/payments"
 import { cartItemCount, cartLineTotal, cartSubtotal, type CartItem } from "./cartStore"
 import { StripeCheckoutForm } from "./StripeCheckoutForm"
@@ -83,6 +84,8 @@ type CartSummaryProps = {
     customerName: string
     customerPhone: string
     orderNotes: string | null
+    fulfillmentType: "PICKUP" | "DELIVERY"
+    deliveryAddress: string | null
   }) => Promise<CheckoutPaymentIntentSession>
   onPaymentConfirmed: (checkoutSessionId: string) => Promise<void>
 }
@@ -116,18 +119,27 @@ export function CartSummary({
   const [formError, setFormError] = useState<string | null>(null)
   const [nameTouched, setNameTouched] = useState(false)
   const [phoneTouched, setPhoneTouched] = useState(false)
+  const [addressTouched, setAddressTouched] = useState(false)
   const [submitAttempted, setSubmitAttempted] = useState(false)
   const [paymentSession, setPaymentSession] = useState<CheckoutPaymentIntentSession | null>(null)
   const [isPreparingPayment, setIsPreparingPayment] = useState(false)
+  const [fulfillmentType, setFulfillmentType] = useState<"PICKUP" | "DELIVERY">("PICKUP")
+  const [deliveryAddress, setDeliveryAddress] = useState("")
 
   const canContinue = items.length > 0
   const trimmedName = customerName.trim()
   const trimmedPhone = customerPhone.trim()
+  const trimmedAddress = deliveryAddress.trim()
   const nameError = validateCustomerName(customerName)
   const phoneError = validateCustomerPhone(customerPhone)
+  const addressError = fulfillmentType === "DELIVERY" && !trimmedAddress ? "Delivery address is required" : null
   const showNameError = (nameTouched || submitAttempted) && !!nameError
   const showPhoneError = (phoneTouched || submitAttempted) && !!phoneError
-  const hasDraftDetails = trimmedName.length > 0 && trimmedPhone.length > 0
+  const showAddressError = (addressTouched || submitAttempted) && !!addressError
+  const hasDraftDetails =
+    trimmedName.length > 0 &&
+    trimmedPhone.length > 0 &&
+    (fulfillmentType === "PICKUP" || trimmedAddress.length > 0)
   const canSubmit = hasDraftDetails && !submitting && !isPreparingPayment
 
   const taxEstimate = useMemo(() => Math.round(subtotal * 0.08), [subtotal])
@@ -148,11 +160,11 @@ export function CartSummary({
     setSubmitAttempted(true)
 
     if (!canSubmit) {
-      setFormError("Enter your name and phone number before continuing to payment.")
+      setFormError("Enter your details before continuing to payment.")
       return
     }
 
-    if (nameError || phoneError) {
+    if (nameError || phoneError || addressError) {
       setFormError(null)
       return
     }
@@ -175,6 +187,8 @@ export function CartSummary({
         customerName: trimmedName,
         customerPhone: normalizedPhone,
         orderNotes: orderNotes.trim() ? orderNotes.trim() : null,
+        fulfillmentType,
+        deliveryAddress: fulfillmentType === "DELIVERY" ? trimmedAddress : null,
       })
       setPaymentSession(nextPaymentSession)
     } catch (error) {
@@ -190,7 +204,10 @@ export function CartSummary({
     setFormError(null)
     setNameTouched(false)
     setPhoneTouched(false)
+    setAddressTouched(false)
     setSubmitAttempted(false)
+    setFulfillmentType("PICKUP")
+    setDeliveryAddress("")
     onClose()
   }
 
@@ -258,7 +275,7 @@ export function CartSummary({
               <div className="shrink-0 flex items-center justify-between border-b border-neutral-200 bg-white px-4 py-4 sm:px-6 sm:py-6">
                 <div>
                   <div className="text-xs font-medium uppercase tracking-[0.12em] text-neutral-500">
-                    {checkoutMode ? "Pickup checkout" : "Cart"}
+                    {checkoutMode ? `${fulfillmentType === "DELIVERY" ? "Delivery" : "Pickup"} checkout` : "Cart"}
                   </div>
                   <h2 className="mt-2 text-2xl text-black" style={{ fontFamily: "var(--font-heading)" }}>
                     {checkoutMode ? "Review and place order" : "Your order"}
@@ -380,28 +397,65 @@ export function CartSummary({
                           <Badge variant="outline" className="border-border bg-background text-muted-foreground">
                             Fulfillment
                           </Badge>
-                          <CardTitle style={{ fontFamily: "var(--font-heading)" }}>Pickup</CardTitle>
+                          <CardTitle style={{ fontFamily: "var(--font-heading)" }}>
+                            {fulfillmentType === "DELIVERY" ? "Delivery" : "Pickup"}
+                          </CardTitle>
                         </CardHeader>
                         <CardContent className="grid gap-4">
-                          <div className="rounded-[var(--radius)] border border-primary/20 bg-primary/10 px-4 py-4">
-                            <div className="font-semibold text-foreground">Pickup</div>
-                            <div className="mt-2 text-sm text-muted-foreground">
-                              Pickup is live now.
-                            </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <button
+                              type="button"
+                              disabled={Boolean(paymentSession)}
+                              onClick={() => setFulfillmentType("PICKUP")}
+                              className={cn(
+                                "rounded-[var(--radius)] border px-4 py-4 text-left transition-colors",
+                                fulfillmentType === "PICKUP"
+                                  ? "border-primary/20 bg-primary/10"
+                                  : "border-border bg-background hover:bg-muted/40",
+                              )}
+                            >
+                              <div className="font-semibold text-foreground">Pickup</div>
+                              <div className="mt-1 text-sm text-muted-foreground">Ready at the counter</div>
+                            </button>
+                            <button
+                              type="button"
+                              disabled={Boolean(paymentSession)}
+                              onClick={() => setFulfillmentType("DELIVERY")}
+                              className={cn(
+                                "rounded-[var(--radius)] border px-4 py-4 text-left transition-colors",
+                                fulfillmentType === "DELIVERY"
+                                  ? "border-primary/20 bg-primary/10"
+                                  : "border-border bg-background hover:bg-muted/40",
+                              )}
+                            >
+                              <div className="font-semibold text-foreground">Delivery</div>
+                              <div className="mt-1 text-sm text-muted-foreground">Delivered to your door</div>
+                            </button>
                           </div>
-                          <div className="rounded-[var(--radius)] border border-dashed border-border px-4 py-4">
-                            <div className="font-semibold text-foreground">Delivery</div>
-                            <div className="mt-2 text-sm text-muted-foreground">
-                              Coming soon.
+
+                          {fulfillmentType === "DELIVERY" ? (
+                            <div className="grid gap-2">
+                              <Label htmlFor="checkout-address">Delivery address</Label>
+                              <Input
+                                id="checkout-address"
+                                value={deliveryAddress}
+                                onChange={(event) => setDeliveryAddress(event.target.value)}
+                                onBlur={() => setAddressTouched(true)}
+                                disabled={Boolean(paymentSession)}
+                                placeholder="123 Main St, Apt 4B"
+                              />
+                              {showAddressError ? (
+                                <div className="text-sm text-red-600">{addressError}</div>
+                              ) : null}
                             </div>
-                          </div>
+                          ) : null}
                         </CardContent>
                       </Card>
 
                       <Card size="sm" className="gap-4 border border-border/80 bg-card shadow-sm">
                         <CardHeader className="gap-2">
                           <Badge variant="outline" className="border-border bg-background text-muted-foreground">
-                            Pickup details
+                            {fulfillmentType === "DELIVERY" ? "Delivery details" : "Pickup details"}
                           </Badge>
                           <CardTitle style={{ fontFamily: "var(--font-heading)" }}>Customer details</CardTitle>
                         </CardHeader>
@@ -456,7 +510,7 @@ export function CartSummary({
                               maxLength={ORDER_NOTE_MAX_LENGTH}
                               disabled={Boolean(paymentSession)}
                               className="min-h-24 w-full rounded-[var(--radius)] border border-input bg-background px-4 py-4 text-sm text-foreground shadow-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30"
-                              placeholder="Optional note for pickup"
+                              placeholder={fulfillmentType === "DELIVERY" ? "Optional note for delivery" : "Optional note for pickup"}
                             />
                           </div>
                         </CardContent>
@@ -550,7 +604,7 @@ export function CartSummary({
                     disabled={!canContinue}
                     onClick={() => setCheckoutMode(true)}
                   >
-                    Continue to pickup checkout
+                    Continue to checkout
                   </Button>
                 ) : (
                   <div className="grid gap-4">
@@ -570,6 +624,12 @@ export function CartSummary({
                         const hadPaymentSession = Boolean(paymentSession)
                         setPaymentSession(null)
                         setCheckoutMode(hadPaymentSession)
+                        if (!hadPaymentSession) {
+                          setFulfillmentType("PICKUP")
+                          setDeliveryAddress("")
+                          setAddressTouched(false)
+                          setSubmitAttempted(false)
+                        }
                       }}
                     >
                       {paymentSession ? "Back to details" : "Back to cart"}

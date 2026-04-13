@@ -1,5 +1,6 @@
 import { createWorkerDataAccess } from '@repo/data-access'
 import {
+  formatDeliveryEtaSms,
   formatOrderCancelledSms,
   formatOrderConfirmedSms,
   formatOrderReadySms,
@@ -93,6 +94,26 @@ export async function processNotificationBatch(
                 return formatOrderCancelledSms({
                   orderNumber,
                   restaurantName,
+                })
+              }
+
+              if (nextStatus === 'DELIVERY_ETA') {
+                const etaMinutes =
+                  typeof job.payload === 'object' &&
+                  job.payload &&
+                  'etaMinutes' in job.payload &&
+                  typeof job.payload.etaMinutes === 'number'
+                    ? job.payload.etaMinutes
+                    : null
+
+                if (!etaMinutes) {
+                  throw new Error('Missing etaMinutes for DELIVERY_ETA notification')
+                }
+
+                return formatDeliveryEtaSms({
+                  orderNumber,
+                  restaurantName,
+                  etaMinutes,
                 })
               }
 

@@ -17,6 +17,7 @@ import { registerKitchenRoutes } from './routes/kitchen.js'
 import { registerCustomerAuthRoutes } from './routes/customer-auth.js'
 import { registerOnboardingRoutes } from './routes/onboarding.js'
 import { registerStripeWebhookRoute } from './routes/stripe-webhook.js'
+import { registerAdminOrderRoutes } from './routes/admin-orders.js'
 
 export function createApp() {
   const app = express()
@@ -39,6 +40,7 @@ export function createApp() {
   registerAdminPaymentsRoutes(app)
   registerAdminMenuRoutes(app)
   registerOrderRoutes(app)
+  registerAdminOrderRoutes(app)
   registerAssistantRoutes(app)
   registerKitchenRoutes(app)
 

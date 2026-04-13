@@ -41,6 +41,8 @@ type KitchenOrder = {
   createdAt: string
   status: OrderStatus
   notes?: string | null
+  fulfillmentType: "PICKUP" | "DELIVERY"
+  deliveryAddressSnapshot: string | null
   items: KitchenOrderItem[]
 }
 
@@ -293,6 +295,34 @@ async function transitionKitchenOrder(
   }
 }
 
+async function sendKitchenDeliveryEta(
+  getToken: ClerkTokenGetter,
+  tenantSlug: string,
+  orderId: string,
+  etaMinutes: number,
+) {
+  const token = await getToken()
+  if (!token) {
+    throw new Error("Unable to authenticate your kitchen session.")
+  }
+
+  const response = await fetch(`${API_BASE_URL}/admin/orders/${orderId}/delivery-eta`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      "x-tenant-slug": tenantSlug,
+    },
+    body: JSON.stringify({ etaMinutes }),
+  })
+
+  const body = (await response.json().catch(() => null)) as { error?: string } | null
+
+  if (!response.ok) {
+    throw new Error(body?.error ?? "Failed to send delivery ETA")
+  }
+}
+
 function playAlertTone(audioContextRef: React.MutableRefObject<AudioContext | null>) {
   if (typeof window === "undefined") {
     return
@@ -455,16 +485,47 @@ function TabButton({
 
 function OrderCard({
   onAdvance,
+  onSendEta,
   order,
   updating,
 }: {
   onAdvance: (order: KitchenOrder) => void
+  onSendEta?: (etaMinutes: number) => Promise<void>
   order: KitchenOrder
   updating: boolean
 }) {
   const action = statusAction[order.status]
   const colors = statusStyles(order.status)
   const specialInstructions = order.notes?.trim() ?? ""
+  const isDelivery = order.fulfillmentType === "DELIVERY"
+  const deliveryAddress =
+    typeof order.deliveryAddressSnapshot === "string"
+      ? order.deliveryAddressSnapshot.trim()
+      : null
+
+  const [etaInput, setEtaInput] = useState("")
+  const [etaSending, setEtaSending] = useState(false)
+  const [etaSent, setEtaSent] = useState(false)
+  const [etaError, setEtaError] = useState<string | null>(null)
+
+  async function handleSendEta() {
+    const minutes = parseInt(etaInput, 10)
+    if (!minutes || minutes <= 0 || !onSendEta) {
+      setEtaError("Enter a valid number of minutes")
+      return
+    }
+    setEtaSending(true)
+    setEtaError(null)
+    try {
+      await onSendEta(minutes)
+      setEtaSent(true)
+      setEtaInput("")
+    } catch (error) {
+      setEtaError(error instanceof Error ? error.message : "Failed to send ETA")
+    } finally {
+      setEtaSending(false)
+    }
+  }
 
   return (
     <section
@@ -488,19 +549,66 @@ function OrderCard({
         }}
       >
         <div style={{ display: "grid", gap: "8px" }}>
-          <div
-            style={{
-              fontSize: "36px",
-              fontWeight: 800,
-              lineHeight: 1,
-              letterSpacing: "-0.04em",
-            }}
-          >
-            #{order.orderNumber}
+          <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+            <div
+              style={{
+                fontSize: "36px",
+                fontWeight: 800,
+                lineHeight: 1,
+                letterSpacing: "-0.04em",
+              }}
+            >
+              #{order.orderNumber}
+            </div>
+            {isDelivery ? (
+              <div
+                style={{
+                  borderRadius: "999px",
+                  padding: "4px 12px",
+                  background: "rgba(251,146,60,0.2)",
+                  color: "#fed7aa",
+                  border: "1px solid rgba(251,146,60,0.3)",
+                  fontSize: "13px",
+                  fontWeight: 700,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                }}
+              >
+                Delivery
+              </div>
+            ) : null}
           </div>
           <div style={{ fontSize: "26px", fontWeight: 700, lineHeight: 1.1 }}>
             {order.customerNameSnapshot || "Guest"}
           </div>
+          {isDelivery && deliveryAddress ? (
+            <div
+              style={{
+                borderRadius: "12px",
+                background: "rgba(251,146,60,0.12)",
+                border: "1px solid rgba(251,146,60,0.25)",
+                color: "#fed7aa",
+                padding: "10px 14px",
+                fontSize: "15px",
+                fontWeight: 600,
+                lineHeight: 1.4,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: "11px",
+                  fontWeight: 800,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.08em",
+                  marginBottom: "4px",
+                  opacity: 0.7,
+                }}
+              >
+                Delivery address
+              </div>
+              {deliveryAddress}
+            </div>
+          ) : null}
           <div style={{ display: "grid", gap: "4px", color: "#d1d5db" }}>
             <div style={{ fontSize: "18px", fontWeight: 700 }}>
               {formatElapsedTime(order.createdAt)}
@@ -608,6 +716,83 @@ function OrderCard({
           )
         })}
       </div>
+
+      {isDelivery && onSendEta ? (
+        <div
+          style={{
+            borderRadius: "16px",
+            background: "rgba(255,255,255,0.05)",
+            border: "1px solid rgba(251,146,60,0.2)",
+            padding: "14px 16px",
+            display: "grid",
+            gap: "10px",
+          }}
+        >
+          <div
+            style={{
+              fontSize: "13px",
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.06em",
+              color: "#fed7aa",
+            }}
+          >
+            Send delivery ETA
+          </div>
+          <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+            <input
+              type="number"
+              min={1}
+              value={etaInput}
+              onChange={(event) => {
+                setEtaInput(event.target.value)
+                setEtaSent(false)
+              }}
+              placeholder="Minutes"
+              disabled={etaSending}
+              style={{
+                flex: 1,
+                minHeight: "44px",
+                borderRadius: "10px",
+                border: "1px solid rgba(255,255,255,0.15)",
+                background: "rgba(255,255,255,0.08)",
+                color: "#f9fafb",
+                padding: "0 12px",
+                fontSize: "16px",
+                fontWeight: 600,
+                outline: "none",
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => void handleSendEta()}
+              disabled={etaSending || !etaInput}
+              style={{
+                minHeight: "44px",
+                borderRadius: "10px",
+                border: "none",
+                background: etaSending ? "rgba(251,146,60,0.4)" : "#f97316",
+                color: "#111827",
+                padding: "0 16px",
+                fontSize: "15px",
+                fontWeight: 800,
+                cursor: etaSending || !etaInput ? "not-allowed" : "pointer",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {etaSending ? "Sending…" : "Send ETA"}
+            </button>
+          </div>
+          {etaSent ? (
+            <div style={{ fontSize: "14px", color: "#86efac", fontWeight: 600 }}>
+              SMS sent to customer
+            </div>
+          ) : null}
+          {etaError ? (
+            <div style={{ fontSize: "14px", color: "#fca5a5" }}>{etaError}</div>
+          ) : null}
+        </div>
+      ) : null}
 
       {action ? (
         <button
@@ -719,6 +904,10 @@ const KitchenDashboard: React.FC<{
   useEffect(() => {
     writeSoundPreference(soundEnabled)
   }, [soundEnabled])
+
+  async function handleSendDeliveryEta(orderId: string, etaMinutes: number) {
+    await sendKitchenDeliveryEta(getToken, tenantSlug, orderId, etaMinutes)
+  }
 
   async function handleAdvance(order: KitchenOrder) {
     if (!tenantSlug) {
@@ -987,6 +1176,11 @@ const KitchenDashboard: React.FC<{
               order={order}
               updating={updatingOrderId === order.id}
               onAdvance={handleAdvance}
+              onSendEta={
+                order.fulfillmentType === "DELIVERY"
+                  ? (etaMinutes) => handleSendDeliveryEta(order.id, etaMinutes)
+                  : undefined
+              }
             />
           ))}
         </div>

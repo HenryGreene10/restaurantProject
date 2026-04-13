@@ -1801,6 +1801,63 @@ export function createTenantDataAccess(scope: TenantScope) {
         })
       })
     },
+
+    async enqueueDeliveryEtaNotification(orderId: string, etaMinutes: number) {
+      return withTenantConnection(scope.restaurantId, async (prisma) => {
+        const existing = await prisma.order.findFirst({
+          where: scoped.scopeWhere({ id: orderId }),
+          include: {
+            restaurant: true,
+            customer: true,
+          },
+        })
+
+        if (!existing) {
+          return null
+        }
+
+        const customerPhone =
+          existing.customerPhoneSnapshot ?? existing.customer?.phone ?? null
+        if (!customerPhone) {
+          return null
+        }
+
+        const brandConfig = await prisma.brandConfig.findUnique({
+          where: { restaurantId: scope.restaurantId },
+        })
+
+        const rawConfig =
+          brandConfig?.config &&
+          typeof brandConfig.config === "object" &&
+          !Array.isArray(brandConfig.config)
+            ? (brandConfig.config as Record<string, unknown>)
+            : {}
+
+        const restaurantName = resolveRestaurantDisplayName({
+          appTitle:
+            typeof rawConfig.appTitle === "string" ? rawConfig.appTitle : null,
+          restaurantSlug: existing.restaurant.slug,
+          restaurantName: existing.restaurant.name,
+        })
+
+        return prisma.notificationJob.create({
+          data: scoped.scopeCreate({
+            orderId,
+            customerId: existing.customerId ?? null,
+            type: "ORDER_STATUS" satisfies NotificationJobType,
+            status: "PENDING",
+            payload: {
+              orderId,
+              orderNumber: existing.orderNumber,
+              customerPhone,
+              restaurantName,
+              newStatus: "DELIVERY_ETA",
+              etaMinutes,
+            },
+          }),
+        })
+      })
+    },
   }
 
   const payments = {

@@ -40,16 +40,19 @@ export async function createCheckoutPaymentIntent(input: {
   customerName: string
   customerPhone: string
   orderNotes: string | null
+  fulfillmentType: "PICKUP" | "DELIVERY"
+  deliveryAddress: string | null
   items: CartItem[]
 }) {
   const response = await fetch(`${API_BASE_URL}/v1/checkouts/create-payment-intent`, {
     method: "POST",
     headers: authHeaders(input.tenantSlug, input.accessToken, true),
     body: JSON.stringify({
-      type: "PICKUP",
+      type: input.fulfillmentType,
       customerName: input.customerName,
       customerPhone: input.customerPhone,
       notes: input.orderNotes,
+      deliveryAddress: input.deliveryAddress ?? undefined,
       items: input.items.map((item) => ({
         itemId: item.itemId,
         variantId: item.variantId,

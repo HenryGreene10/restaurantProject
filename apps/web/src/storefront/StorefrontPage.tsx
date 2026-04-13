@@ -244,6 +244,8 @@ export function StorefrontPage({
     customerName: string
     customerPhone: string
     orderNotes: string | null
+    fulfillmentType: "PICKUP" | "DELIVERY"
+    deliveryAddress: string | null
   }): Promise<CheckoutPaymentIntentSession> {
     return createCheckoutPaymentIntent({
       tenantSlug,
@@ -251,6 +253,8 @@ export function StorefrontPage({
       customerName: payload.customerName,
       customerPhone: payload.customerPhone,
       orderNotes: payload.orderNotes,
+      fulfillmentType: payload.fulfillmentType,
+      deliveryAddress: payload.deliveryAddress,
       items: cartItems,
     })
   }

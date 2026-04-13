@@ -58,3 +58,11 @@ export function formatOrderCancelledSms(input: {
 }) {
   return `Your order #${input.orderNumber} at ${input.restaurantName} has been cancelled. Please contact the restaurant for help.`
 }
+
+export function formatDeliveryEtaSms(input: {
+  orderNumber: number
+  restaurantName: string
+  etaMinutes: number
+}) {
+  return `Your order #${input.orderNumber} from ${input.restaurantName} is on its way! Estimated arrival: ${input.etaMinutes} minutes.`
+}
