@@ -1787,7 +1787,7 @@ export const App: React.FC = () => {
         title="Overview"
         subtitle="A quick snapshot of the restaurant setup before you edit the storefront."
       >
-        <div className="grid gap-4 xl:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
           <OverviewMetricCard
             label="Stripe status"
             value={isStripeLoading ? "Checking…" : stripeStatusLabel}
@@ -1994,7 +1994,9 @@ export const App: React.FC = () => {
                   <div className="truncate text-sm font-semibold text-foreground">
                     {restaurantDisplayName}
                   </div>
-                  <div className="truncate text-xs text-muted-foreground">{linkedTenantSlug}</div>
+                  <div className="max-w-full overflow-hidden text-ellipsis whitespace-nowrap text-xs text-muted-foreground">
+                    {linkedTenantSlug}
+                  </div>
                 </div>
               </div>
             </div>
@@ -2166,12 +2168,12 @@ function OverviewMetricCard({
   value: string
 }) {
   return (
-    <div className="grid gap-1.5 rounded-[var(--radius)] border border-border/70 bg-background px-4 py-4">
-      <div className="text-xs uppercase tracking-[0.14em] text-muted-foreground">{label}</div>
-      <div className="break-words text-[1.35rem] font-semibold leading-7 text-foreground sm:text-[1.5rem]">
+    <div className="min-w-0 grid gap-1.5 rounded-[var(--radius)] border border-border/70 bg-background px-4 py-4">
+      <div className="text-[10px] uppercase tracking-[0.14em] text-muted-foreground">{label}</div>
+      <div className="overflow-hidden text-ellipsis whitespace-nowrap text-base font-semibold leading-6 text-foreground">
         {value}
       </div>
-      <div className="text-[13px] leading-5 text-muted-foreground">{hint}</div>
+      <div className="text-xs leading-4 text-muted-foreground">{hint}</div>
     </div>
   )
 }
