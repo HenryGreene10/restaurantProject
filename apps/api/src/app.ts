@@ -18,6 +18,8 @@ import { registerCustomerAuthRoutes } from './routes/customer-auth.js'
 import { registerOnboardingRoutes } from './routes/onboarding.js'
 import { registerStripeWebhookRoute } from './routes/stripe-webhook.js'
 import { registerAdminOrderRoutes } from './routes/admin-orders.js'
+import { registerCloudPrntRoutes } from './routes/cloudprnt.js'
+import { registerAdminPrintingRoutes } from './routes/admin-printing.js'
 
 export function createApp() {
   const app = express()
@@ -29,6 +31,7 @@ export function createApp() {
 
   registerHealthRoutes(app)
   registerOnboardingRoutes(app)
+  registerCloudPrntRoutes(app)
   app.use('/admin', requireClerkAuth)
   app.use('/v1/assistant/command', requireClerkAuth)
   app.use(tenantMiddleware)
@@ -38,6 +41,7 @@ export function createApp() {
   registerAdminBrandRoutes(app)
   registerAdminInsightsRoutes(app)
   registerAdminPaymentsRoutes(app)
+  registerAdminPrintingRoutes(app)
   registerAdminMenuRoutes(app)
   registerOrderRoutes(app)
   registerAdminOrderRoutes(app)

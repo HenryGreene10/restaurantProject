@@ -15,6 +15,15 @@ export type StripeConnectedTenant = {
   stripePayoutsEnabled: boolean
 }
 
+export type CloudPrntRestaurant = {
+  id: string
+  slug: string
+  timezone: string
+  cloudPrntEnabled: boolean
+  cloudPrntMacAddress: string | null
+  pendingPrintJob: string | null
+}
+
 export type AdminAccess = {
   adminUserId: string
   clerkUserId: string
@@ -92,6 +101,22 @@ export function createPlatformDataAccess() {
   const prisma = getInternalPrismaClient()
 
   return {
+    async getRestaurantById(restaurantId: string): Promise<CloudPrntRestaurant | null> {
+      const restaurant = await prisma.restaurant.findUnique({
+        where: { id: restaurantId },
+        select: {
+          id: true,
+          slug: true,
+          timezone: true,
+          cloudPrntEnabled: true,
+          cloudPrntMacAddress: true,
+          pendingPrintJob: true,
+        },
+      })
+
+      return restaurant
+    },
+
     async findTenantBySlug(slug: string): Promise<ResolvedTenant | null> {
       const restaurant = await prisma.restaurant.findUnique({
         where: { slug: normalizeSlug(slug) }
@@ -162,6 +187,24 @@ export function createPlatformDataAccess() {
         stripeChargesEnabled: restaurant.stripeChargesEnabled,
         stripePayoutsEnabled: restaurant.stripePayoutsEnabled,
       }
+    },
+
+    async findRestaurantByCloudPrntMacAddress(
+      cloudPrntMacAddress: string,
+    ): Promise<CloudPrntRestaurant | null> {
+      const restaurant = await prisma.restaurant.findFirst({
+        where: { cloudPrntMacAddress },
+        select: {
+          id: true,
+          slug: true,
+          timezone: true,
+          cloudPrntEnabled: true,
+          cloudPrntMacAddress: true,
+          pendingPrintJob: true,
+        },
+      })
+
+      return restaurant
     },
 
     async findAdminAccessByClerkUserId(clerkUserId: string): Promise<AdminAccess | null> {
@@ -296,6 +339,18 @@ export function createPlatformDataAccess() {
           stripePayoutsEnabled: input.payoutsEnabled,
         },
       })
-    }
+    },
+
+    async updateRestaurantPendingPrintJob(
+      restaurantId: string,
+      pendingPrintJob: string | null,
+    ) {
+      return prisma.restaurant.update({
+        where: { id: restaurantId },
+        data: {
+          pendingPrintJob,
+        },
+      })
+    },
   }
 }

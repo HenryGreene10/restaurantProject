@@ -17,6 +17,7 @@
       "@repo/data-access": ["packages/data-access/src"],
       "@repo/ai": ["packages/ai-assistant/src"],
       "@repo/notify": ["packages/notifications/src"],
+      "@repo/notifications": ["packages/notifications/src"],
       "@repo/payments": ["packages/payments/src"],
       "@repo/ui": ["packages/ui-common/src"]
     }

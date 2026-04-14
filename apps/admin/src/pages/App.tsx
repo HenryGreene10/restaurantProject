@@ -29,6 +29,7 @@ import {
   LayoutDashboard,
   LogOut,
   Palette,
+  Printer,
   Sparkles,
   Star,
   Store,
@@ -92,6 +93,11 @@ type StripeStatus = {
   chargesEnabled: boolean
   payoutsEnabled: boolean
   status: "not_connected" | "onboarding_required" | "active"
+}
+
+type PrintingSettings = {
+  enabled: boolean
+  macAddress: string | null
 }
 
 const defaultThemeDraft: ThemeDraft = {
@@ -981,6 +987,17 @@ export const App: React.FC = () => {
   const [stripeMessage, setStripeMessage] = useState<string | null>(null)
   const [isStripeLoading, setIsStripeLoading] = useState(true)
   const [isStripeLaunching, setIsStripeLaunching] = useState(false)
+  const [printingSettings, setPrintingSettings] = useState<PrintingSettings>({
+    enabled: false,
+    macAddress: "",
+  })
+  const [savedPrintingSettings, setSavedPrintingSettings] = useState<PrintingSettings>({
+    enabled: false,
+    macAddress: "",
+  })
+  const [printingMessage, setPrintingMessage] = useState<string | null>(null)
+  const [isPrintingLoading, setIsPrintingLoading] = useState(true)
+  const [isPrintingSaving, setIsPrintingSaving] = useState(false)
   const [isBrandingUploadInProgress, setIsBrandingUploadInProgress] = useState(false)
   const [activeSection, setActiveSection] = useState<AdminSection>("overview")
   const [overviewOrdersToday, setOverviewOrdersToday] = useState(0)
@@ -1081,6 +1098,13 @@ export const App: React.FC = () => {
     })
   }
 
+  async function loadPrintingSettings() {
+    return adminFetchJson<PrintingSettings>("/admin/restaurant/printing", {
+      tenantSlug: linkedTenantSlug,
+      getToken,
+    })
+  }
+
   async function loadOverviewOrders() {
     return adminFetchJson<{ orders: OverviewOrder[] }>("/v1/kitchen/orders", {
       tenantSlug: linkedTenantSlug,
@@ -1147,6 +1171,7 @@ export const App: React.FC = () => {
     if (!tenantSlug) {
       setIsLoading(false)
       setIsStripeLoading(false)
+      setIsPrintingLoading(false)
       setIsOverviewLoading(false)
       setOverviewOrdersToday(0)
       setInsightsData(null)
@@ -1158,6 +1183,9 @@ export const App: React.FC = () => {
       setError(null)
       setStripeStatus(null)
       setStripeMessage(null)
+      setPrintingSettings({ enabled: false, macAddress: "" })
+      setSavedPrintingSettings({ enabled: false, macAddress: "" })
+      setPrintingMessage(null)
       return
     }
 
@@ -1170,11 +1198,13 @@ export const App: React.FC = () => {
       setSaveMessage(null)
       setMenuActionMessage(null)
       setStripeMessage(null)
+      setPrintingMessage(null)
 
       try {
-        const [menu, nextStripeStatus] = await Promise.all([
+        const [menu, nextStripeStatus, nextPrintingSettings] = await Promise.all([
           fetchTenantMenu(linkedTenantSlug, getToken),
           loadStripeStatus(),
+          loadPrintingSettings(),
         ])
         const overviewOrdersResult = await loadOverviewOrders().catch(() => ({ orders: [] }))
         if (cancelled) return
@@ -1185,6 +1215,8 @@ export const App: React.FC = () => {
         setSavedTheme(nextTheme)
         setDraftTheme(nextTheme)
         setStripeStatus(nextStripeStatus)
+        setPrintingSettings(nextPrintingSettings)
+        setSavedPrintingSettings(nextPrintingSettings)
         setOverviewOrdersToday(
           overviewOrdersResult.orders.filter((order) => new Date(order.createdAt) >= startOfToday)
             .length,
@@ -1196,6 +1228,7 @@ export const App: React.FC = () => {
         if (!cancelled) {
           setIsLoading(false)
           setIsStripeLoading(false)
+          setIsPrintingLoading(false)
           setIsOverviewLoading(false)
         }
       }
@@ -1676,12 +1709,38 @@ export const App: React.FC = () => {
     }
   }
 
+  const savePrintingSettings = async () => {
+    setIsPrintingSaving(true)
+    setPrintingMessage(null)
+
+    try {
+      const nextSettings = await patchAdminJson<PrintingSettings>("/admin/restaurant/printing", {
+        enabled: printingSettings.enabled,
+        macAddress: printingSettings.macAddress?.trim() || "",
+      })
+
+      setPrintingSettings(nextSettings)
+      setSavedPrintingSettings(nextSettings)
+      setPrintingMessage("Printing settings saved.")
+    } catch (nextError) {
+      setPrintingMessage(
+        nextError instanceof Error ? nextError.message : "Failed to save printing settings",
+      )
+    } finally {
+      setIsPrintingSaving(false)
+    }
+  }
+
   const stripeStatusLabel =
     stripeStatus?.status === "active"
       ? "Connected and ready"
       : stripeStatus?.status === "onboarding_required"
         ? "Onboarding required"
         : "Not connected"
+  const isPrintingDirty =
+    JSON.stringify(printingSettings) !== JSON.stringify(savedPrintingSettings)
+  const printingStatusLabel =
+    printingSettings.enabled && printingSettings.macAddress ? "Printer connected" : "Not configured"
   const restaurantDisplayName =
     draftTheme.appTitle.trim() || stripeStatus?.displayName || linkedTenantSlug
   const userDisplayName =
@@ -1692,93 +1751,191 @@ export const App: React.FC = () => {
   const storefrontUrl = storefrontUrlForTenant(linkedTenantSlug)
 
   const paymentsPanel = (
-    <SectionCard
-      title="Stripe payouts"
-      subtitle="Connect the restaurant to Stripe before enabling live card payments."
-    >
-      <div className="grid gap-4">
-        <div className="flex items-start justify-between gap-4 rounded-[var(--radius)] border border-border/70 bg-background px-4 py-4">
-          <div className="grid gap-2">
-            <div className="flex items-center gap-2 text-sm font-medium text-foreground">
-              <CreditCard className="h-4 w-4 text-primary" />
-              {stripeStatus?.displayName ?? "Restaurant payouts"}
+    <div className="grid gap-6">
+      <SectionCard
+        title="Stripe payouts"
+        subtitle="Connect the restaurant to Stripe before enabling live card payments."
+      >
+        <div className="grid gap-4">
+          <div className="flex items-start justify-between gap-4 rounded-[var(--radius)] border border-border/70 bg-background px-4 py-4">
+            <div className="grid gap-2">
+              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <CreditCard className="h-4 w-4 text-primary" />
+                {stripeStatus?.displayName ?? "Restaurant payouts"}
+              </div>
+              <div className="text-sm text-muted-foreground">
+                {isStripeLoading ? "Checking Stripe onboarding status…" : stripeStatusLabel}
+              </div>
             </div>
-            <div className="text-sm text-muted-foreground">
-              {isStripeLoading ? "Checking Stripe onboarding status…" : stripeStatusLabel}
-            </div>
+            <Badge
+              variant="outline"
+              className={cn(
+                "border-border bg-card",
+                stripeStatus?.status === "active" && "border-primary/30 text-foreground",
+              )}
+            >
+              {stripeStatusLabel}
+            </Badge>
           </div>
-          <Badge
-            variant="outline"
-            className={cn(
-              "border-border bg-card",
-              stripeStatus?.status === "active" && "border-primary/30 text-foreground",
-            )}
-          >
-            {stripeStatusLabel}
-          </Badge>
-        </div>
 
-        {stripeStatus ? (
-          <div className="grid gap-2 rounded-[var(--radius)] border border-border/70 bg-background px-4 py-4 text-sm text-muted-foreground">
-            <div className="flex items-center justify-between gap-4">
-              <span>Charges enabled</span>
-              <span className="font-medium text-foreground">
-                {stripeStatus.chargesEnabled ? "Yes" : "No"}
-              </span>
-            </div>
-            <div className="flex items-center justify-between gap-4">
-              <span>Payouts enabled</span>
-              <span className="font-medium text-foreground">
-                {stripeStatus.payoutsEnabled ? "Yes" : "No"}
-              </span>
-            </div>
-            {stripeStatus.stripeAccountId ? (
+          {stripeStatus ? (
+            <div className="grid gap-2 rounded-[var(--radius)] border border-border/70 bg-background px-4 py-4 text-sm text-muted-foreground">
               <div className="flex items-center justify-between gap-4">
-                <span>Stripe account</span>
-                <span className="truncate text-xs text-foreground">
-                  {stripeStatus.stripeAccountId}
+                <span>Charges enabled</span>
+                <span className="font-medium text-foreground">
+                  {stripeStatus.chargesEnabled ? "Yes" : "No"}
                 </span>
               </div>
-            ) : null}
-          </div>
-        ) : null}
+              <div className="flex items-center justify-between gap-4">
+                <span>Payouts enabled</span>
+                <span className="font-medium text-foreground">
+                  {stripeStatus.payoutsEnabled ? "Yes" : "No"}
+                </span>
+              </div>
+              {stripeStatus.stripeAccountId ? (
+                <div className="flex items-center justify-between gap-4">
+                  <span>Stripe account</span>
+                  <span className="truncate text-xs text-foreground">
+                    {stripeStatus.stripeAccountId}
+                  </span>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
 
-        {stripeMessage ? (
-          <div className="rounded-[var(--radius)] border border-destructive/20 bg-destructive/10 px-4 py-4 text-sm text-destructive">
-            {stripeMessage}
-          </div>
-        ) : null}
+          {stripeMessage ? (
+            <div className="rounded-[var(--radius)] border border-destructive/20 bg-destructive/10 px-4 py-4 text-sm text-destructive">
+              {stripeMessage}
+            </div>
+          ) : null}
 
-        <Button
-          type="button"
-          className="min-h-11 justify-between"
-          disabled={isStripeLaunching || !stripeStatus?.configured}
-          onClick={() => void launchStripeOnboarding()}
-        >
-          <span>
-            {stripeStatus?.status === "active"
-              ? "Review Stripe account"
-              : stripeStatus?.status === "onboarding_required"
-                ? "Continue Stripe onboarding"
-                : "Connect Stripe"}
-          </span>
-          <ExternalLink className="h-4 w-4" />
-        </Button>
+          <Button
+            type="button"
+            className="min-h-11 justify-between"
+            disabled={isStripeLaunching || !stripeStatus?.configured}
+            onClick={() => void launchStripeOnboarding()}
+          >
+            <span>
+              {stripeStatus?.status === "active"
+                ? "Review Stripe account"
+                : stripeStatus?.status === "onboarding_required"
+                  ? "Continue Stripe onboarding"
+                  : "Connect Stripe"}
+            </span>
+            <ExternalLink className="h-4 w-4" />
+          </Button>
 
-        {!stripeStatus?.configured ? (
-          <div className="text-sm text-muted-foreground">
-            Stripe is not configured yet. Add the Stripe env values before onboarding a restaurant.
-          </div>
-        ) : null}
+          {!stripeStatus?.configured ? (
+            <div className="text-sm text-muted-foreground">
+              Stripe is not configured yet. Add the Stripe env values before onboarding a restaurant.
+            </div>
+          ) : null}
 
-        {stripeStatus?.status === "active" ? (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <CheckCircle2 className="h-4 w-4 text-primary" />
-            This restaurant can take live card payments.
+          {stripeStatus?.status === "active" ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <CheckCircle2 className="h-4 w-4 text-primary" />
+              This restaurant can take live card payments.
+            </div>
+          ) : null}
+        </div>
+      </SectionCard>
+
+      <SectionCard
+        title="Printing"
+        subtitle="Configure a Star CloudPRNT printer for automatic kitchen ticket printing."
+      >
+        <div className="grid gap-4">
+          <div className="flex items-start justify-between gap-4 rounded-[var(--radius)] border border-border/70 bg-background px-4 py-4">
+            <div className="grid gap-2">
+              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                <Printer className="h-4 w-4 text-primary" />
+                Automatic kitchen printing
+              </div>
+              <div className="text-sm text-muted-foreground">
+                {isPrintingLoading ? "Loading printer settings…" : printingStatusLabel}
+              </div>
+            </div>
+            <Badge
+              variant="outline"
+              className={cn(
+                "border-border bg-card",
+                printingSettings.enabled &&
+                  printingSettings.macAddress &&
+                  "border-primary/30 text-foreground",
+              )}
+            >
+              {printingStatusLabel}
+            </Badge>
           </div>
-        ) : null}
-      </div>
-    </SectionCard>
+
+          <label className="flex items-start gap-3 rounded-[var(--radius)] border border-border/70 bg-background px-4 py-4 text-sm text-foreground">
+            <input
+              type="checkbox"
+              className="mt-1 h-4 w-4 rounded border-border"
+              checked={printingSettings.enabled}
+              onChange={(event) => {
+                setPrintingSettings((current) => ({
+                  ...current,
+                  enabled: event.target.checked,
+                }))
+                setPrintingMessage(null)
+              }}
+            />
+            <div className="grid gap-1">
+              <span className="font-medium">Enable automatic printing</span>
+              <span className="text-muted-foreground">
+                When enabled, new paid orders are queued for the configured Star printer.
+              </span>
+            </div>
+          </label>
+
+          <div className="grid gap-2">
+            <Label htmlFor="printer-mac-address">Printer MAC address</Label>
+            <Input
+              id="printer-mac-address"
+              value={printingSettings.macAddress ?? ""}
+              placeholder="XX:XX:XX:XX:XX:XX"
+              spellCheck={false}
+              autoCapitalize="characters"
+              onChange={(event) => {
+                setPrintingSettings((current) => ({
+                  ...current,
+                  macAddress: event.target.value.toUpperCase(),
+                }))
+                setPrintingMessage(null)
+              }}
+            />
+            <div className="text-sm text-muted-foreground">
+              Find this on your printer&apos;s configuration sheet. Format:
+              {" "}
+              XX:XX:XX:XX:XX:XX
+            </div>
+          </div>
+
+          {printingMessage ? (
+            <div
+              className={cn(
+                "rounded-[var(--radius)] px-4 py-4 text-sm",
+                printingMessage === "Printing settings saved."
+                  ? "border border-primary/20 bg-primary/10 text-foreground"
+                  : "border border-destructive/20 bg-destructive/10 text-destructive",
+              )}
+            >
+              {printingMessage}
+            </div>
+          ) : null}
+
+          <Button
+            type="button"
+            className="min-h-11"
+            disabled={isPrintingLoading || isPrintingSaving || !isPrintingDirty}
+            onClick={() => void savePrintingSettings()}
+          >
+            {isPrintingSaving ? "Saving…" : "Save"}
+          </Button>
+        </div>
+      </SectionCard>
+    </div>
   )
 
   const overviewPanel = (

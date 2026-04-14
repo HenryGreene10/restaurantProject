@@ -1925,6 +1925,45 @@ export function createTenantDataAccess(scope: TenantScope) {
     },
   }
 
+  const printing = {
+    async getSettings() {
+      return withTenantConnection(scope.restaurantId, async (prisma) => {
+        const restaurant = await prisma.restaurant.findUnique({
+          where: { id: scope.restaurantId },
+          select: {
+            cloudPrntEnabled: true,
+            cloudPrntMacAddress: true,
+          },
+        })
+
+        if (!restaurant) {
+          throw notFound("Restaurant")
+        }
+
+        return restaurant
+      })
+    },
+
+    async updateSettings(input: {
+      cloudPrntEnabled: boolean
+      cloudPrntMacAddress: string | null
+    }) {
+      return withTenantConnection(scope.restaurantId, async (prisma) => {
+        return prisma.restaurant.update({
+          where: { id: scope.restaurantId },
+          data: {
+            cloudPrntEnabled: input.cloudPrntEnabled,
+            cloudPrntMacAddress: input.cloudPrntMacAddress,
+          },
+          select: {
+            cloudPrntEnabled: true,
+            cloudPrntMacAddress: true,
+          },
+        })
+      })
+    },
+  }
+
   return {
     brand,
     scope,
@@ -1933,5 +1972,6 @@ export function createTenantDataAccess(scope: TenantScope) {
     checkouts,
     orders,
     payments,
+    printing,
   }
 }

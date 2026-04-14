@@ -103,6 +103,9 @@ model Restaurant {
   stripeAccountId      String?                @unique
   stripeChargesEnabled Boolean                @default(false)
   stripePayoutsEnabled Boolean                @default(false)
+  cloudPrntMacAddress  String?
+  cloudPrntEnabled     Boolean                @default(false)
+  pendingPrintJob      String?
   createdAt            DateTime               @default(now())
   updatedAt            DateTime               @updatedAt
   brandConfig          BrandConfig?

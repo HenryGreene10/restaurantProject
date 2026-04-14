@@ -5,11 +5,26 @@ import {
   createTenantDataAccess,
   createTenantScope,
 } from '@repo/data-access'
+import { buildKitchenTicket } from '@repo/notifications'
 import {
   retrieveDirectChargePaymentIntent,
   verifyStripeWebhookEvent,
 } from '@repo/payments'
 import { env } from '../config/env.js'
+
+async function enqueuePrintJob(
+  order: Parameters<typeof buildKitchenTicket>[0],
+  restaurantId: string,
+) {
+  const platformDataAccess = createPlatformDataAccess()
+  const restaurant = await platformDataAccess.getRestaurantById(restaurantId)
+  if (!restaurant?.cloudPrntEnabled || !restaurant.cloudPrntMacAddress) {
+    return
+  }
+
+  const ticket = buildKitchenTicket(order)
+  await platformDataAccess.updateRestaurantPendingPrintJob(restaurantId, ticket)
+}
 
 export function registerStripeWebhookRoute(app: Express) {
   app.post(
@@ -89,7 +104,12 @@ export function registerStripeWebhookRoute(app: Express) {
           }
 
           await tenantDataAccess.checkouts.markPaymentSucceededByIntent(paymentIntent.id)
-          await tenantDataAccess.checkouts.createOrderFromCheckoutSession(checkoutSession.id)
+          const orderResult =
+            await tenantDataAccess.checkouts.createOrderFromCheckoutSession(checkoutSession.id)
+
+          if (orderResult.kind === 'created') {
+            await enqueuePrintJob(orderResult.order, tenant.id)
+          }
         }
 
         if (event.type === 'payment_intent.payment_failed') {

@@ -4,6 +4,8 @@ export type SmsConfig = {
   messagingServiceSid: string
 }
 
+export { buildKitchenTicket } from "./escpos.js"
+
 export type SMS = { to: string; body: string }
 
 function twilioAuthHeader(config: SmsConfig) {
