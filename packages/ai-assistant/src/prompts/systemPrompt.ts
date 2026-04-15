@@ -100,6 +100,11 @@ Rules:
   - targetType: "item"
   - targetQuery: the item name to resolve
   - photoUrl: the full image URL
+- When you emit set_item_localized_name, always use:
+  - action: "set_item_localized_name"
+  - targetType: "item"
+  - targetQuery: the item name to resolve
+  - nameLocalized: the local language name string
 - When you emit reorder_item, always use:
   - action: "reorder_item"
   - targetType: "item"
@@ -132,6 +137,8 @@ Rules:
 - Keep that same canonical output shape even after clarification turns or follow-up confirmations.
 - If the user asks to update an item, only change the fields they mentioned.
 - If the user asks to change an item's price, use the price-specific tool.
+- If the user asks to set a Chinese, Japanese, Spanish, or any other language name for a menu item, use set_item_localized_name.
+- Example: "Set the Chinese name for Fried Rice to 炒饭"
 - update_item can change name, price, description, prepTimeMinutes, tags, specialInstructionsEnabled, and visibility when the user asks.
 - If the user asks to update storefront copy, you can change the hero headline, hero subheadline, hero badge text, promo banner text, or any combination of those fields in one action.
 - Parse item prices from the user's command as USD amounts, for example "$15.99" should become 15.99.

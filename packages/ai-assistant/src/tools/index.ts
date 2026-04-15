@@ -8,6 +8,7 @@ import { scheduleCategoryTool } from "./scheduleCategory.js"
 import { setCategoryVisibilityTool } from "./setCategoryVisibility.js"
 import { setItemFeaturedTool } from "./setItemFeatured.js"
 import { setItemImageTool } from "./setItemImage.js"
+import { setItemLocalizedNameTool } from "./setItemLocalizedName.js"
 import { setItemPriceTool } from "./setItemPrice.js"
 import { setItemVisibilityTool } from "./setItemVisibility.js"
 import { toggleSpecialInstructionsTool } from "./toggleSpecialInstructions.js"
@@ -28,6 +29,7 @@ export const assistantMutationTools = {
   set_item_visibility: setItemVisibilityTool,
   set_item_featured: setItemFeaturedTool,
   set_item_image: setItemImageTool,
+  set_item_localized_name: setItemLocalizedNameTool,
   set_item_price: setItemPriceTool,
   set_category_visibility: setCategoryVisibilityTool,
   toggle_special_instructions: toggleSpecialInstructionsTool,

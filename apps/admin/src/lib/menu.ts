@@ -50,6 +50,7 @@ export type ItemModifierGroup = {
 export type MenuItem = {
   id: string
   name: string
+  nameLocalized?: string | null
   description: string | null
   basePriceCents: number
   photoUrl?: string | null

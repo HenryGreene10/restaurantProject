@@ -50,6 +50,7 @@ export type MenuVisibility = "AVAILABLE" | "SOLD_OUT" | "HIDDEN" | "SCHEDULED" |
 export type MenuItem = {
   id: string
   name: string
+  nameLocalized?: string | null
   description: string | null
   basePriceCents: number
   photoUrl?: string | null

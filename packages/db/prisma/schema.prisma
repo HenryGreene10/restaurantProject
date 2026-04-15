@@ -257,6 +257,7 @@ model MenuItem {
   id                         String                  @id @default(uuid())
   restaurantId               String
   name                       String
+  nameLocalized              String?
   description                String?
   photoUrl                   String?
   basePriceCents             Int
@@ -421,6 +422,7 @@ model OrderItem {
   restaurantId   String
   itemId         String?
   name           String
+  nameLocalized  String?
   variantName    String?
   quantity       Int
   unitPriceCents Int

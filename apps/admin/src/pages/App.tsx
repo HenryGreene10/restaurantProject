@@ -1586,6 +1586,16 @@ export const App: React.FC = () => {
     }
   }
 
+  const updateItemLocalizedName = async (itemId: string, nameLocalized: string) => {
+    await updateItemPresentation(
+      itemId,
+      {
+        nameLocalized: nameLocalized.trim() ? nameLocalized.trim() : null,
+      },
+      nameLocalized.trim() ? "Localized item name updated." : "Localized item name removed.",
+    )
+  }
+
   const updateItemVisibility = async (
     itemId: string,
     visibility: CategoryItemEntry["item"]["visibility"],
@@ -2025,6 +2035,9 @@ export const App: React.FC = () => {
               { photoUrl },
               photoUrl ? "Item image updated." : "Item image removed.",
             )
+          }
+          onItemLocalizedNameChange={(itemId, nameLocalized) =>
+            void updateItemLocalizedName(itemId, nameLocalized)
           }
           onItemReorder={reorderCategoryItem}
           onItemVisibilityChange={updateItemVisibility}
@@ -3045,6 +3058,7 @@ function MenuTab({
   onDeleteItem,
   onItemFeaturedChange,
   onItemImageChange,
+  onItemLocalizedNameChange,
   onItemReorder,
   onItemVisibilityChange,
 }: {
@@ -3069,6 +3083,7 @@ function MenuTab({
   onDeleteItem: (itemId: string) => void | Promise<void>
   onItemFeaturedChange: (itemId: string, isFeatured: boolean) => void
   onItemImageChange: (itemId: string, photoUrl: string | null) => void | Promise<void>
+  onItemLocalizedNameChange: (itemId: string, nameLocalized: string) => void | Promise<void>
   onItemReorder: (categoryId: string, nextItemIds: string[]) => void
   onItemVisibilityChange: (
     itemId: string,
@@ -3172,6 +3187,7 @@ function MenuTab({
                 onDeleteItem={onDeleteItem}
                 onItemFeaturedChange={onItemFeaturedChange}
                 onItemImageChange={onItemImageChange}
+                onItemLocalizedNameChange={onItemLocalizedNameChange}
                 onItemVisibilityChange={onItemVisibilityChange}
                 overDragId={overDragId}
               />
@@ -3196,6 +3212,7 @@ function SortableCategoryCard({
   onDeleteItem,
   onItemFeaturedChange,
   onItemImageChange,
+  onItemLocalizedNameChange,
   onItemVisibilityChange,
   overDragId,
 }: {
@@ -3222,6 +3239,7 @@ function SortableCategoryCard({
   onDeleteItem: (itemId: string) => void | Promise<void>
   onItemFeaturedChange: (itemId: string, isFeatured: boolean) => void
   onItemImageChange: (itemId: string, photoUrl: string | null) => void | Promise<void>
+  onItemLocalizedNameChange: (itemId: string, nameLocalized: string) => void | Promise<void>
   onItemVisibilityChange: (
     itemId: string,
     visibility: CategoryItemEntry["item"]["visibility"],
@@ -3474,6 +3492,7 @@ function SortableCategoryCard({
                     onDelete={onDeleteItem}
                     onFeaturedChange={onItemFeaturedChange}
                     onImageChange={onItemImageChange}
+                    onLocalizedNameChange={onItemLocalizedNameChange}
                     onVisibilityChange={onItemVisibilityChange}
                     overDragId={overDragId}
                   />
@@ -3502,6 +3521,7 @@ function SortableItemRow({
   onDelete,
   onFeaturedChange,
   onImageChange,
+  onLocalizedNameChange,
   onVisibilityChange,
   overDragId,
 }: {
@@ -3514,6 +3534,7 @@ function SortableItemRow({
   onDelete: (itemId: string) => void | Promise<void>
   onFeaturedChange: (itemId: string, isFeatured: boolean) => void
   onImageChange: (itemId: string, photoUrl: string | null) => void | Promise<void>
+  onLocalizedNameChange: (itemId: string, nameLocalized: string) => void | Promise<void>
   onVisibilityChange: (
     itemId: string,
     visibility: CategoryItemEntry["item"]["visibility"],
@@ -3546,6 +3567,25 @@ function SortableItemRow({
     overDragId === entry.item.id &&
     activeItemIndex >= 0 &&
     activeItemIndex < itemIndex
+  const [localizedNameDraft, setLocalizedNameDraft] = useState(entry.item.nameLocalized ?? "")
+  const [isSavingLocalizedName, setIsSavingLocalizedName] = useState(false)
+
+  useEffect(() => {
+    setLocalizedNameDraft(entry.item.nameLocalized ?? "")
+  }, [entry.item.nameLocalized])
+
+  const saveLocalizedName = async () => {
+    if ((entry.item.nameLocalized ?? "") === localizedNameDraft) {
+      return
+    }
+
+    setIsSavingLocalizedName(true)
+    try {
+      await onLocalizedNameChange(entry.item.id, localizedNameDraft)
+    } finally {
+      setIsSavingLocalizedName(false)
+    }
+  }
 
   return (
     <div
@@ -3585,9 +3625,38 @@ function SortableItemRow({
             />
             <div className="min-w-0">
               <div className="font-medium text-foreground">{entry.item.name}</div>
+              {entry.item.nameLocalized ? (
+                <div className="mt-0.5 text-sm text-muted-foreground">
+                  {entry.item.nameLocalized}
+                </div>
+              ) : null}
               <div className="mt-1 text-sm text-muted-foreground">
                 {formatPrice(entry.item.variants[0]?.priceCents ?? entry.item.basePriceCents)}
               </div>
+            </div>
+          </div>
+
+          <div className="grid gap-2 sm:pl-[84px]">
+            <Label htmlFor={`item-localized-name-${entry.item.id}`}>
+              Local language name (optional)
+            </Label>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Input
+                id={`item-localized-name-${entry.item.id}`}
+                value={localizedNameDraft}
+                placeholder="e.g. 蒜蓉结"
+                onChange={(event) => setLocalizedNameDraft(event.target.value)}
+                onBlur={() => void saveLocalizedName()}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={isSavingLocalizedName || localizedNameDraft === (entry.item.nameLocalized ?? "")}
+                onClick={() => void saveLocalizedName()}
+              >
+                {isSavingLocalizedName ? "Saving…" : "Save"}
+              </Button>
             </div>
           </div>
 

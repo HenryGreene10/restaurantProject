@@ -685,6 +685,11 @@ function MenuItemCard({
             >
               {item.name}
             </h3>
+            {item.nameLocalized ? (
+              <div className="mt-1 text-sm text-muted-foreground sm:text-base">
+                {item.nameLocalized}
+              </div>
+            ) : null}
           </div>
 
           <div className="text-right text-sm font-semibold text-foreground sm:text-base">

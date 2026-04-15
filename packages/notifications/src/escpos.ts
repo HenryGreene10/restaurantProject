@@ -5,12 +5,10 @@ type KitchenTicketModifier = {
 
 type KitchenTicketItem = {
   name: string
+  nameLocalized?: string | null
   quantity: number
   notes?: string | null
   modifierSelections?: KitchenTicketModifier[]
-  item?: {
-    nameLocalized?: string | null
-  } | null
 }
 
 type KitchenTicketOrder = {
@@ -172,8 +170,8 @@ export function buildKitchenTicket(order: KitchenTicketOrder) {
     addLine(buffers, `${item.quantity} x ${item.name}`)
 
     const localizedName =
-      item.item?.nameLocalized && normalizeText(item.item.nameLocalized)
-        ? normalizeText(item.item.nameLocalized)
+      item.nameLocalized && normalizeText(item.nameLocalized)
+        ? normalizeText(item.nameLocalized)
         : ""
     if (localizedName) {
       appendWrapped(buffers, localizedName, "  ")

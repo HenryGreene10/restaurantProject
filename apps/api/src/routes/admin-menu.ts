@@ -199,6 +199,12 @@ export function registerAdminMenuRoutes(r: Router) {
       const tenantDataAccess = tenantDataAccessFor(req)
       const item = await tenantDataAccess.menu.createItem({
         name: String(req.body?.name ?? ''),
+        nameLocalized:
+          req.body?.nameLocalized === null
+            ? null
+            : typeof req.body?.nameLocalized === 'string'
+              ? req.body.nameLocalized
+              : null,
         description: req.body?.description ?? null,
         photoUrl: req.body?.photoUrl ?? null,
         basePriceCents: Number(req.body?.basePriceCents ?? 0),
@@ -221,6 +227,12 @@ export function registerAdminMenuRoutes(r: Router) {
       const itemId = routeParam(req, 'itemId')
       const item = await tenantDataAccess.menu.updateItem(itemId, {
         name: typeof req.body?.name === 'string' ? req.body.name : undefined,
+        nameLocalized:
+          req.body?.nameLocalized === null
+            ? null
+            : typeof req.body?.nameLocalized === 'string'
+              ? req.body.nameLocalized
+              : undefined,
         description:
           req.body?.description === null ? null : typeof req.body?.description === 'string' ? req.body.description : undefined,
         photoUrl:

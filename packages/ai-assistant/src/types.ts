@@ -94,6 +94,12 @@ export type AssistantExecutableIntent =
       price: number
     }
   | {
+      action: "set_item_localized_name"
+      targetType: "item"
+      targetQuery: string
+      nameLocalized: string
+    }
+  | {
       action: "create_modifier_group"
       targetType: "item"
       targetQuery: string

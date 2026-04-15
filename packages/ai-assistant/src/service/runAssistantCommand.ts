@@ -432,6 +432,13 @@ async function executeIntent(input: {
     })
   }
 
+  if (intent.action === "set_item_localized_name") {
+    return assistantMutationTools.set_item_localized_name.execute(toolContext, {
+      itemQuery: match.label,
+      nameLocalized: intent.nameLocalized,
+    })
+  }
+
   if (intent.action === "update_item_tags") {
     return assistantMutationTools.update_item_tags.execute(toolContext, {
       itemId: match.id,

@@ -33,6 +33,7 @@ const modelToolSchema = {
                 "create_modifier_option",
                 "schedule_category",
                 "set_item_image",
+                "set_item_localized_name",
                 "reorder_item",
                 "reorder_category",
                 "update_item_tags",
@@ -134,6 +135,9 @@ const modelToolSchema = {
               },
             },
             photoUrl: {
+              type: "string",
+            },
+            nameLocalized: {
               type: "string",
             },
             heroHeadline: {
@@ -304,6 +308,12 @@ const actionSchema = z.union([
     photoUrl: z.string().url(),
   }),
   z.object({
+    action: z.literal("set_item_localized_name"),
+    targetType: z.literal("item"),
+    targetQuery: z.string().min(1),
+    nameLocalized: z.string().min(1),
+  }),
+  z.object({
     action: z.literal("reorder_item"),
     targetType: z.literal("item"),
     targetQuery: z.string().min(1),
@@ -465,6 +475,7 @@ function normalizePlannedAction(action: unknown) {
     actionName === "create_modifier_group" ||
     actionName === "create_modifier_option" ||
     actionName === "set_item_image" ||
+    actionName === "set_item_localized_name" ||
     actionName === "reorder_item" ||
     actionName === "update_item_tags" ||
     actionName === "update_prep_time" ||

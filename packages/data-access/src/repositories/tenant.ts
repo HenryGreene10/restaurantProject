@@ -72,6 +72,7 @@ type NormalizedOrderItemSnapshot = {
   itemId: string | null
   variantId: string | null
   name: string
+  nameLocalized: string | null
   variantName: string | null
   quantity: number
   unitPriceCents: number
@@ -133,6 +134,7 @@ type MenuCategoryUpdateInput = Partial<Omit<MenuCategoryCreateInput, "menuId">>
 
 type MenuItemCreateInput = {
   name: string
+  nameLocalized?: string | null
   description?: string | null
   photoUrl?: string | null
   basePriceCents: number
@@ -427,6 +429,7 @@ async function normalizeOrderItems(
         itemId: menuItem.id,
         variantId: selectedVariant?.id ?? item.variantId ?? null,
         name: menuItem.name,
+        nameLocalized: menuItem.nameLocalized ?? null,
         variantName: selectedVariant?.name ?? item.variantName ?? null,
         quantity,
         unitPriceCents,
@@ -519,6 +522,7 @@ async function persistOrderFromSnapshot(
           restaurantId: scope.restaurantId,
           itemId: item.itemId,
           name: item.name,
+          nameLocalized: item.nameLocalized,
           variantName: item.variantName,
           quantity: item.quantity,
           unitPriceCents: item.unitPriceCents,
@@ -864,6 +868,7 @@ export function createTenantDataAccess(scope: TenantScope) {
         const item = await prisma.menuItem.create({
           data: scoped.scopeCreate({
             name: data.name,
+            nameLocalized: data.nameLocalized ?? null,
             description: data.description ?? null,
             photoUrl: data.photoUrl ?? null,
             basePriceCents: data.basePriceCents,
