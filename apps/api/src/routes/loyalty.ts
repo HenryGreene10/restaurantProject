@@ -25,6 +25,7 @@ export function registerLoyaltyRoutes(r: Router) {
       const recentEvents = await da.loyalty.getAccountByPhone(customer.phone)
 
       return res.json({
+        active: config.active,
         balance: account.points,
         lifetimePts: account.lifetimePts,
         isNew: account.isNew,

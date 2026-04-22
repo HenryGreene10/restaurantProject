@@ -1974,6 +1974,7 @@ export function createTenantDataAccess(scope: TenantScope) {
 
   // ─── Loyalty ────────────────────────────────────────────────────
   type LoyaltyProgramConfig = {
+    active: boolean
     earnRate: number
     redeemRate: number
     minRedeem: number
@@ -1992,6 +1993,7 @@ export function createTenantDataAccess(scope: TenantScope) {
   }
 
   const DEFAULT_LOYALTY_CONFIG: LoyaltyProgramConfig = {
+    active: true,
     earnRate: 10,
     redeemRate: 100,
     minRedeem: 100,
@@ -2029,16 +2031,21 @@ export function createTenantDataAccess(scope: TenantScope) {
 
     async getConfig(): Promise<LoyaltyProgramConfig> {
       return withTenantConnection(scope.restaurantId, async (prisma) => {
-        const program = await prisma.loyaltyProgram.findFirst({
-          where: { restaurantId: scope.restaurantId, type: 'POINTS' },
-        })
-        if (!program) return DEFAULT_LOYALTY_CONFIG
+        const rows = await prisma.$queryRaw<Array<{ config: Prisma.JsonValue; active: boolean }>>(Prisma.sql`
+          SELECT "config", "active"
+          FROM "LoyaltyProgram"
+          WHERE "restaurantId" = ${scope.restaurantId}
+            AND "type" = ${Prisma.sql`${'POINTS'}::"LoyaltyProgramType"`}
+          LIMIT 1
+        `)
+        const program = rows[0]
+        if (!program) return { ...DEFAULT_LOYALTY_CONFIG, active: false }
         const cfg = program.config as Record<string, unknown>
-        return { ...DEFAULT_LOYALTY_CONFIG, ...cfg } as LoyaltyProgramConfig
+        return { ...DEFAULT_LOYALTY_CONFIG, ...cfg, active: program.active } as LoyaltyProgramConfig
       })
     },
 
-    async updateConfig(patch: Partial<Omit<LoyaltyProgramConfig, 'tiers'>>) {
+    async updateConfig(patch: Partial<Omit<LoyaltyProgramConfig, 'tiers' | 'active'>>) {
       return withTenantConnection(scope.restaurantId, async (prisma) => {
         let program = await prisma.loyaltyProgram.findFirst({
           where: { restaurantId: scope.restaurantId, type: 'POINTS' },
@@ -2059,6 +2066,31 @@ export function createTenantDataAccess(scope: TenantScope) {
           where: { id: program.id },
           data: { config: updated as Prisma.InputJsonValue },
         })
+      })
+    },
+
+    async setActive(active: boolean) {
+      return withTenantConnection(scope.restaurantId, async (prisma) => {
+        let program = await prisma.loyaltyProgram.findFirst({
+          where: { restaurantId: scope.restaurantId, type: 'POINTS' },
+        })
+        if (!program) {
+          program = await prisma.loyaltyProgram.create({
+            data: {
+              restaurantId: scope.restaurantId,
+              name: 'Points',
+              type: 'POINTS',
+              config: DEFAULT_LOYALTY_CONFIG as unknown as Prisma.InputJsonValue,
+            },
+          })
+        }
+
+        await prisma.$executeRaw(Prisma.sql`
+          UPDATE "LoyaltyProgram"
+          SET "active" = ${active},
+              "updatedAt" = NOW()
+          WHERE "id" = ${program.id}
+        `)
       })
     },
 

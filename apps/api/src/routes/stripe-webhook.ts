@@ -19,10 +19,10 @@ async function awardLoyaltyPoints(
 ) {
   if (!order.customerId) return
   try {
-    const [account, cfg] = await Promise.all([
-      tenantDataAccess.loyalty.getOrCreateAccount(order.customerId),
-      tenantDataAccess.loyalty.getConfig(),
-    ])
+    const cfg = await tenantDataAccess.loyalty.getConfig()
+    if (!cfg.active) return
+
+    const account = await tenantDataAccess.loyalty.getOrCreateAccount(order.customerId)
     const isFirstOrder = account.isNew
 
     // Award earned points (based on amount paid)

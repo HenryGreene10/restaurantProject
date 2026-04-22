@@ -19,7 +19,7 @@ async function resolveNewMemberDiscount(
       tenantDataAccess.loyalty.isNewMemberByPhone(phone),
       tenantDataAccess.loyalty.getConfig(),
     ])
-    if (!isNew || !cfg.newMemberDiscountEnabled) return 0
+    if (!cfg.active || !isNew || !cfg.newMemberDiscountEnabled) return 0
     if (cfg.newMemberDiscountType === 'PERCENTAGE') {
       return Math.round(subtotalCents * cfg.newMemberDiscountValue / 100)
     }

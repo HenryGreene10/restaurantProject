@@ -1,0 +1,2 @@
+ALTER TABLE "LoyaltyProgram"
+  ADD COLUMN "active" BOOLEAN NOT NULL DEFAULT true;

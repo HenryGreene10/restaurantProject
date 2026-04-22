@@ -24,6 +24,7 @@ export function registerAdminLoyaltyRoutes(r: Router) {
     try {
       const da = tenantDataAccessFor(req)
       const {
+        active,
         earnRate,
         redeemRate,
         minRedeem,
@@ -44,7 +45,12 @@ export function registerAdminLoyaltyRoutes(r: Router) {
       if (newMemberDiscountType === 'PERCENTAGE' || newMemberDiscountType === 'FIXED') patch.newMemberDiscountType = newMemberDiscountType
       if (typeof newMemberDiscountValue === 'number') patch.newMemberDiscountValue = Math.max(0, newMemberDiscountValue)
 
-      await da.loyalty.updateConfig(patch as Parameters<typeof da.loyalty.updateConfig>[0])
+      if (Object.keys(patch).length > 0) {
+        await da.loyalty.updateConfig(patch as Parameters<typeof da.loyalty.updateConfig>[0])
+      }
+      if (typeof active === 'boolean') {
+        await da.loyalty.setActive(active)
+      }
       const config = await da.loyalty.getConfig()
       return res.json(config)
     } catch (error) {

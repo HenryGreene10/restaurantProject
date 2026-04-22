@@ -2336,6 +2336,7 @@ function CompactSectionNav({
 // ─── Loyalty Page ────────────────────────────────────────────────────────────
 
 type LoyaltyConfig = {
+  active: boolean
   earnRate: number
   redeemRate: number
   minRedeem: number
@@ -2427,6 +2428,7 @@ function LoyaltyPage({ tenantSlug }: { tenantSlug: string }) {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [loadingAnalytics, setLoadingAnalytics] = useState(false)
+  const [togglingActive, setTogglingActive] = useState(false)
   const [configError, setConfigError] = useState<string | null>(null)
   const [analyticsError, setAnalyticsError] = useState<string | null>(null)
   const { getToken } = useAuth()
@@ -2494,6 +2496,7 @@ function LoyaltyPage({ tenantSlug }: { tenantSlug: string }) {
         tenantSlug,
         getToken,
         body: {
+          active: config.active,
           earnRate: config.earnRate,
           redeemRate: config.redeemRate,
           minRedeem: config.minRedeem,
@@ -2511,6 +2514,35 @@ function LoyaltyPage({ tenantSlug }: { tenantSlug: string }) {
       setConfigError(error instanceof Error ? error.message : "Failed to update loyalty settings")
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleToggleProgramActive = async () => {
+    if (!config || togglingActive) return
+
+    const nextActive = !config.active
+    setTogglingActive(true)
+    setConfigError(null)
+    setConfig(current => current ? { ...current, active: nextActive } : current)
+
+    try {
+      const nextConfig = await adminFetchJson<LoyaltyConfig>("/admin/loyalty", {
+        method: "PATCH",
+        tenantSlug,
+        getToken,
+        body: {
+          active: nextActive,
+        },
+      })
+      setConfig(current => {
+        const merged = nextConfig ?? current
+        return merged ? { ...merged, active: nextActive } : merged
+      })
+    } catch (error) {
+      setConfig(current => current ? { ...current, active: !nextActive } : current)
+      setConfigError(error instanceof Error ? error.message : "Failed to update loyalty status")
+    } finally {
+      setTogglingActive(false)
     }
   }
 
@@ -2590,10 +2622,20 @@ function LoyaltyPage({ tenantSlug }: { tenantSlug: string }) {
             <span className="text-sm text-muted-foreground">Program active</span>
             <button
               type="button"
-              onClick={() => setConfig(c => c ? { ...c } : c)}
-              className="relative h-6 w-11 rounded-full bg-primary transition-colors"
+              onClick={() => void handleToggleProgramActive()}
+              aria-pressed={config.active}
+              className={cn(
+                "relative h-6 w-11 rounded-full transition-colors",
+                config.active ? "bg-primary" : "bg-border",
+                togglingActive && "opacity-70",
+              )}
             >
-              <span className="absolute right-1 top-1 h-4 w-4 rounded-full bg-white shadow" />
+              <span
+                className={cn(
+                  "absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-all",
+                  config.active ? "right-1" : "left-1",
+                )}
+              />
             </button>
           </div>
           <Button
