@@ -16,6 +16,7 @@ import { cartItemCount, cartLineTotal, cartSubtotal, type CartItem } from "./car
 import { CustomerOtpStep } from "./CustomerOtpStep"
 import { StripeCheckoutForm } from "./StripeCheckoutForm"
 import type { CustomerSessionController } from "./useCustomerSession"
+import { useTheme } from "../theme/ThemeProvider"
 
 const NAME_PATTERN = /^[A-Za-z\s'-]+$/
 const ORDER_NOTE_MAX_LENGTH = 500
@@ -130,6 +131,7 @@ export function CartSummary({
   onPaymentConfirmed,
   onViewRewardsWallet,
 }: CartSummaryProps) {
+  const { theme } = useTheme()
   const itemCount = cartItemCount(items)
   const subtotal = cartSubtotal(items)
   const [checkoutMode, setCheckoutMode] = useState(false)
@@ -176,7 +178,6 @@ export function CartSummary({
     !isRedeeming
 
   const taxEstimate = useMemo(() => Math.round(subtotal * 0.08), [subtotal])
-  const totalEstimate = subtotal + taxEstimate - appliedRedemptionCents
 
   // loyalty banner: show for unauthenticated users (new) or authenticated new members
   const loyaltyActive = !loyaltyAccount || loyaltyAccount.active !== false
@@ -195,6 +196,11 @@ export function CartSummary({
     loyaltyAccount.balance >= loyaltyAccount.minRedeem &&
     redeemableTiers.length > 0 &&
     appliedRedemptionCents === 0
+
+  // preview discount from selected tier (updates immediately on radio selection)
+  const selectedTier = redeemableTiers.find((t) => t.id === selectedTierId) ?? null
+  const previewDiscountCents = appliedRedemptionCents || (selectedTier?.discountCents ?? 0)
+  const totalEstimate = subtotal + taxEstimate - previewDiscountCents
 
   useEffect(() => {
     if (!open || typeof document === "undefined") return
@@ -381,7 +387,6 @@ export function CartSummary({
     onClose()
   }
 
-  const selectedTier = redeemableTiers.find((t) => t.id === selectedTierId) ?? null
   const ctaLabel = isPreparingPayment
     ? "Preparing payment…"
     : isSendingOtp
@@ -466,13 +471,31 @@ export function CartSummary({
                       <ArrowLeft className="h-4 w-4" />
                       Confirm your number
                     </button>
+                  ) : checkoutMode ? (
+                    <div className="flex items-center gap-3">
+                      {theme.logoUrl ? (
+                        <img
+                          src={theme.logoUrl}
+                          alt={theme.appTitle}
+                          className="h-7 w-auto max-w-[80px] shrink-0 object-contain"
+                        />
+                      ) : null}
+                      <div>
+                        <div className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                          Your order at
+                        </div>
+                        <h2 className="text-lg font-semibold" style={{ fontFamily: "var(--font-heading)" }}>
+                          {theme.appTitle}
+                        </h2>
+                      </div>
+                    </div>
                   ) : (
                     <>
                       <div className="text-xs font-medium uppercase tracking-[0.12em] text-neutral-500">
-                        {checkoutMode ? `${fulfillmentType === "DELIVERY" ? "Delivery" : "Pickup"} checkout` : "Cart"}
+                        Cart
                       </div>
                       <h2 className="mt-2 text-2xl text-black" style={{ fontFamily: "var(--font-heading)" }}>
-                        {checkoutMode ? "Review and place order" : "Your order"}
+                        Your order
                       </h2>
                     </>
                   )}
@@ -907,13 +930,13 @@ export function CartSummary({
                     <span className="font-semibold text-foreground">{formatPrice(taxEstimate)}</span>
                   </div>
                 ) : null}
-                {appliedRedemptionCents > 0 ? (
+                {previewDiscountCents > 0 ? (
                   <div className="flex items-center justify-between text-sm">
                     <span style={{ color: brandColors?.primary ?? "var(--primary)" }}>
-                      Reward discount
+                      {appliedRedemptionCents > 0 ? "Reward discount" : `${selectedTier?.name ?? "Reward"} preview`}
                     </span>
                     <span className="font-semibold" style={{ color: brandColors?.primary ?? "var(--primary)" }}>
-                      -{formatPrice(appliedRedemptionCents)}
+                      -{formatPrice(previewDiscountCents)}
                     </span>
                   </div>
                 ) : null}
@@ -1008,16 +1031,6 @@ export function CartSummary({
                       {paymentSession ? "Back to details" : "Back to cart"}
                     </Button>
 
-                    {/* Wallet link for returning customers */}
-                    {onViewRewardsWallet && customerSession.isAuthenticated && !paymentSession ? (
-                      <button
-                        type="button"
-                        className="text-xs text-muted-foreground underline"
-                        onClick={onViewRewardsWallet}
-                      >
-                        View my rewards wallet →
-                      </button>
-                    ) : null}
                   </div>
                 )}
                 </div>

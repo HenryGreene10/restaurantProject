@@ -44,7 +44,16 @@ function isAllowedCorsOrigin(origin: string) {
     return true
   }
 
-  return hostname === baseDomain || hostname.endsWith(`.${baseDomain}`)
+  if (hostname === baseDomain || hostname.endsWith(`.${baseDomain}`)) {
+    return true
+  }
+
+  // Allow Vercel preview/kiosk deployments
+  if (hostname.endsWith('.vercel.app')) {
+    return true
+  }
+
+  return false
 }
 
 function createCorsOptions(): CorsOptions {

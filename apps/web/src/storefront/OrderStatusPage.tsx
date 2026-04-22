@@ -1,5 +1,5 @@
 import { CheckCircle2, Clock3, MapPin, ShoppingBag, Star } from "lucide-react"
-import { useEffect, useMemo } from "react"
+import React, { useEffect, useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 
 import { Button } from "../components/Button"
@@ -7,6 +7,7 @@ import { fetchCustomerLoyaltyAccount } from "../lib/loyalty"
 import type { CustomerOrder } from "../lib/orders"
 import { clearActiveOrder, readActiveOrder } from "./activeOrder"
 import { useOrderStatusPoll } from "./useOrderStatusPoll"
+import { useTheme } from "../theme/ThemeProvider"
 import type { CustomerSessionController } from "./useCustomerSession"
 
 function formatPrice(priceCents: number) {
@@ -54,6 +55,59 @@ function ProgressBar({ value, max }: { value: number; max: number }) {
   )
 }
 
+const STATUS_STEPS = [
+  { key: "PENDING", label: "Received" },
+  { key: "CONFIRMED", label: "Confirmed" },
+  { key: "PREPARING", label: "Preparing" },
+  { key: "READY", label: "Ready" },
+] as const
+
+function OrderStepper({ status }: { status: string }) {
+  const currentIdx = STATUS_STEPS.findIndex((s) => s.key === status)
+
+  return (
+    <div className="flex w-full items-center gap-0">
+      {STATUS_STEPS.map((step, i) => {
+        const done = i < currentIdx
+        const active = i === currentIdx
+        const future = i > currentIdx
+
+        return (
+          <React.Fragment key={step.key}>
+            <div className="flex shrink-0 flex-col items-center gap-2">
+              <div
+                className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold transition-all"
+                style={{
+                  background: done || active ? "rgb(var(--color-brand-primary))" : "transparent",
+                  border: future ? "2px solid rgb(var(--color-brand-border))" : "none",
+                  color: done || active ? "rgb(var(--color-brand-primary-foreground))" : "rgb(var(--color-brand-muted))",
+                }}
+              >
+                {done ? "✓" : i + 1}
+              </div>
+              <span
+                className="whitespace-nowrap text-center text-xs"
+                style={{
+                  color: future ? "rgb(var(--color-brand-muted))" : "inherit",
+                  fontWeight: active ? 700 : 500,
+                }}
+              >
+                {step.label}
+              </span>
+            </div>
+            {i < STATUS_STEPS.length - 1 ? (
+              <div
+                className="mb-5 mx-1 h-0.5 flex-1 transition-all"
+                style={{ background: done ? "rgb(var(--color-brand-primary))" : "rgb(var(--color-brand-border))" }}
+              />
+            ) : null}
+          </React.Fragment>
+        )
+      })}
+    </div>
+  )
+}
+
 export function OrderStatusPage({
   orderId,
   tenantSlug,
@@ -67,6 +121,7 @@ export function OrderStatusPage({
   onBackToMenu: () => void
   onViewRewardsWallet?: () => void
 }) {
+  const { theme } = useTheme()
   const orderQuery = useOrderStatusPoll({
     tenantSlug,
     orderId,
@@ -154,7 +209,7 @@ export function OrderStatusPage({
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-brand border border-brand-border/70 bg-brand-surface/90 px-4 py-3 text-sm text-brand-muted shadow-brand">
           <div className="flex items-center gap-2">
             <ShoppingBag className="h-4 w-4" />
-            Tracking order for tenant <span className="font-semibold text-brand-text">{tenantSlug}</span>
+            Order from <span className="font-semibold text-brand-text">{theme.appTitle || tenantSlug}</span>
           </div>
           <button type="button" className="underline" onClick={onBackToMenu}>
             Back to menu
@@ -220,6 +275,16 @@ export function OrderStatusPage({
                       {orderQuery.data.status}
                     </div>
                   </div>
+
+                  {orderQuery.data.status === "CANCELLED" ? (
+                    <div className="mt-5 rounded-brand border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                      This order has been cancelled.
+                    </div>
+                  ) : (
+                    <div className="mt-6">
+                      <OrderStepper status={orderQuery.data.status} />
+                    </div>
+                  )}
 
                   {orderQuery.data.notes ? (
                     <div className="mt-5 rounded-brand border border-brand-border/70 bg-brand-background px-4 py-4 text-sm text-brand-muted">

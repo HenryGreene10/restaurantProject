@@ -3,7 +3,8 @@ import { useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 
 import { Button } from "../components/Button"
-import { fetchCustomerLoyaltyAccount, type CustomerLoyaltyAccount } from "../lib/loyalty"
+import { fetchCustomerLoyaltyAccount, type CustomerLoyaltyAccount, type LoyaltyTier } from "../lib/loyalty"
+import { useTheme } from "../theme/ThemeProvider"
 import type { CustomerSessionController } from "./useCustomerSession"
 
 function formatPrice(priceCents: number) {
@@ -45,6 +46,7 @@ function WalletContent({
   tenantSlug: string
   onBackToMenu: () => void
 }) {
+  const { theme } = useTheme()
   const [tab, setTab] = useState<"rewards" | "history">("rewards")
 
   const nextTier = account.allTiers
@@ -67,7 +69,7 @@ function WalletContent({
 
         <div className="mb-6 rounded-[32px] border border-brand-border/70 bg-brand-surface px-6 py-8 shadow-brand">
           <div className="text-sm font-semibold uppercase tracking-[0.12em] text-brand-muted">
-            {tenantSlug} Rewards
+            {theme.appTitle || tenantSlug} Rewards
           </div>
           <div
             className="mt-2 text-6xl font-bold"
@@ -136,38 +138,76 @@ function WalletContent({
               account.allTiers
                 .sort((a, b) => a.pointsCost - b.pointsCost)
                 .map((tier) => {
-                  const canAfford = account.balance >= tier.pointsCost
+                  const unlocked = account.balance >= tier.pointsCost
+                  const progress = Math.min(100, Math.round((account.balance / tier.pointsCost) * 100))
                   return (
                     <div
                       key={tier.id}
-                      className="rounded-[20px] border border-brand-border/70 bg-brand-surface px-5 py-4 shadow-brand"
-                      style={canAfford ? { borderColor: "rgb(var(--color-brand-primary))" } : undefined}
+                      className="rounded-[var(--radius-brand)] border p-4 transition-all"
+                      style={{
+                        background: unlocked
+                          ? "rgb(var(--color-brand-primary) / 0.08)"
+                          : "rgb(var(--color-brand-surface))",
+                        borderColor: unlocked
+                          ? "rgb(var(--color-brand-primary) / 0.3)"
+                          : "rgb(var(--color-brand-border))",
+                      }}
                     >
-                      <div className="flex items-center justify-between gap-4">
+                      <div className="mb-2 flex items-center justify-between">
                         <div>
-                          <div className="font-semibold text-brand-text">{tier.name}</div>
-                          <div className="mt-1 text-sm text-brand-muted">
+                          <p className="text-sm font-semibold text-brand-text">{tier.name}</p>
+                          <p className="text-xs text-brand-muted">
                             {tier.pointsCost.toLocaleString()} pts · saves {formatPrice(tier.discountCents)}
-                          </div>
+                          </p>
                         </div>
-                        <div className="text-right">
-                          {canAfford ? (
-                            <span
-                              className="inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold"
-                              style={{
-                                background: "rgb(var(--color-brand-primary))",
-                                color: "rgb(var(--color-brand-primary-foreground))",
-                              }}
-                            >
-                              Unlocked
-                            </span>
-                          ) : (
-                            <span className="text-xs text-brand-muted">
-                              {(tier.pointsCost - account.balance).toLocaleString()} pts away
-                            </span>
-                          )}
-                        </div>
+                        {unlocked ? (
+                          <span
+                            className="rounded-full px-2.5 py-1 text-xs font-bold"
+                            style={{
+                              background: "rgb(var(--color-brand-primary))",
+                              color: "rgb(var(--color-brand-primary-foreground))",
+                            }}
+                          >
+                            Unlocked ✓
+                          </span>
+                        ) : (
+                          <span className="text-xs text-brand-muted">
+                            {(tier.pointsCost - account.balance).toLocaleString()} pts away
+                          </span>
+                        )}
                       </div>
+
+                      {!unlocked ? (
+                        <div>
+                          <div
+                            className="h-1.5 w-full overflow-hidden rounded-full"
+                            style={{ background: "rgb(var(--color-brand-border))" }}
+                          >
+                            <div
+                              className="h-full rounded-full transition-all duration-500"
+                              style={{
+                                width: `${progress}%`,
+                                background: "rgb(var(--color-brand-primary))",
+                              }}
+                            />
+                          </div>
+                          <p className="mt-1.5 text-xs text-brand-muted">
+                            {account.balance.toLocaleString()} / {tier.pointsCost.toLocaleString()} pts
+                          </p>
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          className="mt-3 w-full rounded-[var(--radius-brand)] py-2 text-sm font-semibold transition-all"
+                          style={{
+                            background: "rgb(var(--color-brand-primary))",
+                            color: "rgb(var(--color-brand-primary-foreground))",
+                          }}
+                          onClick={onBackToMenu}
+                        >
+                          Apply to next order
+                        </button>
+                      )}
                     </div>
                   )
                 })
