@@ -15,3 +15,4 @@ coverage
 .codex
 apps/api/stripe.tar.gz
 packages/db/generated/
+docs/printingplan.md

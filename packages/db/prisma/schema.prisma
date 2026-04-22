@@ -475,29 +475,35 @@ model LoyaltyProgram {
 }
 
 model LoyaltyAccount {
-  id           String         @id @default(uuid())
-  restaurantId String
-  programId    String
-  customerId   String
-  points       Int            @default(0)
-  createdAt    DateTime       @default(now())
-  restaurant   Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  program      LoyaltyProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
-  customer     Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  events       LoyaltyEvent[]
+  id            String         @id @default(uuid())
+  restaurantId  String
+  programId     String
+  customerId    String
+  points        Int            @default(0)
+  lifetimePts   Int            @default(0)
+  isNew         Boolean        @default(true)
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  restaurant    Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  program       LoyaltyProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+  customer      Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  events        LoyaltyEvent[]
 
   @@unique([programId, customerId])
 }
 
 model LoyaltyEvent {
-  id           String         @id @default(uuid())
-  restaurantId String
-  accountId    String
-  type         String
-  delta        Int
-  createdAt    DateTime       @default(now())
-  restaurant   Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  account      LoyaltyAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  id             String         @id @default(uuid())
+  restaurantId   String
+  accountId      String
+  orderId        String?
+  type           String
+  delta          Int
+  description    String?
+  stripeCouponId String?
+  createdAt      DateTime       @default(now())
+  restaurant     Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  account        LoyaltyAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
 }
 
 model Promotion {

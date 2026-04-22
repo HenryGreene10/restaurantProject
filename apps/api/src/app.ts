@@ -20,6 +20,8 @@ import { registerStripeWebhookRoute } from './routes/stripe-webhook.js'
 import { registerAdminOrderRoutes } from './routes/admin-orders.js'
 import { registerCloudPrntRoutes } from './routes/cloudprnt.js'
 import { registerAdminPrintingRoutes } from './routes/admin-printing.js'
+import { registerAdminLoyaltyRoutes } from './routes/admin-loyalty.js'
+import { registerLoyaltyRoutes } from './routes/loyalty.js'
 
 export function createApp() {
   const app = express()
@@ -42,6 +44,8 @@ export function createApp() {
   registerAdminInsightsRoutes(app)
   registerAdminPaymentsRoutes(app)
   registerAdminPrintingRoutes(app)
+  registerAdminLoyaltyRoutes(app)
+  registerLoyaltyRoutes(app)
   registerAdminMenuRoutes(app)
   registerOrderRoutes(app)
   registerAdminOrderRoutes(app)

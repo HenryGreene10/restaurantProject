@@ -9,6 +9,26 @@ import {
 } from '../lib/customer-order.js'
 import { env } from '../config/env.js'
 
+async function resolveNewMemberDiscount(
+  tenantDataAccess: ReturnType<typeof createTenantDataAccess>,
+  phone: string,
+  subtotalCents: number,
+): Promise<number> {
+  try {
+    const [isNew, cfg] = await Promise.all([
+      tenantDataAccess.loyalty.isNewMemberByPhone(phone),
+      tenantDataAccess.loyalty.getConfig(),
+    ])
+    if (!isNew || !cfg.newMemberDiscountEnabled) return 0
+    if (cfg.newMemberDiscountType === 'PERCENTAGE') {
+      return Math.round(subtotalCents * cfg.newMemberDiscountValue / 100)
+    }
+    return cfg.newMemberDiscountValue * 100 // fixed amount stored as dollars
+  } catch {
+    return 0
+  }
+}
+
 function checkoutDataAccessFor(req: TenantRequest) {
   if (!req.tenant) {
     throw new Error('No tenant in request')
@@ -66,6 +86,12 @@ export function registerCheckoutRoutes(r: Router) {
         })
       }
 
+      // Compute subtotal to apply new-member % discount before session creation
+      const tempSubtotal = items.reduce((sum: number, item: { unitPriceCents?: number; quantity?: number }) => {
+        return sum + ((item.unitPriceCents ?? 0) * (item.quantity ?? 1))
+      }, 0)
+      const discountCents = await resolveNewMemberDiscount(tenantDataAccess, normalizedCustomerPhone, tempSubtotal)
+
       const checkoutSession = await tenantDataAccess.checkouts.createCheckoutSession({
         customerId:
           customerAuth?.customerId ??
@@ -78,6 +104,7 @@ export function registerCheckoutRoutes(r: Router) {
         deliveryAddressSnapshot: deliveryAddress ?? null,
         items,
         stripeAccountId: stripeConnection.stripeAccountId,
+        discountCents,
       })
 
       const paymentIntent = await createDirectChargePaymentIntent({
@@ -108,6 +135,8 @@ export function registerCheckoutRoutes(r: Router) {
         checkoutSessionId: checkoutSession.id,
         clientSecret: paymentIntent.client_secret,
         stripeAccountId: stripeConnection.stripeAccountId,
+        discountCents: checkoutSession?.discountCents ?? 0,
+        isNewMember: discountCents > 0,
       })
     } catch (error) {
       return res.status(400).json({

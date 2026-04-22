@@ -12,6 +12,40 @@ import {
 } from '@repo/payments'
 import { env } from '../config/env.js'
 
+async function awardLoyaltyPoints(
+  tenantDataAccess: ReturnType<typeof createTenantDataAccess>,
+  order: { id: string; customerId: string | null; totalCents: number },
+  checkoutSession: { customerPhoneSnapshot: string | null; discountCents: number },
+) {
+  if (!order.customerId) return
+  try {
+    const [account, cfg] = await Promise.all([
+      tenantDataAccess.loyalty.getOrCreateAccount(order.customerId),
+      tenantDataAccess.loyalty.getConfig(),
+    ])
+    const isFirstOrder = account.isNew
+
+    // Award earned points (based on amount paid)
+    const amountPaidDollars = order.totalCents / 100
+    const earned = Math.floor(amountPaidDollars * cfg.earnRate)
+    if (earned > 0) {
+      await tenantDataAccess.loyalty.awardPoints(account.id, earned, 'EARN', order.id, `Earned on order`)
+    }
+
+    // Award welcome bonus on first order
+    if (isFirstOrder && cfg.welcomeBonus > 0) {
+      await tenantDataAccess.loyalty.awardPoints(account.id, cfg.welcomeBonus, 'WELCOME_BONUS', null, 'Welcome bonus')
+    }
+
+    // Mark account as no longer new after first order
+    if (isFirstOrder) {
+      await tenantDataAccess.loyalty.markAccountNotNew(account.id)
+    }
+  } catch {
+    // Loyalty is non-critical — don't fail the webhook
+  }
+}
+
 async function enqueuePrintJob(
   order: Parameters<typeof buildKitchenTicket>[0],
   restaurantId: string,
@@ -109,6 +143,7 @@ export function registerStripeWebhookRoute(app: Express) {
 
           if (orderResult.kind === 'created') {
             await enqueuePrintJob(orderResult.order, tenant.id)
+            await awardLoyaltyPoints(tenantDataAccess, orderResult.order, checkoutSession)
           }
         }
 

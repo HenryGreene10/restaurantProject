@@ -193,6 +193,7 @@ type AdminSection =
   | "overview"
   | "branding"
   | "menu"
+  | "loyalty"
   | "insights"
   | "payments"
   | "assistant"
@@ -2094,6 +2095,8 @@ export const App: React.FC = () => {
         return menuPanel
       case "insights":
         return insightsPanel
+      case "loyalty":
+        return <LoyaltyPage />
       case "payments":
         return paymentsPanel
       case "assistant":
@@ -2261,6 +2264,7 @@ function SectionNav({
     { id: "overview", icon: <LayoutDashboard className="h-4 w-4" />, label: "Overview" },
     { id: "branding", icon: <Palette className="h-4 w-4" />, label: "Branding" },
     { id: "menu", icon: <Store className="h-4 w-4" />, label: "Menu" },
+    { id: "loyalty", icon: <Star className="h-4 w-4" />, label: "Loyalty" },
     { id: "insights", icon: <BarChart3 className="h-4 w-4" />, label: "Insights" },
     { id: "payments", icon: <CreditCard className="h-4 w-4" />, label: "Payments" },
     { id: "assistant", icon: <Bot className="h-4 w-4" />, label: "Assistant" },
@@ -2304,6 +2308,7 @@ function CompactSectionNav({
     { id: "overview", label: "Overview" },
     { id: "branding", label: "Branding" },
     { id: "menu", label: "Menu" },
+    { id: "loyalty", label: "Loyalty" },
     { id: "insights", label: "Insights" },
     { id: "payments", label: "Payments" },
     { id: "assistant", label: "Assistant" },
@@ -2324,6 +2329,636 @@ function CompactSectionNav({
           </Button>
         ))}
       </div>
+    </div>
+  )
+}
+
+// ─── Loyalty Page ────────────────────────────────────────────────────────────
+
+type LoyaltyConfig = {
+  earnRate: number
+  redeemRate: number
+  minRedeem: number
+  expiryMonths: number
+  welcomeBonus: number
+  newMemberDiscountEnabled: boolean
+  newMemberDiscountType: "PERCENTAGE" | "FIXED"
+  newMemberDiscountValue: number
+  tiers: Array<{ id: string; name: string; pointsCost: number; discountCents: number; sortOrder: number }>
+}
+
+type LoyaltyAnalytics = {
+  enrolledCount: number
+  issued: number
+  redeemed: number
+  topAccounts: Array<{
+    id: string
+    points: number
+    lifetimePts: number
+    customer: { name: string | null; phone: string }
+  }>
+  recentRedemptions: Array<{
+    id: string
+    delta: number
+    description: string | null
+    createdAt: string
+    stripeCouponId: string | null
+    account: { customer: { name: string | null; phone: string } }
+  }>
+}
+
+function LoyaltyNumInput({
+  value,
+  onChange,
+  suffix,
+  min = 0,
+  max = 9999,
+}: {
+  value: number
+  onChange: (v: number) => void
+  suffix?: string
+  min?: number
+  max?: number
+}) {
+  return (
+    <div className="flex overflow-hidden rounded-lg border border-border bg-background">
+      <input
+        type="number"
+        value={value}
+        min={min}
+        max={max}
+        onChange={(e) => onChange(Math.max(min, Math.min(max, Number(e.target.value))))}
+        className="w-20 flex-1 border-none bg-transparent px-3 py-2 text-sm text-foreground outline-none"
+      />
+      {suffix && (
+        <span className="border-l border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">
+          {suffix}
+        </span>
+      )}
+    </div>
+  )
+}
+
+function LoyaltyFieldRow({
+  label,
+  hint,
+  children,
+}: {
+  label: string
+  hint: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className="grid grid-cols-[1fr_220px] gap-8 items-start border-b border-border py-5 last:border-none">
+      <div>
+        <p className="text-sm font-semibold text-foreground">{label}</p>
+        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{hint}</p>
+      </div>
+      <div>{children}</div>
+    </div>
+  )
+}
+
+function LoyaltyPage() {
+  const [tab, setTab] = useState<"rules" | "analytics">("rules")
+  const [config, setConfig] = useState<LoyaltyConfig | null>(null)
+  const [analytics, setAnalytics] = useState<LoyaltyAnalytics | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [loadingAnalytics, setLoadingAnalytics] = useState(false)
+  const { getToken } = useAuth()
+
+  // Tier editing state
+  const [newTierName, setNewTierName] = useState("")
+  const [newTierPts, setNewTierPts] = useState(0)
+  const [newTierCents, setNewTierCents] = useState(0)
+  const [addingTier, setAddingTier] = useState(false)
+
+  const authHeaders = useCallback(async () => {
+    const token = await getToken()
+    return { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
+  }, [getToken])
+
+  useEffect(() => {
+    ;(async () => {
+      const headers = await authHeaders()
+      const res = await fetch("/admin/loyalty", { headers })
+      if (res.ok) setConfig(await res.json())
+    })()
+  }, [authHeaders])
+
+  useEffect(() => {
+    if (tab !== "analytics") return
+    if (analytics) return
+    ;(async () => {
+      setLoadingAnalytics(true)
+      const headers = await authHeaders()
+      const res = await fetch("/admin/loyalty/analytics", { headers })
+      if (res.ok) setAnalytics(await res.json())
+      setLoadingAnalytics(false)
+    })()
+  }, [tab, analytics, authHeaders])
+
+  const handleSave = async () => {
+    if (!config) return
+    setSaving(true)
+    try {
+      const headers = await authHeaders()
+      const res = await fetch("/admin/loyalty", {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({
+          earnRate: config.earnRate,
+          redeemRate: config.redeemRate,
+          minRedeem: config.minRedeem,
+          expiryMonths: config.expiryMonths,
+          welcomeBonus: config.welcomeBonus,
+          newMemberDiscountEnabled: config.newMemberDiscountEnabled,
+          newMemberDiscountType: config.newMemberDiscountType,
+          newMemberDiscountValue: config.newMemberDiscountValue,
+        }),
+      })
+      if (res.ok) {
+        setConfig(await res.json())
+        setSaved(true)
+        setTimeout(() => setSaved(false), 2200)
+      }
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleAddTier = async () => {
+    if (!newTierName.trim() || newTierPts < 1 || newTierCents < 1) return
+    setAddingTier(true)
+    try {
+      const headers = await authHeaders()
+      const res = await fetch("/admin/loyalty/tiers", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ name: newTierName.trim(), pointsCost: newTierPts, discountCents: newTierCents }),
+      })
+      if (res.ok) {
+        const cfgRes = await fetch("/admin/loyalty", { headers })
+        if (cfgRes.ok) setConfig(await cfgRes.json())
+        setNewTierName("")
+        setNewTierPts(0)
+        setNewTierCents(0)
+      }
+    } finally {
+      setAddingTier(false)
+    }
+  }
+
+  const handleDeleteTier = async (tierId: string) => {
+    const headers = await authHeaders()
+    await fetch(`/admin/loyalty/tiers/${tierId}`, { method: "DELETE", headers })
+    const cfgRes = await fetch("/admin/loyalty", { headers })
+    if (cfgRes.ok) setConfig(await cfgRes.json())
+  }
+
+  if (!config) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <p className="text-sm text-muted-foreground">Loading loyalty settings…</p>
+      </div>
+    )
+  }
+
+  const previewEarned = 50 * config.earnRate
+  const previewValue = (previewEarned / config.redeemRate).toFixed(2)
+  const minDollarOff = (config.minRedeem / config.redeemRate).toFixed(2)
+
+  return (
+    <div className="grid gap-6 pb-10">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="font-heading text-2xl font-bold text-foreground">Loyalty Program</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Configure how customers earn and redeem points</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Program active</span>
+            <button
+              type="button"
+              onClick={() => setConfig(c => c ? { ...c } : c)}
+              className="relative h-6 w-11 rounded-full bg-primary transition-colors"
+            >
+              <span className="absolute right-1 top-1 h-4 w-4 rounded-full bg-white shadow" />
+            </button>
+          </div>
+          <Button
+            type="button"
+            onClick={handleSave}
+            disabled={saving}
+            className={cn("min-w-[120px]", saved && "bg-green-600 hover:bg-green-600")}
+          >
+            {saved ? "✓ Saved" : saving ? "Saving…" : "Save changes"}
+          </Button>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-2">
+        {(["rules", "analytics"] as const).map((t) => (
+          <Button
+            key={t}
+            type="button"
+            variant={tab === t ? "default" : "outline"}
+            className="rounded-full capitalize"
+            onClick={() => setTab(t)}
+          >
+            {t === "rules" ? "Program Rules" : "Analytics"}
+          </Button>
+        ))}
+      </div>
+
+      {tab === "rules" && (
+        <div className="grid gap-5">
+          {/* Live preview card */}
+          <div className="rounded-2xl bg-primary p-6 text-primary-foreground">
+            <div className="grid grid-cols-3 gap-6">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-primary-foreground/60">Earn on $50 order</p>
+                <p className="mt-1 font-heading text-3xl font-bold">{previewEarned.toLocaleString()} pts</p>
+                <p className="mt-1 text-xs text-primary-foreground/60">≈ ${previewValue} in savings</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-primary-foreground/60">Redemption rate</p>
+                <p className="mt-1 font-heading text-3xl font-bold">{config.redeemRate} pts</p>
+                <p className="mt-1 text-xs text-primary-foreground/60">= $1.00 off</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-primary-foreground/60">Min to redeem</p>
+                <p className="mt-1 font-heading text-3xl font-bold">{config.minRedeem} pts</p>
+                <p className="mt-1 text-xs text-primary-foreground/60">= ${minDollarOff} off</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Earn / redeem rules */}
+          <Card>
+            <CardContent className="px-6 py-1">
+              <LoyaltyFieldRow
+                label="Points per dollar spent"
+                hint="How many points a customer earns for every $1 on a completed order."
+              >
+                <div className="grid gap-1.5">
+                  <LoyaltyNumInput value={config.earnRate} onChange={(v) => setConfig(c => c ? { ...c, earnRate: v } : c)} suffix="pts / $1" min={1} max={100} />
+                  <p className="text-xs text-muted-foreground">Customer earns {config.earnRate}× their spend in points</p>
+                </div>
+              </LoyaltyFieldRow>
+              <LoyaltyFieldRow
+                label="Points to redeem $1"
+                hint="How many points equal $1 off. Lower = more generous for customers."
+              >
+                <div className="grid gap-1.5">
+                  <LoyaltyNumInput value={config.redeemRate} onChange={(v) => setConfig(c => c ? { ...c, redeemRate: v } : c)} suffix="pts = $1" min={1} max={1000} />
+                  <p className="text-xs text-muted-foreground">Effective cash back: {((config.earnRate / config.redeemRate) * 100).toFixed(1)}%</p>
+                </div>
+              </LoyaltyFieldRow>
+              <LoyaltyFieldRow
+                label="Minimum points to redeem"
+                hint="Customers must reach this threshold before any rewards are available."
+              >
+                <LoyaltyNumInput value={config.minRedeem} onChange={(v) => setConfig(c => c ? { ...c, minRedeem: v } : c)} suffix="pts minimum" min={0} max={10000} />
+              </LoyaltyFieldRow>
+              <LoyaltyFieldRow
+                label="Points expiry"
+                hint="Unused points expire after this many months of inactivity. 0 = no expiry."
+              >
+                <LoyaltyNumInput value={config.expiryMonths} onChange={(v) => setConfig(c => c ? { ...c, expiryMonths: v } : c)} suffix="months" min={0} max={36} />
+              </LoyaltyFieldRow>
+              <LoyaltyFieldRow
+                label="Welcome bonus"
+                hint="Points awarded automatically when a customer joins on their first order."
+              >
+                <div className="grid gap-1.5">
+                  <LoyaltyNumInput value={config.welcomeBonus} onChange={(v) => setConfig(c => c ? { ...c, welcomeBonus: v } : c)} suffix="pts on join" min={0} max={5000} />
+                  <p className="text-xs text-muted-foreground">= ${(config.welcomeBonus / config.redeemRate).toFixed(2)} in welcome savings</p>
+                </div>
+              </LoyaltyFieldRow>
+            </CardContent>
+          </Card>
+
+          {/* Reward tiers */}
+          <Card>
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-sm">Reward tiers</CardTitle>
+                  <CardDescription className="text-xs mt-1">The discount options customers can choose from when redeeming points</CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border">
+                    {["Tier name", "Points cost", "Discount", ""].map((h) => (
+                      <th key={h} className="pb-2 text-left text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {config.tiers.map((tier) => (
+                    <tr key={tier.id} className="border-b border-border last:border-none">
+                      <td className="py-2.5 pr-3">
+                        <span className="text-sm text-foreground">{tier.name}</span>
+                      </td>
+                      <td className="py-2.5 pr-3">
+                        <span className="text-sm text-muted-foreground">{tier.pointsCost.toLocaleString()} pts</span>
+                      </td>
+                      <td className="py-2.5 pr-3">
+                        <span className="text-sm text-foreground">${(tier.discountCents / 100).toFixed(2)} off</span>
+                      </td>
+                      <td className="py-2.5 text-right">
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteTier(tier.id)}
+                          className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {/* Add tier form */}
+              <div className="mt-4 grid grid-cols-[1fr_120px_120px_auto] gap-2 items-end">
+                <div>
+                  <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Name</label>
+                  <input
+                    value={newTierName}
+                    onChange={(e) => setNewTierName(e.target.value)}
+                    placeholder="e.g. $5 off"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Points cost</label>
+                  <input
+                    type="number"
+                    value={newTierPts || ""}
+                    onChange={(e) => setNewTierPts(Number(e.target.value))}
+                    placeholder="500"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Discount (¢)</label>
+                  <input
+                    type="number"
+                    value={newTierCents || ""}
+                    onChange={(e) => setNewTierCents(Number(e.target.value))}
+                    placeholder="500"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleAddTier}
+                  disabled={addingTier || !newTierName.trim() || newTierPts < 1 || newTierCents < 1}
+                  className="self-end"
+                >
+                  {addingTier ? "Adding…" : "+ Add"}
+                </Button>
+              </div>
+              <p className="mt-3 text-[11px] text-muted-foreground">Changes apply to new redemptions only — existing issued rewards are not affected.</p>
+            </CardContent>
+          </Card>
+
+          {/* New member discount */}
+          <Card>
+            <CardContent className="px-6 py-5">
+              <div className="mb-4 flex items-start gap-4">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-accent/20 text-accent-foreground flex-shrink-0">
+                  <Sparkles className="h-4 w-4 text-amber-500" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-foreground">New member first-order discount</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">Applied automatically when a new phone number places their first order</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setConfig(c => c ? { ...c, newMemberDiscountEnabled: !c.newMemberDiscountEnabled } : c)}
+                  className={cn(
+                    "relative h-6 w-11 flex-shrink-0 rounded-full transition-colors",
+                    config.newMemberDiscountEnabled ? "bg-primary" : "bg-border"
+                  )}
+                >
+                  <span className={cn(
+                    "absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-all",
+                    config.newMemberDiscountEnabled ? "right-1" : "left-1"
+                  )} />
+                </button>
+              </div>
+              {config.newMemberDiscountEnabled && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Discount type</label>
+                    <select
+                      value={config.newMemberDiscountType}
+                      onChange={(e) => setConfig(c => c ? { ...c, newMemberDiscountType: e.target.value as "PERCENTAGE" | "FIXED" } : c)}
+                      className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
+                    >
+                      <option value="PERCENTAGE">Percentage off</option>
+                      <option value="FIXED">Fixed amount off</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Amount {config.newMemberDiscountType === "PERCENTAGE" ? "(%)" : "($)"}
+                    </label>
+                    <LoyaltyNumInput
+                      value={config.newMemberDiscountValue}
+                      onChange={(v) => setConfig(c => c ? { ...c, newMemberDiscountValue: v } : c)}
+                      suffix={config.newMemberDiscountType === "PERCENTAGE" ? "%" : "$"}
+                      min={0}
+                      max={config.newMemberDiscountType === "PERCENTAGE" ? 100 : 500}
+                    />
+                  </div>
+                </div>
+              )}
+              <p className="mt-3 rounded-lg border border-border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+                Discount is applied to the payment total automatically at checkout. One use per phone number.
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Stripe integration note */}
+          <Card>
+            <CardContent className="flex items-start gap-4 px-6 py-5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#635bff]/10 flex-shrink-0">
+                <CreditCard className="h-4 w-4 text-[#635bff]" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-foreground">Stripe discount integration</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">Discounts are applied by reducing the payment intent amount before charge. The discount amount and type are stored on the order for your records.</p>
+              </div>
+              <Badge variant="outline" className="border-green-500/30 bg-green-500/10 text-green-700 flex-shrink-0">Connected</Badge>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {tab === "analytics" && (
+        <div className="grid gap-5">
+          {loadingAnalytics && (
+            <div className="flex h-40 items-center justify-center">
+              <p className="text-sm text-muted-foreground">Loading analytics…</p>
+            </div>
+          )}
+          {analytics && (
+            <>
+              {/* KPI row */}
+              <div className="grid grid-cols-4 gap-4">
+                {[
+                  { label: "Enrolled members", value: analytics.enrolledCount.toLocaleString(), note: "all time" },
+                  { label: "Points issued", value: analytics.issued.toLocaleString(), note: "last 30 days" },
+                  { label: "Points redeemed", value: analytics.redeemed.toLocaleString(), note: "last 30 days" },
+                  {
+                    label: "Redemption rate",
+                    value: analytics.issued > 0 ? `${((analytics.redeemed / analytics.issued) * 100).toFixed(1)}%` : "—",
+                    note: "redeemed / issued",
+                  },
+                ].map((s) => (
+                  <Card key={s.label}>
+                    <CardContent className="px-5 py-4">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{s.label}</p>
+                      <p className="mt-2 font-heading text-3xl font-bold text-foreground">{s.value}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">{s.note}</p>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-2 gap-5">
+                {/* Top earners */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">Top earners</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {analytics.topAccounts.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No members yet.</p>
+                    ) : (
+                      <div className="grid gap-3">
+                        {analytics.topAccounts.map((acc, i) => (
+                          <div key={acc.id} className="flex items-center gap-3">
+                            <span className="w-4 text-right text-xs font-bold text-muted-foreground">{i + 1}</span>
+                            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary flex-shrink-0">
+                              {(acc.customer.name ?? acc.customer.phone).charAt(0).toUpperCase()}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-medium text-foreground">
+                                {acc.customer.name ?? "Unknown"}{" "}
+                                <span className="text-xs font-normal text-muted-foreground">
+                                  •••{acc.customer.phone.slice(-4)}
+                                </span>
+                              </p>
+                              <p className="text-xs text-muted-foreground">{acc.lifetimePts.toLocaleString()} lifetime pts</p>
+                            </div>
+                            <div className="text-right flex-shrink-0">
+                              <p className="text-sm font-bold text-primary">{acc.points.toLocaleString()}</p>
+                              <p className="text-[10px] text-muted-foreground">balance</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Summary card */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm">Program summary</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid gap-3">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Total members</span>
+                        <span className="font-medium text-foreground">{analytics.enrolledCount}</span>
+                      </div>
+                      <Separator />
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Points issued (30d)</span>
+                        <span className="font-medium text-foreground">{analytics.issued.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Points redeemed (30d)</span>
+                        <span className="font-medium text-foreground">{analytics.redeemed.toLocaleString()}</span>
+                      </div>
+                      <Separator />
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Earn rate</span>
+                        <span className="font-medium text-foreground">{config.earnRate} pts / $1</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Redemption rate</span>
+                        <span className="font-medium text-foreground">{config.redeemRate} pts = $1</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Welcome bonus</span>
+                        <span className="font-medium text-foreground">{config.welcomeBonus} pts</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Redemption log */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm">Redemption log</CardTitle>
+                    <Badge variant="outline" className="border-[#635bff]/30 bg-[#635bff]/10 text-[#635bff] text-[10px]">
+                      Stripe discounts applied at checkout
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {analytics.recentRedemptions.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No redemptions yet.</p>
+                  ) : (
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-border">
+                          {["Customer", "Description", "Points used", "Date"].map((h) => (
+                            <th key={h} className="pb-2 text-left text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {analytics.recentRedemptions.map((r) => (
+                          <tr key={r.id} className="border-b border-border last:border-none">
+                            <td className="py-2.5 pr-4 text-foreground font-medium">
+                              {r.account.customer.name ?? "—"}
+                              <span className="ml-1 text-xs font-normal text-muted-foreground">
+                                •••{r.account.customer.phone.slice(-4)}
+                              </span>
+                            </td>
+                            <td className="py-2.5 pr-4 text-muted-foreground">{r.description ?? "Redemption"}</td>
+                            <td className="py-2.5 pr-4 text-muted-foreground">{Math.abs(r.delta).toLocaleString()}</td>
+                            <td className="py-2.5 text-muted-foreground">
+                              {new Date(r.createdAt).toLocaleDateString()}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </CardContent>
+              </Card>
+            </>
+          )}
+        </div>
+      )}
     </div>
   )
 }

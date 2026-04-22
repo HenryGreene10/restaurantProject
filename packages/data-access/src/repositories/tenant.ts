@@ -95,6 +95,7 @@ type CreateCheckoutSessionInput = {
   deliveryAddressSnapshot?: Prisma.InputJsonValue | null
   items: CreateOrderItemInput[]
   stripeAccountId: string
+  discountCents?: number
 }
 
 type CheckoutSessionRow = {
@@ -1485,8 +1486,8 @@ export function createTenantDataAccess(scope: TenantScope) {
             ${cartSnapshotValue},
             ${normalized.subtotalCents},
             ${normalized.taxCents},
-            ${0},
-            ${normalized.totalCents},
+            ${input.discountCents ?? 0},
+            ${Math.max(0, normalized.totalCents - (input.discountCents ?? 0))},
             ${input.stripeAccountId},
             ${Prisma.sql`${"PENDING" satisfies CheckoutSessionStatus}::"CheckoutSessionStatus"`},
             NOW(),
@@ -1969,6 +1970,283 @@ export function createTenantDataAccess(scope: TenantScope) {
     },
   }
 
+  // ─── Loyalty ────────────────────────────────────────────────────
+  type LoyaltyProgramConfig = {
+    earnRate: number
+    redeemRate: number
+    minRedeem: number
+    expiryMonths: number
+    welcomeBonus: number
+    newMemberDiscountEnabled: boolean
+    newMemberDiscountType: 'PERCENTAGE' | 'FIXED'
+    newMemberDiscountValue: number
+    tiers: Array<{
+      id: string
+      name: string
+      pointsCost: number
+      discountCents: number
+      sortOrder: number
+    }>
+  }
+
+  const DEFAULT_LOYALTY_CONFIG: LoyaltyProgramConfig = {
+    earnRate: 10,
+    redeemRate: 100,
+    minRedeem: 100,
+    expiryMonths: 6,
+    welcomeBonus: 200,
+    newMemberDiscountEnabled: true,
+    newMemberDiscountType: 'PERCENTAGE',
+    newMemberDiscountValue: 10,
+    tiers: [
+      { id: 'tier-1', name: '$1 off', pointsCost: 100, discountCents: 100, sortOrder: 0 },
+      { id: 'tier-5', name: '$5 off', pointsCost: 500, discountCents: 500, sortOrder: 1 },
+      { id: 'tier-10', name: '$10 off', pointsCost: 1000, discountCents: 1000, sortOrder: 2 },
+    ],
+  }
+
+  const loyalty = {
+    async getOrCreateProgram() {
+      return withTenantConnection(scope.restaurantId, async (prisma) => {
+        let program = await prisma.loyaltyProgram.findFirst({
+          where: { restaurantId: scope.restaurantId, type: 'POINTS' },
+        })
+        if (!program) {
+          program = await prisma.loyaltyProgram.create({
+            data: {
+              restaurantId: scope.restaurantId,
+              name: 'Points',
+              type: 'POINTS',
+              config: DEFAULT_LOYALTY_CONFIG as unknown as Prisma.InputJsonValue,
+            },
+          })
+        }
+        return program
+      })
+    },
+
+    async getConfig(): Promise<LoyaltyProgramConfig> {
+      return withTenantConnection(scope.restaurantId, async (prisma) => {
+        const program = await prisma.loyaltyProgram.findFirst({
+          where: { restaurantId: scope.restaurantId, type: 'POINTS' },
+        })
+        if (!program) return DEFAULT_LOYALTY_CONFIG
+        const cfg = program.config as Record<string, unknown>
+        return { ...DEFAULT_LOYALTY_CONFIG, ...cfg } as LoyaltyProgramConfig
+      })
+    },
+
+    async updateConfig(patch: Partial<Omit<LoyaltyProgramConfig, 'tiers'>>) {
+      return withTenantConnection(scope.restaurantId, async (prisma) => {
+        let program = await prisma.loyaltyProgram.findFirst({
+          where: { restaurantId: scope.restaurantId, type: 'POINTS' },
+        })
+        const existing = (program?.config ?? DEFAULT_LOYALTY_CONFIG) as Record<string, unknown>
+        const updated = { ...existing, ...patch }
+        if (!program) {
+          return prisma.loyaltyProgram.create({
+            data: {
+              restaurantId: scope.restaurantId,
+              name: 'Points',
+              type: 'POINTS',
+              config: updated as Prisma.InputJsonValue,
+            },
+          })
+        }
+        return prisma.loyaltyProgram.update({
+          where: { id: program.id },
+          data: { config: updated as Prisma.InputJsonValue },
+        })
+      })
+    },
+
+    async upsertTier(tier: { id?: string; name: string; pointsCost: number; discountCents: number; sortOrder?: number }) {
+      return withTenantConnection(scope.restaurantId, async (prisma) => {
+        const program = await prisma.loyaltyProgram.findFirst({
+          where: { restaurantId: scope.restaurantId, type: 'POINTS' },
+        })
+        const cfg = ((program?.config ?? DEFAULT_LOYALTY_CONFIG) as Record<string, unknown>)
+        const tiers: LoyaltyProgramConfig['tiers'] = Array.isArray(cfg.tiers) ? (cfg.tiers as LoyaltyProgramConfig['tiers']) : DEFAULT_LOYALTY_CONFIG.tiers
+        const newId = tier.id ?? randomUUID()
+        const existing = tiers.findIndex(t => t.id === newId)
+        const entry = { id: newId, name: tier.name, pointsCost: tier.pointsCost, discountCents: tier.discountCents, sortOrder: tier.sortOrder ?? tiers.length }
+        const newTiers = existing >= 0
+          ? tiers.map(t => t.id === newId ? entry : t)
+          : [...tiers, entry]
+        const updated = { ...cfg, tiers: newTiers }
+        if (!program) {
+          await prisma.loyaltyProgram.create({
+            data: { restaurantId: scope.restaurantId, name: 'Points', type: 'POINTS', config: updated as Prisma.InputJsonValue },
+          })
+        } else {
+          await prisma.loyaltyProgram.update({ where: { id: program.id }, data: { config: updated as Prisma.InputJsonValue } })
+        }
+        return entry
+      })
+    },
+
+    async deleteTier(tierId: string) {
+      return withTenantConnection(scope.restaurantId, async (prisma) => {
+        const program = await prisma.loyaltyProgram.findFirst({
+          where: { restaurantId: scope.restaurantId, type: 'POINTS' },
+        })
+        if (!program) return
+        const cfg = program.config as Record<string, unknown>
+        const tiers: LoyaltyProgramConfig['tiers'] = Array.isArray(cfg.tiers) ? (cfg.tiers as LoyaltyProgramConfig['tiers']) : []
+        const updated = { ...cfg, tiers: tiers.filter(t => t.id !== tierId) }
+        await prisma.loyaltyProgram.update({ where: { id: program.id }, data: { config: updated as Prisma.InputJsonValue } })
+      })
+    },
+
+    async getOrCreateAccount(customerId: string) {
+      return withTenantConnection(scope.restaurantId, async (prisma) => {
+        const program = await prisma.loyaltyProgram.findFirst({
+          where: { restaurantId: scope.restaurantId, type: 'POINTS' },
+        })
+        if (!program) throw new Error('Loyalty program not configured')
+        const existing = await prisma.loyaltyAccount.findUnique({
+          where: { programId_customerId: { programId: program.id, customerId } },
+        })
+        if (existing) return existing
+        return prisma.loyaltyAccount.create({
+          data: { restaurantId: scope.restaurantId, programId: program.id, customerId, points: 0, lifetimePts: 0, isNew: true },
+        })
+      })
+    },
+
+    async getAccountByPhone(phone: string) {
+      return withTenantConnection(scope.restaurantId, async (prisma) => {
+        const customer = await prisma.customer.findUnique({
+          where: { restaurantId_phone: { restaurantId: scope.restaurantId, phone } },
+        })
+        if (!customer) return null
+        const program = await prisma.loyaltyProgram.findFirst({
+          where: { restaurantId: scope.restaurantId, type: 'POINTS' },
+        })
+        if (!program) return null
+        return prisma.loyaltyAccount.findUnique({
+          where: { programId_customerId: { programId: program.id, customerId: customer.id } },
+          include: { events: { orderBy: { createdAt: 'desc' }, take: 20 } },
+        })
+      })
+    },
+
+    async awardPoints(accountId: string, delta: number, type: string, orderId?: string | null, description?: string | null) {
+      return withTenantConnection(scope.restaurantId, async (prisma) => {
+        const account = await prisma.loyaltyAccount.findUnique({ where: { id: accountId } })
+        if (!account) throw new Error('Loyalty account not found')
+        const updated = await prisma.loyaltyAccount.update({
+          where: { id: accountId },
+          data: {
+            points: { increment: delta },
+            lifetimePts: delta > 0 ? { increment: delta } : undefined,
+          },
+        })
+        await prisma.loyaltyEvent.create({
+          data: {
+            restaurantId: scope.restaurantId,
+            accountId,
+            orderId: orderId ?? null,
+            type,
+            delta,
+            description: description ?? null,
+          },
+        })
+        return updated
+      })
+    },
+
+    async redeemPoints(accountId: string, tierId: string) {
+      return withTenantConnection(scope.restaurantId, async (prisma) => {
+        const account = await prisma.loyaltyAccount.findUnique({ where: { id: accountId } })
+        if (!account) throw new Error('Loyalty account not found')
+        const cfg = await loyalty.getConfig()
+        const tier = cfg.tiers.find(t => t.id === tierId)
+        if (!tier) throw new Error('Reward tier not found')
+        if (account.points < tier.pointsCost) throw new Error('Insufficient points')
+        await prisma.loyaltyAccount.update({
+          where: { id: accountId },
+          data: { points: { decrement: tier.pointsCost } },
+        })
+        await prisma.loyaltyEvent.create({
+          data: {
+            restaurantId: scope.restaurantId,
+            accountId,
+            type: 'REDEEM',
+            delta: -tier.pointsCost,
+            description: `Redeemed: ${tier.name}`,
+          },
+        })
+        return tier
+      })
+    },
+
+    async markAccountNotNew(accountId: string) {
+      return withTenantConnection(scope.restaurantId, async (prisma) => {
+        return prisma.loyaltyAccount.update({ where: { id: accountId }, data: { isNew: false } })
+      })
+    },
+
+    async isNewMemberByPhone(phone: string): Promise<boolean> {
+      return withTenantConnection(scope.restaurantId, async (prisma) => {
+        const customer = await prisma.customer.findUnique({
+          where: { restaurantId_phone: { restaurantId: scope.restaurantId, phone } },
+        })
+        if (!customer) return true
+        const program = await prisma.loyaltyProgram.findFirst({
+          where: { restaurantId: scope.restaurantId, type: 'POINTS' },
+        })
+        if (!program) return true
+        const account = await prisma.loyaltyAccount.findUnique({
+          where: { programId_customerId: { programId: program.id, customerId: customer.id } },
+        })
+        return account ? account.isNew : true
+      })
+    },
+
+    async getAnalytics() {
+      return withTenantConnection(scope.restaurantId, async (prisma) => {
+        const program = await prisma.loyaltyProgram.findFirst({
+          where: { restaurantId: scope.restaurantId, type: 'POINTS' },
+        })
+        if (!program) return null
+
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+
+        const [enrolledCount, recentEvents, topAccounts, recentRedemptions] = await Promise.all([
+          prisma.loyaltyAccount.count({ where: { restaurantId: scope.restaurantId } }),
+          prisma.loyaltyEvent.findMany({
+            where: { restaurantId: scope.restaurantId, createdAt: { gte: thirtyDaysAgo } },
+            select: { type: true, delta: true },
+          }),
+          prisma.loyaltyAccount.findMany({
+            where: { restaurantId: scope.restaurantId },
+            orderBy: { lifetimePts: 'desc' },
+            take: 5,
+            include: { customer: { select: { name: true, phone: true } } },
+          }),
+          prisma.loyaltyEvent.findMany({
+            where: { restaurantId: scope.restaurantId, type: 'REDEEM' },
+            orderBy: { createdAt: 'desc' },
+            take: 20,
+            include: { account: { include: { customer: { select: { name: true, phone: true } } } } },
+          }),
+        ])
+
+        const issued = recentEvents.filter(e => e.delta > 0).reduce((s, e) => s + e.delta, 0)
+        const redeemed = Math.abs(recentEvents.filter(e => e.delta < 0).reduce((s, e) => s + e.delta, 0))
+
+        return {
+          enrolledCount,
+          issued,
+          redeemed,
+          topAccounts,
+          recentRedemptions,
+        }
+      })
+    },
+  }
+
   return {
     brand,
     scope,
@@ -1978,5 +2256,6 @@ export function createTenantDataAccess(scope: TenantScope) {
     orders,
     payments,
     printing,
+    loyalty,
   }
 }
