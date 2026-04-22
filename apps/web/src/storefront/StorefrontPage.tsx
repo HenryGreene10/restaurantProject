@@ -21,6 +21,7 @@ import {
 } from "../lib/payments"
 import { fetchTenantMenu, isCategoryAvailableNow } from "../lib/menu"
 import type { MenuCategory, MenuItem } from "../lib/menu"
+import { fetchCustomerLoyaltyAccount } from "../lib/loyalty"
 import { CartSummary } from "./CartSummary"
 import {
   dismissActiveOrderForSession,
@@ -97,9 +98,11 @@ function promoBannerMessage(value: string) {
 export function StorefrontPage({
   customerSession,
   onViewOrder,
+  onViewRewardsWallet,
 }: {
   customerSession: CustomerSessionController
   onViewOrder: (orderId: string) => void
+  onViewRewardsWallet?: () => void
 }) {
   const showDevBanner =
     typeof window !== "undefined" &&
@@ -134,6 +137,17 @@ export function StorefrontPage({
     staleTime: 0,
     refetchOnMount: "always",
     refetchOnWindowFocus: true,
+  })
+
+  const loyaltyQuery = useQuery({
+    queryKey: ["customer-loyalty-storefront", tenantSlug, customerSession.customerId],
+    queryFn: () =>
+      fetchCustomerLoyaltyAccount({
+        tenantSlug,
+        accessToken: customerSession.accessToken as string,
+      }),
+    enabled: Boolean(customerSession.accessToken && tenantSlug),
+    staleTime: 60_000,
   })
 
   const categories = useMemo(
@@ -428,18 +442,34 @@ export function StorefrontPage({
                     ) : (
                       <div />
                     )}
-                    {theme.heroBadgeText.trim() ? (
-                      <div
-                        className="inline-flex w-fit rounded-full border px-3 py-1.5 text-xs sm:text-sm"
-                        style={{
-                          backgroundColor: "rgba(255, 252, 247, 0.84)",
-                          borderColor: theme.palette.border,
-                          color: theme.palette.muted,
-                        }}
-                      >
-                        {theme.heroBadgeText}
-                      </div>
-                    ) : null}
+                    <div className="flex items-center gap-3">
+                      {theme.heroBadgeText.trim() ? (
+                        <div
+                          className="inline-flex w-fit rounded-full border px-3 py-1.5 text-xs sm:text-sm"
+                          style={{
+                            backgroundColor: "rgba(255, 252, 247, 0.84)",
+                            borderColor: theme.palette.border,
+                            color: theme.palette.muted,
+                          }}
+                        >
+                          {theme.heroBadgeText}
+                        </div>
+                      ) : null}
+                      {onViewRewardsWallet && customerSession.isAuthenticated ? (
+                        <button
+                          type="button"
+                          className="inline-flex w-fit items-center rounded-full border px-3 py-1.5 text-xs sm:text-sm"
+                          style={{
+                            backgroundColor: "rgba(255, 252, 247, 0.84)",
+                            borderColor: theme.palette.border,
+                            color: theme.palette.primary,
+                          }}
+                          onClick={onViewRewardsWallet}
+                        >
+                          My rewards →
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
 
                   <div className="grid max-w-4xl content-end gap-4 justify-items-center text-center sm:justify-items-start sm:text-left">
@@ -614,11 +644,13 @@ export function StorefrontPage({
 
       <CartSummary
         items={cartItems}
+        tenantSlug={tenantSlug}
         brandColors={{
           accent: theme.palette.accent,
           primary: theme.palette.primary,
           primaryForeground: theme.palette.primaryForeground,
         }}
+        loyaltyAccount={loyaltyQuery.data ?? null}
         customerName={customerName}
         customerPhone={customerPhone}
         orderNotes={orderNotes}
@@ -648,6 +680,7 @@ export function StorefrontPage({
         stripePublishableKey={stripePublishableKey}
         onCreatePaymentIntent={createPaymentIntentForCheckout}
         onPaymentConfirmed={finalizePaidCheckout}
+        onViewRewardsWallet={onViewRewardsWallet}
       />
     </motion.main>
   )

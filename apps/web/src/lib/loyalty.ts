@@ -1,26 +1,23 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api"
 
+export type LoyaltyTier = {
+  id: string
+  name: string
+  pointsCost: number
+  discountCents: number
+  sortOrder: number
+}
+
 export type CustomerLoyaltyAccount = {
+  active: boolean
   balance: number
   lifetimePts: number
   isNew: boolean
   earnRate: number
   redeemRate: number
   minRedeem: number
-  tiers: Array<{
-    id: string
-    name: string
-    pointsCost: number
-    discountCents: number
-    sortOrder: number
-  }>
-  allTiers: Array<{
-    id: string
-    name: string
-    pointsCost: number
-    discountCents: number
-    sortOrder: number
-  }>
+  tiers: LoyaltyTier[]
+  allTiers: LoyaltyTier[]
   history: Array<{
     orderId: string | null
     type: string
@@ -54,4 +51,34 @@ export async function fetchCustomerLoyaltyAccount(input: {
   }
 
   return body as CustomerLoyaltyAccount
+}
+
+export async function redeemLoyaltyPoints(input: {
+  tenantSlug: string
+  accessToken: string
+  tierId: string
+}) {
+  const response = await fetch(`${API_BASE_URL}/v1/loyalty/redeem`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${input.accessToken}`,
+      "x-tenant-slug": input.tenantSlug,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ tierId: input.tierId }),
+  })
+
+  const body = (await response.json().catch(() => null)) as
+    | ({ error?: string } & Partial<{
+        tier: LoyaltyTier
+        discountCents: number
+        newBalance: number
+      }>)
+    | null
+
+  if (!response.ok || !body?.tier || typeof body.discountCents !== "number") {
+    throw new Error(parseError(response.status, body, "Failed to redeem loyalty points"))
+  }
+
+  return body as { tier: LoyaltyTier; discountCents: number; newBalance: number }
 }

@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from "framer-motion"
-import { Minus, Plus, ShoppingBag, Trash2, UtensilsCrossed, X } from "lucide-react"
+import { ArrowLeft, CheckCircle2, Minus, Plus, ShoppingBag, Sparkles, Trash2, UtensilsCrossed, X } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { createPortal } from "react-dom"
 
@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
 import type { CheckoutPaymentIntentSession } from "@/lib/payments"
+import { redeemLoyaltyPoints, type CustomerLoyaltyAccount } from "@/lib/loyalty"
 import { cartItemCount, cartLineTotal, cartSubtotal, type CartItem } from "./cartStore"
 import { CustomerOtpStep } from "./CustomerOtpStep"
 import { StripeCheckoutForm } from "./StripeCheckoutForm"
@@ -58,13 +59,21 @@ function validateCustomerPhone(value: string) {
   return null
 }
 
+const NEW_MEMBER_BULLETS = [
+  "10% new-member discount applied instantly",
+  "Auto-enrolled in rewards",
+  "200 welcome bonus points after verification",
+]
+
 type CartSummaryProps = {
   items: CartItem[]
+  tenantSlug: string
   brandColors?: {
     accent: string
     primary: string
     primaryForeground: string
   }
+  loyaltyAccount?: CustomerLoyaltyAccount | null
   customerName: string
   customerPhone: string
   orderNotes: string
@@ -91,11 +100,14 @@ type CartSummaryProps = {
     deliveryAddress: string | null
   }) => Promise<CheckoutPaymentIntentSession>
   onPaymentConfirmed: (paymentSession: CheckoutPaymentIntentSession) => Promise<void>
+  onViewRewardsWallet?: () => void
 }
 
 export function CartSummary({
   items,
+  tenantSlug,
   brandColors,
+  loyaltyAccount,
   customerName,
   customerPhone,
   orderNotes,
@@ -116,6 +128,7 @@ export function CartSummary({
   stripePublishableKey,
   onCreatePaymentIntent,
   onPaymentConfirmed,
+  onViewRewardsWallet,
 }: CartSummaryProps) {
   const itemCount = cartItemCount(items)
   const subtotal = cartSubtotal(items)
@@ -134,6 +147,11 @@ export function CartSummary({
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false)
   const [fulfillmentType, setFulfillmentType] = useState<"PICKUP" | "DELIVERY">("PICKUP")
   const [deliveryAddress, setDeliveryAddress] = useState("")
+  // loyalty redemption state
+  const [selectedTierId, setSelectedTierId] = useState<string | null>(null)
+  const [appliedRedemptionCents, setAppliedRedemptionCents] = useState(0)
+  const [isRedeeming, setIsRedeeming] = useState(false)
+  const [redemptionError, setRedemptionError] = useState<string | null>(null)
 
   const canContinue = items.length > 0
   const trimmedName = customerName.trim()
@@ -154,10 +172,29 @@ export function CartSummary({
     !submitting &&
     !isPreparingPayment &&
     !isSendingOtp &&
-    !isVerifyingOtp
+    !isVerifyingOtp &&
+    !isRedeeming
 
   const taxEstimate = useMemo(() => Math.round(subtotal * 0.08), [subtotal])
-  const totalEstimate = subtotal + taxEstimate
+  const totalEstimate = subtotal + taxEstimate - appliedRedemptionCents
+
+  // loyalty banner: show for unauthenticated users (new) or authenticated new members
+  const loyaltyActive = !loyaltyAccount || loyaltyAccount.active !== false
+  const isNewMemberSession = !customerSession.isAuthenticated || (loyaltyAccount?.isNew ?? true)
+  const showLoyaltyBanner = checkoutMode && !paymentSession && !otpPhone && loyaltyActive && isNewMemberSession
+
+  // redemption section: returning customer with redeemable points
+  const redeemableTiers = loyaltyAccount?.tiers ?? []
+  const showRedemptionSection =
+    checkoutMode &&
+    !paymentSession &&
+    !otpPhone &&
+    customerSession.isAuthenticated &&
+    loyaltyAccount &&
+    !loyaltyAccount.isNew &&
+    loyaltyAccount.balance >= loyaltyAccount.minRedeem &&
+    redeemableTiers.length > 0 &&
+    appliedRedemptionCents === 0
 
   useEffect(() => {
     if (!open || typeof document === "undefined") return
@@ -197,6 +234,27 @@ export function CartSummary({
     }
   }
 
+  async function applyRedemptionIfSelected() {
+    if (!selectedTierId || !customerSession.accessToken || appliedRedemptionCents > 0) return
+    setIsRedeeming(true)
+    setRedemptionError(null)
+    try {
+      const result = await redeemLoyaltyPoints({
+        tenantSlug,
+        accessToken: customerSession.accessToken,
+        tierId: selectedTierId,
+      })
+      setAppliedRedemptionCents(result.discountCents)
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : "Failed to apply reward")
+      setIsRedeeming(false)
+      return false
+    } finally {
+      setIsRedeeming(false)
+    }
+    return true
+  }
+
   async function handleCheckoutSubmit() {
     setSubmitAttempted(true)
 
@@ -217,6 +275,11 @@ export function CartSummary({
     }
 
     if (customerSession.isVerifiedPhone(normalizedPhone)) {
+      // Apply redemption before payment intent if tier selected
+      if (selectedTierId && appliedRedemptionCents === 0) {
+        const ok = await applyRedemptionIfSelected()
+        if (!ok) return
+      }
       await preparePayment(normalizedPhone)
       return
     }
@@ -255,6 +318,11 @@ export function CartSummary({
 
     try {
       await customerSession.verifyCode(otpPhone, code)
+      // Apply redemption after phone verified, before payment intent
+      if (selectedTierId && appliedRedemptionCents === 0) {
+        const ok = await applyRedemptionIfSelected()
+        if (!ok) return
+      }
       await preparePayment(otpPhone)
     } catch (error) {
       setOtpError(
@@ -306,8 +374,25 @@ export function CartSummary({
     setSubmitAttempted(false)
     setFulfillmentType("PICKUP")
     setDeliveryAddress("")
+    setSelectedTierId(null)
+    setAppliedRedemptionCents(0)
+    setIsRedeeming(false)
+    setRedemptionError(null)
     onClose()
   }
+
+  const selectedTier = redeemableTiers.find((t) => t.id === selectedTierId) ?? null
+  const ctaLabel = isPreparingPayment
+    ? "Preparing payment…"
+    : isSendingOtp
+      ? "Sending code…"
+      : isRedeeming
+        ? "Applying reward…"
+        : showLoyaltyBanner
+          ? "Send code & place order"
+          : selectedTierId && showRedemptionSection
+            ? `Apply reward & pay ${formatPrice(totalEstimate)}`
+            : "Continue to payment"
 
   const drawer = (
     <>
@@ -372,12 +457,25 @@ export function CartSummary({
             >
               <div className="shrink-0 flex items-center justify-between border-b border-neutral-200 bg-white px-4 py-4 sm:px-6 sm:py-6">
                 <div>
-                  <div className="text-xs font-medium uppercase tracking-[0.12em] text-neutral-500">
-                    {checkoutMode ? `${fulfillmentType === "DELIVERY" ? "Delivery" : "Pickup"} checkout` : "Cart"}
-                  </div>
-                  <h2 className="mt-2 text-2xl text-black" style={{ fontFamily: "var(--font-heading)" }}>
-                    {checkoutMode ? "Review and place order" : "Your order"}
-                  </h2>
+                  {otpPhone && !paymentSession ? (
+                    <button
+                      type="button"
+                      className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+                      onClick={handleEditPhone}
+                    >
+                      <ArrowLeft className="h-4 w-4" />
+                      Confirm your number
+                    </button>
+                  ) : (
+                    <>
+                      <div className="text-xs font-medium uppercase tracking-[0.12em] text-neutral-500">
+                        {checkoutMode ? `${fulfillmentType === "DELIVERY" ? "Delivery" : "Pickup"} checkout` : "Cart"}
+                      </div>
+                      <h2 className="mt-2 text-2xl text-black" style={{ fontFamily: "var(--font-heading)" }}>
+                        {checkoutMode ? "Review and place order" : "Your order"}
+                      </h2>
+                    </>
+                  )}
                 </div>
                 <Button
                   type="button"
@@ -408,276 +506,393 @@ export function CartSummary({
                   </Card>
                 ) : null}
 
-                {!checkoutMode
-                  ? items.map((item) => (
-                      <Card
-                        key={item.lineId}
-                        size="sm"
-                        className="gap-4 border border-border/80 bg-card shadow-sm"
+                {/* OTP step replaces all checkout content */}
+                {otpPhone && !paymentSession ? (
+                  <CustomerOtpStep
+                    phone={otpPhone}
+                    sending={isSendingOtp}
+                    verifying={isVerifyingOtp || isPreparingPayment}
+                    errorMessage={otpError}
+                    brandColors={brandColors}
+                    onCodeChange={setOtpCode}
+                    onEditPhone={handleEditPhone}
+                    onResend={() => void handleResendOtp()}
+                    onVerify={() => void handleVerifyOtp()}
+                  />
+                ) : !checkoutMode ? (
+                  items.map((item) => (
+                    <Card
+                      key={item.lineId}
+                      size="sm"
+                      className="gap-4 border border-border/80 bg-card shadow-sm"
+                    >
+                      <CardContent className="space-y-4 px-4 py-4 sm:px-6 sm:py-6">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <div className="font-semibold text-foreground">{item.name}</div>
+                          <div className="mt-2 text-sm text-muted-foreground">
+                            {item.variantName ?? "Standard"}
+                          </div>
+                          {item.modifiers.length > 0 ? (
+                            <div className="mt-4 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                              {item.modifiers.map((modifier) => (
+                                <Badge
+                                  key={`${item.lineId}-${modifier.optionId}`}
+                                  variant="outline"
+                                  className="border-border bg-background text-muted-foreground"
+                                >
+                                  {modifier.optionName}
+                                </Badge>
+                              ))}
+                            </div>
+                          ) : null}
+                          {item.notes ? (
+                            <div className="mt-2 text-xs text-muted-foreground">Note: {item.notes}</div>
+                          ) : null}
+                        </div>
+
+                        <div className="text-right">
+                          <div className="font-semibold text-foreground">{formatPrice(cartLineTotal(item))}</div>
+                          <div className="mt-2 flex items-center justify-end gap-3">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => onEdit(item.lineId)}
+                              className="h-auto px-0 text-xs text-muted-foreground hover:text-foreground"
+                            >
+                              Edit
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => onRemove(item.lineId)}
+                              className="h-auto px-0 text-xs text-muted-foreground hover:text-foreground"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              Remove
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="inline-flex min-h-11 items-center gap-2 rounded-[var(--radius)] border border-border bg-background px-2 py-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => onDecrement(item.lineId)}
+                        >
+                          <Minus className="h-4 w-4" />
+                        </Button>
+                        <span className="min-w-8 text-center text-sm font-semibold text-foreground">{item.quantity}</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon-sm"
+                          onClick={() => onIncrement(item.lineId)}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      </CardContent>
+                    </Card>
+                  ))
+                ) : (
+                  <div className="space-y-6">
+                    {/* Loyalty new-member banner */}
+                    {showLoyaltyBanner ? (
+                      <div
+                        className="rounded-[var(--radius)] px-4 py-4"
+                        style={{
+                          background: brandColors
+                            ? `linear-gradient(135deg, ${brandColors.primary}18, ${brandColors.accent}12)`
+                            : "var(--primary-foreground)",
+                          borderLeft: `3px solid ${brandColors?.primary ?? "var(--primary)"}`,
+                        }}
                       >
-                        <CardContent className="space-y-4 px-4 py-4 sm:px-6 sm:py-6">
-                        <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-start gap-3">
+                          <Sparkles
+                            className="mt-0.5 h-4 w-4 shrink-0"
+                            style={{ color: brandColors?.primary ?? "var(--primary)" }}
+                          />
                           <div>
-                            <div className="font-semibold text-foreground">{item.name}</div>
-                            <div className="mt-2 text-sm text-muted-foreground">
-                              {item.variantName ?? "Standard"}
+                            <div className="text-sm font-semibold text-foreground">
+                              10% off your first order
                             </div>
-                            {item.modifiers.length > 0 ? (
-                              <div className="mt-4 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                                {item.modifiers.map((modifier) => (
-                                  <Badge
-                                    key={`${item.lineId}-${modifier.optionId}`}
-                                    variant="outline"
-                                    className="border-border bg-background text-muted-foreground"
-                                  >
-                                    {modifier.optionName}
-                                  </Badge>
-                                ))}
-                              </div>
-                            ) : null}
-                            {item.notes ? (
-                              <div className="mt-2 text-xs text-muted-foreground">Note: {item.notes}</div>
-                            ) : null}
-                          </div>
-
-                          <div className="text-right">
-                            <div className="font-semibold text-foreground">{formatPrice(cartLineTotal(item))}</div>
-                            <div className="mt-2 flex items-center justify-end gap-3">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => onEdit(item.lineId)}
-                                className="h-auto px-0 text-xs text-muted-foreground hover:text-foreground"
-                              >
-                                Edit
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => onRemove(item.lineId)}
-                                className="h-auto px-0 text-xs text-muted-foreground hover:text-foreground"
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                                Remove
-                              </Button>
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              Enter your number to unlock your new-member discount and automatically join rewards
                             </div>
                           </div>
                         </div>
+                      </div>
+                    ) : null}
 
-                        <div className="inline-flex min-h-11 items-center gap-2 rounded-[var(--radius)] border border-border bg-background px-2 py-2">
-                          <Button
+                    <Card size="sm" className="gap-4 border border-border/80 bg-card shadow-sm">
+                      <CardHeader className="gap-2">
+                        <Badge variant="outline" className="border-border bg-background text-muted-foreground">
+                          Fulfillment
+                        </Badge>
+                        <CardTitle style={{ fontFamily: "var(--font-heading)" }}>
+                          {fulfillmentType === "DELIVERY" ? "Delivery" : "Pickup"}
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="grid gap-4">
+                        <div className="grid grid-cols-2 gap-3">
+                          <button
                             type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            onClick={() => onDecrement(item.lineId)}
+                            onClick={() => setFulfillmentType("PICKUP")}
+                            style={{ cursor: "pointer" }}
+                            className={cn(
+                              "rounded-[var(--radius)] border px-4 py-4 text-left transition-colors",
+                              fulfillmentType === "PICKUP"
+                                ? "border-primary/20 bg-primary/10"
+                                : "border-border bg-background hover:bg-muted/40",
+                            )}
                           >
-                            <Minus className="h-4 w-4" />
-                          </Button>
-                          <span className="min-w-8 text-center text-sm font-semibold text-foreground">{item.quantity}</span>
-                          <Button
+                            <div className="font-semibold text-foreground">Pickup</div>
+                            <div className="mt-1 text-sm text-muted-foreground">Ready at the counter</div>
+                          </button>
+                          <button
                             type="button"
-                            variant="ghost"
-                            size="icon-sm"
-                            onClick={() => onIncrement(item.lineId)}
+                            onClick={() => setFulfillmentType("DELIVERY")}
+                            style={{ cursor: "pointer" }}
+                            className={cn(
+                              "rounded-[var(--radius)] border px-4 py-4 text-left transition-colors",
+                              fulfillmentType === "DELIVERY"
+                                ? "border-primary/20 bg-primary/10"
+                                : "border-border bg-background hover:bg-muted/40",
+                            )}
                           >
-                            <Plus className="h-4 w-4" />
-                          </Button>
+                            <div className="font-semibold text-foreground">Delivery</div>
+                            <div className="mt-1 text-sm text-muted-foreground">Delivered to your door</div>
+                          </button>
                         </div>
-                        </CardContent>
-                      </Card>
-                    ))
-                  : (
-                    <div className="space-y-6">
+
+                        {fulfillmentType === "DELIVERY" ? (
+                          <div className="grid gap-2">
+                            <Label htmlFor="checkout-address">Delivery address</Label>
+                            <Input
+                              id="checkout-address"
+                              value={deliveryAddress}
+                              onChange={(event) => setDeliveryAddress(event.target.value)}
+                              onBlur={() => setAddressTouched(true)}
+                              disabled={Boolean(paymentSession)}
+                              placeholder="123 Main St, Apt 4B"
+                            />
+                            {showAddressError ? (
+                              <div className="text-sm text-red-600">{addressError}</div>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </CardContent>
+                    </Card>
+
+                    <Card size="sm" className="gap-4 border border-border/80 bg-card shadow-sm">
+                      <CardHeader className="gap-2">
+                        <Badge variant="outline" className="border-border bg-background text-muted-foreground">
+                          {fulfillmentType === "DELIVERY" ? "Delivery details" : "Pickup details"}
+                        </Badge>
+                        <CardTitle style={{ fontFamily: "var(--font-heading)" }}>Customer details</CardTitle>
+                      </CardHeader>
+                      <CardContent className="grid gap-4">
+                        <div className="grid gap-2">
+                          <Label htmlFor="checkout-name">Name</Label>
+                          <Input
+                            id="checkout-name"
+                            value={customerName}
+                            onChange={(event) => onCustomerNameChange(event.target.value)}
+                            onBlur={() => setNameTouched(true)}
+                            disabled={Boolean(paymentSession)}
+                            placeholder="Customer name"
+                          />
+                          {showNameError ? (
+                            <div className="text-sm text-red-600">{nameError}</div>
+                          ) : null}
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="checkout-phone">Phone</Label>
+                          <Input
+                            id="checkout-phone"
+                            value={customerPhone}
+                            onChange={(event) => onCustomerPhoneChange(event.target.value)}
+                            onBlur={() => setPhoneTouched(true)}
+                            disabled={Boolean(paymentSession) || Boolean(otpPhone)}
+                            placeholder="(555) 555-5555"
+                          />
+                          <div className="text-xs text-muted-foreground">
+                            By providing your phone number, you agree to receive order status updates via SMS. Reply STOP to opt out.
+                          </div>
+                          {showPhoneError ? (
+                            <div className="text-sm text-red-600">{phoneError}</div>
+                          ) : null}
+
+                          {/* Loyalty benefits bullets below phone input */}
+                          {showLoyaltyBanner ? (
+                            <ul className="mt-1 space-y-1.5">
+                              {NEW_MEMBER_BULLETS.map((bullet) => (
+                                <li key={bullet} className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  <CheckCircle2
+                                    className="h-3.5 w-3.5 shrink-0"
+                                    style={{ color: brandColors?.primary ?? "var(--primary)" }}
+                                  />
+                                  {bullet}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : null}
+                        </div>
+                        <div className="grid gap-2">
+                          <div className="flex items-center justify-between gap-3">
+                            <Label htmlFor="checkout-note">Order note</Label>
+                            <div className="text-xs text-muted-foreground">
+                              {orderNotes.length}/{ORDER_NOTE_MAX_LENGTH}
+                            </div>
+                          </div>
+                          <textarea
+                            id="checkout-note"
+                            value={orderNotes}
+                            onChange={(event) =>
+                              onOrderNotesChange(
+                                event.target.value.slice(0, ORDER_NOTE_MAX_LENGTH),
+                              )
+                            }
+                            rows={3}
+                            maxLength={ORDER_NOTE_MAX_LENGTH}
+                            disabled={Boolean(paymentSession)}
+                            className="min-h-24 w-full rounded-[var(--radius)] border border-input bg-background px-4 py-4 text-sm text-foreground shadow-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30"
+                            placeholder={fulfillmentType === "DELIVERY" ? "Optional note for delivery" : "Optional note for pickup"}
+                          />
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Redemption section for returning customers with points */}
+                    {showRedemptionSection ? (
                       <Card size="sm" className="gap-4 border border-border/80 bg-card shadow-sm">
                         <CardHeader className="gap-2">
                           <Badge variant="outline" className="border-border bg-background text-muted-foreground">
-                            Fulfillment
+                            Rewards
                           </Badge>
-                          <CardTitle style={{ fontFamily: "var(--font-heading)" }}>
-                            {fulfillmentType === "DELIVERY" ? "Delivery" : "Pickup"}
-                          </CardTitle>
+                          <CardTitle style={{ fontFamily: "var(--font-heading)" }}>Apply a reward</CardTitle>
+                          <p className="text-sm text-muted-foreground">
+                            You have {loyaltyAccount!.balance.toLocaleString()} pts available
+                          </p>
                         </CardHeader>
-                        <CardContent className="grid gap-4">
-                          <div className="grid grid-cols-2 gap-3">
+                        <CardContent className="grid gap-3">
+                          {redeemableTiers.map((tier) => (
                             <button
+                              key={tier.id}
                               type="button"
-                              onClick={() => setFulfillmentType("PICKUP")}
-                              style={{ cursor: "pointer" }}
+                              onClick={() => setSelectedTierId(tier.id === selectedTierId ? null : tier.id)}
                               className={cn(
-                                "rounded-[var(--radius)] border px-4 py-4 text-left transition-colors",
-                                fulfillmentType === "PICKUP"
-                                  ? "border-primary/20 bg-primary/10"
+                                "flex items-center gap-3 rounded-[var(--radius)] border px-4 py-3 text-left transition-colors",
+                                tier.id === selectedTierId
+                                  ? "border-primary/30 bg-primary/8"
                                   : "border-border bg-background hover:bg-muted/40",
                               )}
+                              style={
+                                tier.id === selectedTierId
+                                  ? { borderColor: `${brandColors?.primary ?? "var(--primary)"}40`, background: `${brandColors?.primary ?? "var(--primary)"}0d` }
+                                  : undefined
+                              }
                             >
-                              <div className="font-semibold text-foreground">Pickup</div>
-                              <div className="mt-1 text-sm text-muted-foreground">Ready at the counter</div>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setFulfillmentType("DELIVERY")}
-                              style={{ cursor: "pointer" }}
-                              className={cn(
-                                "rounded-[var(--radius)] border px-4 py-4 text-left transition-colors",
-                                fulfillmentType === "DELIVERY"
-                                  ? "border-primary/20 bg-primary/10"
-                                  : "border-border bg-background hover:bg-muted/40",
-                              )}
-                            >
-                              <div className="font-semibold text-foreground">Delivery</div>
-                              <div className="mt-1 text-sm text-muted-foreground">Delivered to your door</div>
-                            </button>
-                          </div>
-
-                          {fulfillmentType === "DELIVERY" ? (
-                            <div className="grid gap-2">
-                              <Label htmlFor="checkout-address">Delivery address</Label>
-                              <Input
-                                id="checkout-address"
-                                value={deliveryAddress}
-                                onChange={(event) => setDeliveryAddress(event.target.value)}
-                                onBlur={() => setAddressTouched(true)}
-                                disabled={Boolean(paymentSession)}
-                                placeholder="123 Main St, Apt 4B"
+                              <div
+                                className="h-4 w-4 shrink-0 rounded-full border-2 transition-colors"
+                                style={
+                                  tier.id === selectedTierId
+                                    ? { borderColor: brandColors?.primary ?? "var(--primary)", background: brandColors?.primary ?? "var(--primary)" }
+                                    : { borderColor: "var(--border)" }
+                                }
                               />
-                              {showAddressError ? (
-                                <div className="text-sm text-red-600">{addressError}</div>
-                              ) : null}
+                              <div className="flex-1">
+                                <div className="font-medium text-foreground">{tier.name}</div>
+                                <div className="text-xs text-muted-foreground">{tier.pointsCost.toLocaleString()} pts</div>
+                              </div>
+                              <div className="font-semibold text-foreground">
+                                -{formatPrice(tier.discountCents)}
+                              </div>
+                            </button>
+                          ))}
+                          {redemptionError ? (
+                            <div className="rounded-[var(--radius)] border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-foreground">
+                              {redemptionError}
                             </div>
                           ) : null}
                         </CardContent>
                       </Card>
+                    ) : null}
 
+                    {/* Applied redemption badge */}
+                    {appliedRedemptionCents > 0 ? (
+                      <div
+                        className="flex items-center gap-2 rounded-[var(--radius)] px-4 py-3"
+                        style={{
+                          background: `${brandColors?.primary ?? "var(--primary)"}12`,
+                          borderLeft: `3px solid ${brandColors?.primary ?? "var(--primary)"}`,
+                        }}
+                      >
+                        <CheckCircle2
+                          className="h-4 w-4 shrink-0"
+                          style={{ color: brandColors?.primary ?? "var(--primary)" }}
+                        />
+                        <span className="text-sm font-medium text-foreground">
+                          Reward applied: -{formatPrice(appliedRedemptionCents)}
+                        </span>
+                      </div>
+                    ) : null}
+
+                    {paymentSession ? (
                       <Card size="sm" className="gap-4 border border-border/80 bg-card shadow-sm">
                         <CardHeader className="gap-2">
                           <Badge variant="outline" className="border-border bg-background text-muted-foreground">
-                            {fulfillmentType === "DELIVERY" ? "Delivery details" : "Pickup details"}
+                            Payment
                           </Badge>
-                          <CardTitle style={{ fontFamily: "var(--font-heading)" }}>Customer details</CardTitle>
+                          <CardTitle style={{ fontFamily: "var(--font-heading)" }}>
+                            Card payment
+                          </CardTitle>
                         </CardHeader>
                         <CardContent className="grid gap-4">
-                          <div className="grid gap-2">
-                            <Label htmlFor="checkout-name">Name</Label>
-                            <Input
-                              id="checkout-name"
-                              value={customerName}
-                              onChange={(event) => onCustomerNameChange(event.target.value)}
-                              onBlur={() => setNameTouched(true)}
-                              disabled={Boolean(paymentSession)}
-                              placeholder="Customer name"
-                            />
-                            {showNameError ? (
-                              <div className="text-sm text-red-600">{nameError}</div>
-                            ) : null}
-                          </div>
-                          <div className="grid gap-2">
-                            <Label htmlFor="checkout-phone">Phone</Label>
-                            <Input
-                              id="checkout-phone"
-                              value={customerPhone}
-                              onChange={(event) => onCustomerPhoneChange(event.target.value)}
-                              onBlur={() => setPhoneTouched(true)}
-                              disabled={Boolean(paymentSession) || Boolean(otpPhone)}
-                              placeholder="(555) 555-5555"
-                            />
-                            <div className="text-xs text-muted-foreground">
-                              By providing your phone number, you agree to receive order status updates via SMS. Reply STOP to opt out.
-                            </div>
-                            {showPhoneError ? (
-                              <div className="text-sm text-red-600">{phoneError}</div>
-                            ) : null}
-                          </div>
-                          <div className="grid gap-2">
-                            <div className="flex items-center justify-between gap-3">
-                              <Label htmlFor="checkout-note">Order note</Label>
-                              <div className="text-xs text-muted-foreground">
-                                {orderNotes.length}/{ORDER_NOTE_MAX_LENGTH}
-                              </div>
-                            </div>
-                            <textarea
-                              id="checkout-note"
-                              value={orderNotes}
-                              onChange={(event) =>
-                                onOrderNotesChange(
-                                  event.target.value.slice(0, ORDER_NOTE_MAX_LENGTH),
-                                )
-                              }
-                              rows={3}
-                              maxLength={ORDER_NOTE_MAX_LENGTH}
-                              disabled={Boolean(paymentSession)}
-                              className="min-h-24 w-full rounded-[var(--radius)] border border-input bg-background px-4 py-4 text-sm text-foreground shadow-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30"
-                              placeholder={fulfillmentType === "DELIVERY" ? "Optional note for delivery" : "Optional note for pickup"}
-                            />
-                          </div>
+                          <StripeCheckoutForm
+                            publishableKey={stripePublishableKey}
+                            stripeAccountId={paymentSession.stripeAccountId}
+                            clientSecret={paymentSession.clientSecret}
+                            customerName={trimmedName}
+                            submitting={submitting}
+                            onPaymentConfirmed={async () => {
+                              await onPaymentConfirmed(paymentSession)
+                            }}
+                          />
                         </CardContent>
                       </Card>
+                    ) : null}
 
-                      {paymentSession ? (
-                        <Card size="sm" className="gap-4 border border-border/80 bg-card shadow-sm">
-                          <CardHeader className="gap-2">
-                            <Badge variant="outline" className="border-border bg-background text-muted-foreground">
-                              Payment
-                            </Badge>
-                            <CardTitle style={{ fontFamily: "var(--font-heading)" }}>
-                              Card payment
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent className="grid gap-4">
-                            <StripeCheckoutForm
-                              publishableKey={stripePublishableKey}
-                              stripeAccountId={paymentSession.stripeAccountId}
-                              clientSecret={paymentSession.clientSecret}
-                              customerName={trimmedName}
-                              submitting={submitting}
-                              onPaymentConfirmed={async () => {
-                                await onPaymentConfirmed(paymentSession)
-                              }}
-                            />
-                          </CardContent>
-                        </Card>
-                      ) : null}
-
-                      {otpPhone && !paymentSession ? (
-                        <CustomerOtpStep
-                          code={otpCode}
-                          errorMessage={otpError}
-                          phone={otpPhone}
-                          sending={isSendingOtp}
-                          verifying={isVerifyingOtp || isPreparingPayment}
-                          onCodeChange={setOtpCode}
-                          onEditPhone={handleEditPhone}
-                          onResend={() => void handleResendOtp()}
-                          onVerify={() => void handleVerifyOtp()}
-                        />
-                      ) : null}
-
-                      <Card size="sm" className="gap-4 border border-border/80 bg-card shadow-sm">
-                        <CardHeader className="gap-2">
-                          <Badge variant="outline" className="border-border bg-background text-muted-foreground">
-                            Order summary
-                          </Badge>
-                          <CardTitle style={{ fontFamily: "var(--font-heading)" }}>What you’re ordering</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                          {items.map((item) => (
-                            <div key={item.lineId} className="flex items-start justify-between gap-4 text-sm">
-                              <div>
-                                <div className="font-medium text-foreground">
-                                  {item.quantity} × {item.name}
-                                </div>
-                                <div className="mt-2 text-xs text-muted-foreground">
-                                  {item.variantName ?? "Standard"}
-                                </div>
+                    <Card size="sm" className="gap-4 border border-border/80 bg-card shadow-sm">
+                      <CardHeader className="gap-2">
+                        <Badge variant="outline" className="border-border bg-background text-muted-foreground">
+                          Order summary
+                        </Badge>
+                        <CardTitle style={{ fontFamily: "var(--font-heading)" }}>What you're ordering</CardTitle>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        {items.map((item) => (
+                          <div key={item.lineId} className="flex items-start justify-between gap-4 text-sm">
+                            <div>
+                              <div className="font-medium text-foreground">
+                                {item.quantity} × {item.name}
                               </div>
-                              <div className="font-medium text-foreground">{formatPrice(cartLineTotal(item))}</div>
+                              <div className="mt-2 text-xs text-muted-foreground">
+                                {item.variantName ?? "Standard"}
+                              </div>
                             </div>
-                          ))}
-                        </CardContent>
-                      </Card>
-                    </div>
-                  )}
+                            <div className="font-medium text-foreground">{formatPrice(cartLineTotal(item))}</div>
+                          </div>
+                        ))}
+                      </CardContent>
+                    </Card>
+                  </div>
+                )}
               </div>
 
               <div className="border-t border-border bg-card px-4 py-4 sm:px-6 sm:py-6">
@@ -690,6 +905,16 @@ export function CartSummary({
                   <div className="flex items-center justify-between text-sm text-muted-foreground">
                     <span>Estimated tax</span>
                     <span className="font-semibold text-foreground">{formatPrice(taxEstimate)}</span>
+                  </div>
+                ) : null}
+                {appliedRedemptionCents > 0 ? (
+                  <div className="flex items-center justify-between text-sm">
+                    <span style={{ color: brandColors?.primary ?? "var(--primary)" }}>
+                      Reward discount
+                    </span>
+                    <span className="font-semibold" style={{ color: brandColors?.primary ?? "var(--primary)" }}>
+                      -{formatPrice(appliedRedemptionCents)}
+                    </span>
                   </div>
                 ) : null}
                 <div className="flex items-center justify-between text-sm text-muted-foreground">
@@ -718,27 +943,52 @@ export function CartSummary({
                   >
                     Continue to checkout
                   </Button>
+                ) : otpPhone && !paymentSession ? (
+                  /* OTP mode — buttons are inside CustomerOtpStep */
+                  null
                 ) : (
-                  <div className="grid gap-4">
+                  <div className="grid gap-3">
                     {!paymentSession ? (
-                      <Button
-                        className="min-h-11 w-full justify-center"
-                        disabled={
-                          !hasDraftDetails ||
-                          submitting ||
-                          isPreparingPayment ||
-                          isSendingOtp ||
-                          isVerifyingOtp ||
-                          Boolean(otpPhone)
-                        }
-                        onClick={() => void handleCheckoutSubmit()}
-                      >
-                        {isPreparingPayment
-                          ? "Preparing payment…"
-                          : isSendingOtp
-                            ? "Sending code…"
-                            : "Continue to payment"}
-                      </Button>
+                      <>
+                        <Button
+                          className="min-h-11 w-full justify-center"
+                          disabled={
+                            !hasDraftDetails ||
+                            submitting ||
+                            isPreparingPayment ||
+                            isSendingOtp ||
+                            isVerifyingOtp ||
+                            isRedeeming ||
+                            Boolean(otpPhone)
+                          }
+                          style={
+                            brandColors && hasDraftDetails
+                              ? {
+                                  background: `linear-gradient(135deg, ${brandColors.primary}, ${brandColors.accent})`,
+                                  color: brandColors.primaryForeground,
+                                  border: "none",
+                                }
+                              : undefined
+                          }
+                          onClick={() => void handleCheckoutSubmit()}
+                        >
+                          {ctaLabel}
+                        </Button>
+
+                        {/* Skip redemption option */}
+                        {showRedemptionSection && selectedTierId ? (
+                          <button
+                            type="button"
+                            className="text-sm text-muted-foreground underline"
+                            onClick={() => {
+                              setSelectedTierId(null)
+                              void handleCheckoutSubmit()
+                            }}
+                          >
+                            Skip — pay {formatPrice(subtotal + taxEstimate)}
+                          </button>
+                        ) : null}
+                      </>
                     ) : null}
                     <Button
                       type="button"
@@ -757,6 +1007,17 @@ export function CartSummary({
                     >
                       {paymentSession ? "Back to details" : "Back to cart"}
                     </Button>
+
+                    {/* Wallet link for returning customers */}
+                    {onViewRewardsWallet && customerSession.isAuthenticated && !paymentSession ? (
+                      <button
+                        type="button"
+                        className="text-xs text-muted-foreground underline"
+                        onClick={onViewRewardsWallet}
+                      >
+                        View my rewards wallet →
+                      </button>
+                    ) : null}
                   </div>
                 )}
                 </div>

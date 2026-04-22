@@ -1,4 +1,4 @@
-import { Clock3, MapPin, ShoppingBag } from "lucide-react"
+import { CheckCircle2, Clock3, MapPin, ShoppingBag, Star } from "lucide-react"
 import { useEffect, useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
 
@@ -42,16 +42,30 @@ function statusCopy(status: CustomerOrder["status"]) {
   }
 }
 
+function ProgressBar({ value, max }: { value: number; max: number }) {
+  const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0
+  return (
+    <div className="h-2 w-full overflow-hidden rounded-full bg-brand-border/40">
+      <div
+        className="h-full rounded-full transition-all duration-700"
+        style={{ width: `${pct}%`, background: "rgb(var(--color-brand-primary))" }}
+      />
+    </div>
+  )
+}
+
 export function OrderStatusPage({
   orderId,
   tenantSlug,
   customerSession,
   onBackToMenu,
+  onViewRewardsWallet,
 }: {
   orderId: string
   tenantSlug: string
   customerSession: CustomerSessionController
   onBackToMenu: () => void
+  onViewRewardsWallet?: () => void
 }) {
   const orderQuery = useOrderStatusPoll({
     tenantSlug,
@@ -92,6 +106,13 @@ export function OrderStatusPage({
         .reduce((sum, event) => sum + event.delta, 0) ?? 0,
     [loyaltyQuery.data, orderId],
   )
+  const welcomeBonusPts = useMemo(
+    () =>
+      loyaltyQuery.data?.history
+        .filter((event) => event.orderId === orderId && event.type === "WELCOME_BONUS")
+        .reduce((sum, event) => sum + event.delta, 0) ?? 0,
+    [loyaltyQuery.data, orderId],
+  )
   const appliedDiscountCents = orderQuery.data?.discountCents ?? activeOrder?.discountCents ?? 0
   const welcomeOfferApplied =
     Boolean(activeOrder?.isNewMember) ||
@@ -100,6 +121,14 @@ export function OrderStatusPage({
         (event) => event.orderId === orderId && event.type === "WELCOME_BONUS",
       ),
     )
+
+  const firstName = orderQuery.data?.customerNameSnapshot?.trim().split(/\s+/)[0] ?? null
+
+  const nextTier = loyaltyQuery.data
+    ? loyaltyQuery.data.allTiers
+        .sort((a, b) => a.pointsCost - b.pointsCost)
+        .find((t) => t.pointsCost > loyaltyQuery.data!.balance)
+    : null
 
   useEffect(() => {
     const status = orderQuery.data?.status
@@ -166,6 +195,15 @@ export function OrderStatusPage({
                       <h1 className="mt-2 text-3xl" style={{ fontFamily: "var(--font-heading)" }}>
                         {statusCopy(orderQuery.data.status)}
                       </h1>
+
+                      {/* Welcome message for new members */}
+                      {welcomeOfferApplied && firstName ? (
+                        <p className="mt-3 text-sm text-brand-muted">
+                          Welcome, <span className="font-semibold text-brand-text">{firstName}</span>! Your order is confirmed
+                          and your 10% new-member discount is applied.
+                        </p>
+                      ) : null}
+
                       <div className="mt-3 flex flex-wrap gap-4 text-sm text-brand-muted">
                         <div className="flex items-center gap-2">
                           <Clock3 className="h-4 w-4" />
@@ -220,10 +258,23 @@ export function OrderStatusPage({
                           </div>
                         </article>
                       ))}
+
+                      {/* Discount line in order summary */}
+                      {appliedDiscountCents > 0 ? (
+                        <div className="flex items-center justify-between rounded-brand border border-brand-border/40 bg-brand-background px-4 py-3 text-sm">
+                          <span style={{ color: "rgb(var(--color-brand-primary))" }}>
+                            {welcomeOfferApplied ? "New member discount 10% off" : "Reward discount"}
+                          </span>
+                          <span className="font-semibold" style={{ color: "rgb(var(--color-brand-primary))" }}>
+                            -{formatPrice(appliedDiscountCents)}
+                          </span>
+                        </div>
+                      ) : null}
                     </div>
                   </div>
 
                   <div className="space-y-5">
+                    {/* Rewards activated card */}
                     <div className="rounded-[32px] border border-brand-border/70 bg-brand-surface px-6 py-6 shadow-brand">
                       <div className="flex items-center justify-between gap-3">
                         <div className="text-sm font-semibold uppercase tracking-[0.12em] text-brand-muted">
@@ -249,26 +300,69 @@ export function OrderStatusPage({
                           Loyalty summary unavailable right now.
                         </div>
                       ) : loyaltyQuery.data ? (
-                        <div className="mt-4 space-y-2 text-sm text-brand-muted">
-                          <div className="flex items-center justify-between">
-                            <span>Points earned this order</span>
-                            <span className="font-semibold text-brand-text">
-                              {pointsEarnedThisOrder.toLocaleString()} pts
-                            </span>
+                        <div className="mt-4 space-y-3">
+                          <div className="flex items-center gap-2 text-sm font-semibold text-brand-text">
+                            <Star className="h-4 w-4" style={{ color: "rgb(var(--color-brand-primary))" }} />
+                            Rewards activated
                           </div>
-                          <div className="flex items-center justify-between">
-                            <span>Total balance</span>
-                            <span className="font-semibold text-brand-text">
-                              {loyaltyQuery.data.balance.toLocaleString()} pts
-                            </span>
-                          </div>
-                          {appliedDiscountCents > 0 ? (
+
+                          <div className="space-y-2 text-sm text-brand-muted">
+                            {pointsEarnedThisOrder > 0 ? (
+                              <div className="flex items-center justify-between">
+                                <span>Earned this order</span>
+                                <span className="font-semibold text-brand-text">
+                                  +{(pointsEarnedThisOrder - welcomeBonusPts).toLocaleString()} pts
+                                </span>
+                              </div>
+                            ) : null}
+                            {welcomeBonusPts > 0 ? (
+                              <div className="flex items-center justify-between">
+                                <span>Welcome bonus</span>
+                                <span className="font-semibold" style={{ color: "rgb(var(--color-brand-primary))" }}>
+                                  +{welcomeBonusPts.toLocaleString()} pts
+                                </span>
+                              </div>
+                            ) : null}
                             <div className="flex items-center justify-between">
-                              <span>Reward applied at checkout</span>
+                              <span>Total balance</span>
                               <span className="font-semibold text-brand-text">
-                                -{formatPrice(appliedDiscountCents)}
+                                {loyaltyQuery.data.balance.toLocaleString()} pts
                               </span>
                             </div>
+                            {appliedDiscountCents > 0 ? (
+                              <div className="flex items-center justify-between">
+                                <span>Reward applied at checkout</span>
+                                <span className="font-semibold text-brand-text">
+                                  -{formatPrice(appliedDiscountCents)}
+                                </span>
+                              </div>
+                            ) : null}
+                          </div>
+
+                          {/* Progress to next reward */}
+                          {nextTier ? (
+                            <div className="space-y-1.5 pt-1">
+                              <div className="flex items-center justify-between text-xs text-brand-muted">
+                                <span>
+                                  {(nextTier.pointsCost - loyaltyQuery.data.balance).toLocaleString()} pts to{" "}
+                                  <span className="font-medium text-brand-text">{nextTier.name}</span>
+                                </span>
+                                <span>{formatPrice(nextTier.discountCents)} reward</span>
+                              </div>
+                              <ProgressBar value={loyaltyQuery.data.balance} max={nextTier.pointsCost} />
+                            </div>
+                          ) : null}
+
+                          {/* View wallet link */}
+                          {onViewRewardsWallet ? (
+                            <button
+                              type="button"
+                              className="mt-1 text-xs underline"
+                              style={{ color: "rgb(var(--color-brand-primary))" }}
+                              onClick={onViewRewardsWallet}
+                            >
+                              View my rewards wallet →
+                            </button>
                           ) : null}
                         </div>
                       ) : (
@@ -293,8 +387,10 @@ export function OrderStatusPage({
                         </div>
                         {appliedDiscountCents > 0 ? (
                           <div className="flex items-center justify-between">
-                            <span>Discount</span>
-                            <span className="font-semibold text-brand-text">
+                            <span style={{ color: "rgb(var(--color-brand-primary))" }}>
+                              {welcomeOfferApplied ? "New member discount" : "Discount"}
+                            </span>
+                            <span className="font-semibold" style={{ color: "rgb(var(--color-brand-primary))" }}>
                               -{formatPrice(appliedDiscountCents)}
                             </span>
                           </div>

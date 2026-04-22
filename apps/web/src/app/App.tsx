@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 
 import { LandingPage } from "../landing/LandingPage"
 import { OrderStatusPage } from "../storefront/OrderStatusPage"
+import { RewardsWalletPage } from "../storefront/RewardsWalletPage"
 import { StorefrontPage } from "../storefront/StorefrontPage"
 import { useCustomerSession } from "../storefront/useCustomerSession"
 import { useThemePlaygroundStore } from "../theme/store"
@@ -15,11 +16,16 @@ function parseOrderPath(pathname: string) {
   return match?.[1] ?? null
 }
 
+function parseRewardsPath(pathname: string) {
+  return pathname === "/rewards"
+}
+
 export function App() {
   const { tenantSlug } = useThemePlaygroundStore()
   const customerSession = useCustomerSession(tenantSlug)
   const [pathname, setPathname] = useState(currentPath)
   const orderId = parseOrderPath(pathname)
+  const isRewards = parseRewardsPath(pathname)
 
   useEffect(() => {
     function handlePopState() {
@@ -51,6 +57,17 @@ export function App() {
         tenantSlug={tenantSlug}
         customerSession={customerSession}
         onBackToMenu={() => navigate("/")}
+        onViewRewardsWallet={() => navigate("/rewards")}
+      />
+    )
+  }
+
+  if (isRewards) {
+    return (
+      <RewardsWalletPage
+        tenantSlug={tenantSlug}
+        customerSession={customerSession}
+        onBackToMenu={() => navigate("/")}
       />
     )
   }
@@ -59,6 +76,7 @@ export function App() {
     <StorefrontPage
       customerSession={customerSession}
       onViewOrder={(nextOrderId) => navigate(`/orders/${nextOrderId}`)}
+      onViewRewardsWallet={() => navigate("/rewards")}
     />
   )
 }
