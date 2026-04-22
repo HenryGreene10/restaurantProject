@@ -1,10 +1,13 @@
 import { Clock3, MapPin, ShoppingBag } from "lucide-react"
-import { useEffect } from "react"
+import { useEffect, useMemo } from "react"
+import { useQuery } from "@tanstack/react-query"
 
 import { Button } from "../components/Button"
+import { fetchCustomerLoyaltyAccount } from "../lib/loyalty"
 import type { CustomerOrder } from "../lib/orders"
 import { clearActiveOrder, readActiveOrder } from "./activeOrder"
 import { useOrderStatusPoll } from "./useOrderStatusPoll"
+import type { CustomerSessionController } from "./useCustomerSession"
 
 function formatPrice(priceCents: number) {
   return new Intl.NumberFormat("en-US", {
@@ -42,16 +45,61 @@ function statusCopy(status: CustomerOrder["status"]) {
 export function OrderStatusPage({
   orderId,
   tenantSlug,
+  customerSession,
   onBackToMenu,
 }: {
   orderId: string
   tenantSlug: string
+  customerSession: CustomerSessionController
   onBackToMenu: () => void
 }) {
   const orderQuery = useOrderStatusPoll({
     tenantSlug,
     orderId,
   })
+  const activeOrder = useMemo(() => {
+    const record = readActiveOrder()
+    if (!record || record.orderId !== orderId || record.tenantSlug !== tenantSlug) {
+      return null
+    }
+
+    return record
+  }, [orderId, tenantSlug])
+  const loyaltyQuery = useQuery({
+    queryKey: ["customer-loyalty", tenantSlug, customerSession.customerId, orderId],
+    queryFn: () =>
+      fetchCustomerLoyaltyAccount({
+        tenantSlug,
+        accessToken: customerSession.accessToken as string,
+      }),
+    enabled: Boolean(orderQuery.data && customerSession.accessToken),
+    refetchInterval: (query) => {
+      const hasCurrentOrderPoints = query.state.data?.history?.some(
+        (event) => event.orderId === orderId && event.delta > 0,
+      )
+      const status = orderQuery.data?.status
+      if (hasCurrentOrderPoints || status === "COMPLETED" || status === "CANCELLED") {
+        return false
+      }
+
+      return 3000
+    },
+  })
+  const pointsEarnedThisOrder = useMemo(
+    () =>
+      loyaltyQuery.data?.history
+        .filter((event) => event.orderId === orderId && event.delta > 0)
+        .reduce((sum, event) => sum + event.delta, 0) ?? 0,
+    [loyaltyQuery.data, orderId],
+  )
+  const appliedDiscountCents = orderQuery.data?.discountCents ?? activeOrder?.discountCents ?? 0
+  const welcomeOfferApplied =
+    Boolean(activeOrder?.isNewMember) ||
+    Boolean(
+      loyaltyQuery.data?.history.some(
+        (event) => event.orderId === orderId && event.type === "WELCOME_BONUS",
+      ),
+    )
 
   useEffect(() => {
     const status = orderQuery.data?.status
@@ -59,15 +107,15 @@ export function OrderStatusPage({
       return
     }
 
-    const activeOrder = readActiveOrder()
-    if (!activeOrder) {
+    const existingActiveOrder = readActiveOrder()
+    if (!existingActiveOrder) {
       return
     }
 
     clearActiveOrder({
       orderId,
       tenantSlug,
-      placedAt: activeOrder.placedAt,
+      placedAt: existingActiveOrder.placedAt,
     })
   }, [orderId, orderQuery.data?.status, tenantSlug])
 
@@ -177,6 +225,60 @@ export function OrderStatusPage({
 
                   <div className="space-y-5">
                     <div className="rounded-[32px] border border-brand-border/70 bg-brand-surface px-6 py-6 shadow-brand">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="text-sm font-semibold uppercase tracking-[0.12em] text-brand-muted">
+                          Loyalty
+                        </div>
+                        {welcomeOfferApplied ? (
+                          <div className="rounded-full border border-brand-border bg-brand-background px-3 py-1 text-xs font-semibold">
+                            Welcome offer
+                          </div>
+                        ) : null}
+                      </div>
+
+                      {customerSession.isRestoring ? (
+                        <div className="mt-4 text-sm text-brand-muted">
+                          Restoring your loyalty balance…
+                        </div>
+                      ) : loyaltyQuery.isLoading ? (
+                        <div className="mt-4 text-sm text-brand-muted">
+                          Loading loyalty points…
+                        </div>
+                      ) : loyaltyQuery.error ? (
+                        <div className="mt-4 text-sm text-brand-muted">
+                          Loyalty summary unavailable right now.
+                        </div>
+                      ) : loyaltyQuery.data ? (
+                        <div className="mt-4 space-y-2 text-sm text-brand-muted">
+                          <div className="flex items-center justify-between">
+                            <span>Points earned this order</span>
+                            <span className="font-semibold text-brand-text">
+                              {pointsEarnedThisOrder.toLocaleString()} pts
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span>Total balance</span>
+                            <span className="font-semibold text-brand-text">
+                              {loyaltyQuery.data.balance.toLocaleString()} pts
+                            </span>
+                          </div>
+                          {appliedDiscountCents > 0 ? (
+                            <div className="flex items-center justify-between">
+                              <span>Reward applied at checkout</span>
+                              <span className="font-semibold text-brand-text">
+                                -{formatPrice(appliedDiscountCents)}
+                              </span>
+                            </div>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <div className="mt-4 text-sm text-brand-muted">
+                          Loyalty summary unavailable right now.
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="rounded-[32px] border border-brand-border/70 bg-brand-surface px-6 py-6 shadow-brand">
                       <div className="text-sm font-semibold uppercase tracking-[0.12em] text-brand-muted">
                         Total
                       </div>
@@ -189,6 +291,14 @@ export function OrderStatusPage({
                           <span>Tax</span>
                           <span className="font-semibold text-brand-text">{formatPrice(orderQuery.data.taxCents)}</span>
                         </div>
+                        {appliedDiscountCents > 0 ? (
+                          <div className="flex items-center justify-between">
+                            <span>Discount</span>
+                            <span className="font-semibold text-brand-text">
+                              -{formatPrice(appliedDiscountCents)}
+                            </span>
+                          </div>
+                        ) : null}
                         <div className="flex items-center justify-between text-base">
                           <span>Total</span>
                           <span className="font-semibold text-brand-text">{formatPrice(orderQuery.data.totalCents)}</span>

@@ -13,6 +13,7 @@ type CustomerOtpStepProps = {
   onCodeChange: (value: string) => void
   onEditPhone: () => void
   onResend: () => void
+  onVerify: () => void
 }
 
 export function CustomerOtpStep({
@@ -24,6 +25,7 @@ export function CustomerOtpStep({
   onCodeChange,
   onEditPhone,
   onResend,
+  onVerify,
 }: CustomerOtpStepProps) {
   return (
     <Card size="sm" className="gap-4 border border-border/80 bg-card shadow-sm">
@@ -58,6 +60,14 @@ export function CustomerOtpStep({
         ) : null}
 
         <div className="flex flex-wrap items-center gap-4">
+          <Button
+            type="button"
+            disabled={sending || verifying || code.trim().length < 4}
+            onClick={onVerify}
+            className="min-h-11"
+          >
+            {verifying ? "Verifying…" : "Verify and continue"}
+          </Button>
           <Button
             type="button"
             variant="outline"

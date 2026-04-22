@@ -12,7 +12,9 @@ import { Separator } from "@/components/ui/separator"
 import { cn } from "@/lib/utils"
 import type { CheckoutPaymentIntentSession } from "@/lib/payments"
 import { cartItemCount, cartLineTotal, cartSubtotal, type CartItem } from "./cartStore"
+import { CustomerOtpStep } from "./CustomerOtpStep"
 import { StripeCheckoutForm } from "./StripeCheckoutForm"
+import type { CustomerSessionController } from "./useCustomerSession"
 
 const NAME_PATTERN = /^[A-Za-z\s'-]+$/
 const ORDER_NOTE_MAX_LENGTH = 500
@@ -79,6 +81,7 @@ type CartSummaryProps = {
   onCustomerNameChange: (value: string) => void
   onCustomerPhoneChange: (value: string) => void
   onOrderNotesChange: (value: string) => void
+  customerSession: CustomerSessionController
   stripePublishableKey: string
   onCreatePaymentIntent: (payload: {
     customerName: string
@@ -87,7 +90,7 @@ type CartSummaryProps = {
     fulfillmentType: "PICKUP" | "DELIVERY"
     deliveryAddress: string | null
   }) => Promise<CheckoutPaymentIntentSession>
-  onPaymentConfirmed: (checkoutSessionId: string) => Promise<void>
+  onPaymentConfirmed: (paymentSession: CheckoutPaymentIntentSession) => Promise<void>
 }
 
 export function CartSummary({
@@ -109,6 +112,7 @@ export function CartSummary({
   onCustomerNameChange,
   onCustomerPhoneChange,
   onOrderNotesChange,
+  customerSession,
   stripePublishableKey,
   onCreatePaymentIntent,
   onPaymentConfirmed,
@@ -123,6 +127,11 @@ export function CartSummary({
   const [submitAttempted, setSubmitAttempted] = useState(false)
   const [paymentSession, setPaymentSession] = useState<CheckoutPaymentIntentSession | null>(null)
   const [isPreparingPayment, setIsPreparingPayment] = useState(false)
+  const [otpCode, setOtpCode] = useState("")
+  const [otpError, setOtpError] = useState<string | null>(null)
+  const [otpPhone, setOtpPhone] = useState<string | null>(null)
+  const [isSendingOtp, setIsSendingOtp] = useState(false)
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false)
   const [fulfillmentType, setFulfillmentType] = useState<"PICKUP" | "DELIVERY">("PICKUP")
   const [deliveryAddress, setDeliveryAddress] = useState("")
 
@@ -140,7 +149,12 @@ export function CartSummary({
     trimmedName.length > 0 &&
     trimmedPhone.length > 0 &&
     (fulfillmentType === "PICKUP" || trimmedAddress.length > 0)
-  const canSubmit = hasDraftDetails && !submitting && !isPreparingPayment
+  const canSubmit =
+    hasDraftDetails &&
+    !submitting &&
+    !isPreparingPayment &&
+    !isSendingOtp &&
+    !isVerifyingOtp
 
   const taxEstimate = useMemo(() => Math.round(subtotal * 0.08), [subtotal])
   const totalEstimate = subtotal + taxEstimate
@@ -155,6 +169,33 @@ export function CartSummary({
       document.body.style.overflow = previousOverflow
     }
   }, [open])
+
+  async function preparePayment(normalizedPhone: string) {
+    setFormError(null)
+    setOtpError(null)
+    setIsPreparingPayment(true)
+
+    try {
+      if (!stripePublishableKey) {
+        throw new Error("Stripe is not configured for this storefront")
+      }
+
+      const nextPaymentSession = await onCreatePaymentIntent({
+        customerName: trimmedName,
+        customerPhone: normalizedPhone,
+        orderNotes: orderNotes.trim() ? orderNotes.trim() : null,
+        fulfillmentType,
+        deliveryAddress: fulfillmentType === "DELIVERY" ? trimmedAddress : null,
+      })
+      setPaymentSession(nextPaymentSession)
+      setOtpPhone(null)
+      setOtpCode("")
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : "Failed to prepare payment")
+    } finally {
+      setIsPreparingPayment(false)
+    }
+  }
 
   async function handleCheckoutSubmit() {
     setSubmitAttempted(true)
@@ -175,33 +216,90 @@ export function CartSummary({
       return
     }
 
+    if (customerSession.isVerifiedPhone(normalizedPhone)) {
+      await preparePayment(normalizedPhone)
+      return
+    }
+
     setFormError(null)
-    setIsPreparingPayment(true)
+    setOtpError(null)
+    setIsSendingOtp(true)
 
     try {
-      if (!stripePublishableKey) {
-        throw new Error("Stripe is not configured for this storefront")
-      }
-
-      const nextPaymentSession = await onCreatePaymentIntent({
-        customerName: trimmedName,
-        customerPhone: normalizedPhone,
-        orderNotes: orderNotes.trim() ? orderNotes.trim() : null,
-        fulfillmentType,
-        deliveryAddress: fulfillmentType === "DELIVERY" ? trimmedAddress : null,
-      })
-      setPaymentSession(nextPaymentSession)
+      await customerSession.sendCode(normalizedPhone)
+      setOtpPhone(normalizedPhone)
+      setOtpCode("")
     } catch (error) {
-      setFormError(error instanceof Error ? error.message : "Failed to prepare payment")
+      setFormError(
+        error instanceof Error ? error.message : "Failed to send verification code",
+      )
     } finally {
-      setIsPreparingPayment(false)
+      setIsSendingOtp(false)
     }
+  }
+
+  async function handleVerifyOtp() {
+    if (!otpPhone) {
+      return
+    }
+
+    const code = otpCode.trim()
+    if (code.length < 4) {
+      setOtpError("Enter the verification code we sent.")
+      return
+    }
+
+    setOtpError(null)
+    setFormError(null)
+    setIsVerifyingOtp(true)
+
+    try {
+      await customerSession.verifyCode(otpPhone, code)
+      await preparePayment(otpPhone)
+    } catch (error) {
+      setOtpError(
+        error instanceof Error ? error.message : "Failed to verify your phone number",
+      )
+    } finally {
+      setIsVerifyingOtp(false)
+    }
+  }
+
+  async function handleResendOtp() {
+    if (!otpPhone) {
+      return
+    }
+
+    setOtpError(null)
+    setIsSendingOtp(true)
+
+    try {
+      await customerSession.sendCode(otpPhone)
+    } catch (error) {
+      setOtpError(
+        error instanceof Error ? error.message : "Failed to resend verification code",
+      )
+    } finally {
+      setIsSendingOtp(false)
+    }
+  }
+
+  function handleEditPhone() {
+    setOtpPhone(null)
+    setOtpCode("")
+    setOtpError(null)
+    setPhoneTouched(false)
   }
 
   function handleClose() {
     setCheckoutMode(false)
     setPaymentSession(null)
     setFormError(null)
+    setOtpCode("")
+    setOtpError(null)
+    setOtpPhone(null)
+    setIsSendingOtp(false)
+    setIsVerifyingOtp(false)
     setNameTouched(false)
     setPhoneTouched(false)
     setAddressTouched(false)
@@ -481,7 +579,7 @@ export function CartSummary({
                               value={customerPhone}
                               onChange={(event) => onCustomerPhoneChange(event.target.value)}
                               onBlur={() => setPhoneTouched(true)}
-                              disabled={Boolean(paymentSession)}
+                              disabled={Boolean(paymentSession) || Boolean(otpPhone)}
                               placeholder="(555) 555-5555"
                             />
                             <div className="text-xs text-muted-foreground">
@@ -534,11 +632,25 @@ export function CartSummary({
                               customerName={trimmedName}
                               submitting={submitting}
                               onPaymentConfirmed={async () => {
-                                await onPaymentConfirmed(paymentSession.checkoutSessionId)
+                                await onPaymentConfirmed(paymentSession)
                               }}
                             />
                           </CardContent>
                         </Card>
+                      ) : null}
+
+                      {otpPhone && !paymentSession ? (
+                        <CustomerOtpStep
+                          code={otpCode}
+                          errorMessage={otpError}
+                          phone={otpPhone}
+                          sending={isSendingOtp}
+                          verifying={isVerifyingOtp || isPreparingPayment}
+                          onCodeChange={setOtpCode}
+                          onEditPhone={handleEditPhone}
+                          onResend={() => void handleResendOtp()}
+                          onVerify={() => void handleVerifyOtp()}
+                        />
                       ) : null}
 
                       <Card size="sm" className="gap-4 border border-border/80 bg-card shadow-sm">
@@ -611,10 +723,21 @@ export function CartSummary({
                     {!paymentSession ? (
                       <Button
                         className="min-h-11 w-full justify-center"
-                        disabled={!hasDraftDetails || submitting || isPreparingPayment}
+                        disabled={
+                          !hasDraftDetails ||
+                          submitting ||
+                          isPreparingPayment ||
+                          isSendingOtp ||
+                          isVerifyingOtp ||
+                          Boolean(otpPhone)
+                        }
                         onClick={() => void handleCheckoutSubmit()}
                       >
-                        {isPreparingPayment ? "Preparing payment…" : "Continue to payment"}
+                        {isPreparingPayment
+                          ? "Preparing payment…"
+                          : isSendingOtp
+                            ? "Sending code…"
+                            : "Continue to payment"}
                       </Button>
                     ) : null}
                     <Button

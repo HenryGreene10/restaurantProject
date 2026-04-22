@@ -34,6 +34,7 @@ export function registerLoyaltyRoutes(r: Router) {
         tiers: config.tiers.filter(t => account.points >= t.pointsCost),
         allTiers: config.tiers,
         history: recentEvents?.events?.map(e => ({
+          orderId: e.orderId,
           type: e.type,
           delta: e.delta,
           description: e.description,

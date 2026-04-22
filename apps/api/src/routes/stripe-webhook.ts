@@ -34,15 +34,21 @@ async function awardLoyaltyPoints(
 
     // Award welcome bonus on first order
     if (isFirstOrder && cfg.welcomeBonus > 0) {
-      await tenantDataAccess.loyalty.awardPoints(account.id, cfg.welcomeBonus, 'WELCOME_BONUS', null, 'Welcome bonus')
+      await tenantDataAccess.loyalty.awardPoints(account.id, cfg.welcomeBonus, 'WELCOME_BONUS', order.id, 'Welcome bonus')
     }
 
     // Mark account as no longer new after first order
     if (isFirstOrder) {
       await tenantDataAccess.loyalty.markAccountNotNew(account.id)
     }
-  } catch {
+  } catch (error) {
     // Loyalty is non-critical — don't fail the webhook
+    console.error('Failed to award loyalty points after payment success', {
+      error,
+      orderId: order.id,
+      customerId: order.customerId,
+      customerPhone: checkoutSession.customerPhoneSnapshot,
+    })
   }
 }
 

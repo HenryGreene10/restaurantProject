@@ -267,7 +267,7 @@ export function StorefrontPage({
     })
   }
 
-  async function finalizePaidCheckout(checkoutSessionId: string) {
+  async function finalizePaidCheckout(paymentSession: CheckoutPaymentIntentSession) {
     setSubmittingOrder(true)
 
     try {
@@ -276,7 +276,7 @@ export function StorefrontPage({
       while (Date.now() < deadline) {
         const checkoutStatus = await fetchCheckoutStatus({
           tenantSlug,
-          checkoutSessionId,
+          checkoutSessionId: paymentSession.checkoutSessionId,
         })
 
         if (checkoutStatus.status === "ORDER_CREATED" && checkoutStatus.orderId) {
@@ -284,6 +284,8 @@ export function StorefrontPage({
             orderId: checkoutStatus.orderId,
             tenantSlug,
             placedAt: new Date().toISOString(),
+            discountCents: paymentSession.discountCents,
+            isNewMember: paymentSession.isNewMember,
           } satisfies ActiveOrderRecord
 
           writeActiveOrder(activeOrder)
@@ -642,6 +644,7 @@ export function StorefrontPage({
         onCustomerNameChange={setCustomerName}
         onCustomerPhoneChange={setCustomerPhone}
         onOrderNotesChange={setOrderNotes}
+        customerSession={customerSession}
         stripePublishableKey={stripePublishableKey}
         onCreatePaymentIntent={createPaymentIntentForCheckout}
         onPaymentConfirmed={finalizePaidCheckout}

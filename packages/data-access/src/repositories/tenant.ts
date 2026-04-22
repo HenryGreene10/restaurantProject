@@ -482,6 +482,7 @@ async function persistOrderFromSnapshot(
     items: NormalizedOrderItemSnapshot[]
     subtotalCents: number
     taxCents: number
+    discountCents?: number
     totalCents: number
     paymentStatus?: "PENDING" | "REQUIRES_ACTION" | "PAID" | "FAILED" | "REFUNDED"
     stripePaymentIntentId?: string | null
@@ -509,7 +510,7 @@ async function persistOrderFromSnapshot(
         fulfillmentType: input.fulfillmentType ?? "PICKUP",
         subtotalCents: input.subtotalCents,
         taxCents: input.taxCents,
-        discountCents: 0,
+        discountCents: input.discountCents ?? 0,
         totalCents: input.totalCents,
         notes: input.notes ?? null,
         pickupTime: input.pickupTime ?? null,
@@ -1616,6 +1617,7 @@ export function createTenantDataAccess(scope: TenantScope) {
           items: cartSnapshot.items,
           subtotalCents: checkoutSession.subtotalCents,
           taxCents: checkoutSession.taxCents,
+          discountCents: checkoutSession.discountCents,
           totalCents: checkoutSession.totalCents,
           paymentStatus: "PAID",
           stripePaymentIntentId: checkoutSession.stripePaymentIntentId,
@@ -2100,10 +2102,19 @@ export function createTenantDataAccess(scope: TenantScope) {
 
     async getOrCreateAccount(customerId: string) {
       return withTenantConnection(scope.restaurantId, async (prisma) => {
-        const program = await prisma.loyaltyProgram.findFirst({
+        let program = await prisma.loyaltyProgram.findFirst({
           where: { restaurantId: scope.restaurantId, type: 'POINTS' },
         })
-        if (!program) throw new Error('Loyalty program not configured')
+        if (!program) {
+          program = await prisma.loyaltyProgram.create({
+            data: {
+              restaurantId: scope.restaurantId,
+              name: 'Points',
+              type: 'POINTS',
+              config: DEFAULT_LOYALTY_CONFIG as unknown as Prisma.InputJsonValue,
+            },
+          })
+        }
         const existing = await prisma.loyaltyAccount.findUnique({
           where: { programId_customerId: { programId: program.id, customerId } },
         })

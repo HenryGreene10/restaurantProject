@@ -2096,7 +2096,7 @@ export const App: React.FC = () => {
       case "insights":
         return insightsPanel
       case "loyalty":
-        return <LoyaltyPage />
+        return <LoyaltyPage tenantSlug={linkedTenantSlug} />
       case "payments":
         return paymentsPanel
       case "assistant":
@@ -2419,13 +2419,16 @@ function LoyaltyFieldRow({
   )
 }
 
-function LoyaltyPage() {
+function LoyaltyPage({ tenantSlug }: { tenantSlug: string }) {
   const [tab, setTab] = useState<"rules" | "analytics">("rules")
   const [config, setConfig] = useState<LoyaltyConfig | null>(null)
   const [analytics, setAnalytics] = useState<LoyaltyAnalytics | null>(null)
+  const [loadingConfig, setLoadingConfig] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [loadingAnalytics, setLoadingAnalytics] = useState(false)
+  const [configError, setConfigError] = useState<string | null>(null)
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null)
   const { getToken } = useAuth()
 
   // Tier editing state
@@ -2434,40 +2437,63 @@ function LoyaltyPage() {
   const [newTierCents, setNewTierCents] = useState(0)
   const [addingTier, setAddingTier] = useState(false)
 
-  const authHeaders = useCallback(async () => {
-    const token = await getToken()
-    return { Authorization: `Bearer ${token}`, "Content-Type": "application/json" }
-  }, [getToken])
+  const loadConfig = useCallback(async () => {
+    setLoadingConfig(true)
+    setConfigError(null)
+    try {
+      const nextConfig = await adminFetchJson<LoyaltyConfig>("/admin/loyalty", {
+        tenantSlug,
+        getToken,
+      })
+      setConfig(nextConfig)
+    } catch (error) {
+      setConfig(null)
+      setConfigError(
+        error instanceof Error ? error.message : "Failed to load loyalty settings",
+      )
+    } finally {
+      setLoadingConfig(false)
+    }
+  }, [getToken, tenantSlug])
+
+  const loadAnalytics = useCallback(async () => {
+    setLoadingAnalytics(true)
+    setAnalyticsError(null)
+    try {
+      const nextAnalytics = await adminFetchJson<LoyaltyAnalytics>("/admin/loyalty/analytics", {
+        tenantSlug,
+        getToken,
+      })
+      setAnalytics(nextAnalytics)
+    } catch (error) {
+      setAnalyticsError(
+        error instanceof Error ? error.message : "Failed to load loyalty analytics",
+      )
+    } finally {
+      setLoadingAnalytics(false)
+    }
+  }, [getToken, tenantSlug])
 
   useEffect(() => {
-    ;(async () => {
-      const headers = await authHeaders()
-      const res = await fetch("/admin/loyalty", { headers })
-      if (res.ok) setConfig(await res.json())
-    })()
-  }, [authHeaders])
+    void loadConfig()
+  }, [loadConfig])
 
   useEffect(() => {
     if (tab !== "analytics") return
     if (analytics) return
-    ;(async () => {
-      setLoadingAnalytics(true)
-      const headers = await authHeaders()
-      const res = await fetch("/admin/loyalty/analytics", { headers })
-      if (res.ok) setAnalytics(await res.json())
-      setLoadingAnalytics(false)
-    })()
-  }, [tab, analytics, authHeaders])
+    void loadAnalytics()
+  }, [tab, analytics, loadAnalytics])
 
   const handleSave = async () => {
     if (!config) return
     setSaving(true)
+    setConfigError(null)
     try {
-      const headers = await authHeaders()
-      const res = await fetch("/admin/loyalty", {
+      const nextConfig = await adminFetchJson<LoyaltyConfig>("/admin/loyalty", {
         method: "PATCH",
-        headers,
-        body: JSON.stringify({
+        tenantSlug,
+        getToken,
+        body: {
           earnRate: config.earnRate,
           redeemRate: config.redeemRate,
           minRedeem: config.minRedeem,
@@ -2476,13 +2502,13 @@ function LoyaltyPage() {
           newMemberDiscountEnabled: config.newMemberDiscountEnabled,
           newMemberDiscountType: config.newMemberDiscountType,
           newMemberDiscountValue: config.newMemberDiscountValue,
-        }),
+        },
       })
-      if (res.ok) {
-        setConfig(await res.json())
-        setSaved(true)
-        setTimeout(() => setSaved(false), 2200)
-      }
+      setConfig(nextConfig)
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2200)
+    } catch (error) {
+      setConfigError(error instanceof Error ? error.message : "Failed to update loyalty settings")
     } finally {
       setSaving(false)
     }
@@ -2491,36 +2517,58 @@ function LoyaltyPage() {
   const handleAddTier = async () => {
     if (!newTierName.trim() || newTierPts < 1 || newTierCents < 1) return
     setAddingTier(true)
+    setConfigError(null)
     try {
-      const headers = await authHeaders()
-      const res = await fetch("/admin/loyalty/tiers", {
+      await adminFetchJson<{ id: string }>("/admin/loyalty/tiers", {
         method: "POST",
-        headers,
-        body: JSON.stringify({ name: newTierName.trim(), pointsCost: newTierPts, discountCents: newTierCents }),
+        tenantSlug,
+        getToken,
+        body: { name: newTierName.trim(), pointsCost: newTierPts, discountCents: newTierCents },
       })
-      if (res.ok) {
-        const cfgRes = await fetch("/admin/loyalty", { headers })
-        if (cfgRes.ok) setConfig(await cfgRes.json())
-        setNewTierName("")
-        setNewTierPts(0)
-        setNewTierCents(0)
-      }
+      await loadConfig()
+      setNewTierName("")
+      setNewTierPts(0)
+      setNewTierCents(0)
+    } catch (error) {
+      setConfigError(error instanceof Error ? error.message : "Failed to create reward tier")
     } finally {
       setAddingTier(false)
     }
   }
 
   const handleDeleteTier = async (tierId: string) => {
-    const headers = await authHeaders()
-    await fetch(`/admin/loyalty/tiers/${tierId}`, { method: "DELETE", headers })
-    const cfgRes = await fetch("/admin/loyalty", { headers })
-    if (cfgRes.ok) setConfig(await cfgRes.json())
+    setConfigError(null)
+    try {
+      await adminFetchJson<void>(`/admin/loyalty/tiers/${tierId}`, {
+        method: "DELETE",
+        tenantSlug,
+        getToken,
+      })
+      await loadConfig()
+    } catch (error) {
+      setConfigError(error instanceof Error ? error.message : "Failed to delete reward tier")
+    }
+  }
+
+  if (loadingConfig) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <p className="text-sm text-muted-foreground">Loading loyalty settings…</p>
+      </div>
+    )
   }
 
   if (!config) {
     return (
-      <div className="flex h-64 items-center justify-center">
-        <p className="text-sm text-muted-foreground">Loading loyalty settings…</p>
+      <div className="grid gap-4">
+        <div className="rounded-[var(--radius)] border border-destructive/20 bg-destructive/10 px-4 py-4 text-sm text-foreground">
+          {configError ?? "Failed to load loyalty settings"}
+        </div>
+        <div>
+          <Button type="button" variant="outline" onClick={() => void loadConfig()}>
+            Retry
+          </Button>
+        </div>
       </div>
     )
   }
@@ -2573,6 +2621,12 @@ function LoyaltyPage() {
           </Button>
         ))}
       </div>
+
+      {configError ? (
+        <div className="rounded-[var(--radius)] border border-destructive/20 bg-destructive/10 px-4 py-4 text-sm text-foreground">
+          {configError}
+        </div>
+      ) : null}
 
       {tab === "rules" && (
         <div className="grid gap-5">
@@ -2808,6 +2862,11 @@ function LoyaltyPage() {
 
       {tab === "analytics" && (
         <div className="grid gap-5">
+          {analyticsError ? (
+            <div className="rounded-[var(--radius)] border border-destructive/20 bg-destructive/10 px-4 py-4 text-sm text-foreground">
+              {analyticsError}
+            </div>
+          ) : null}
           {loadingAnalytics && (
             <div className="flex h-40 items-center justify-center">
               <p className="text-sm text-muted-foreground">Loading analytics…</p>

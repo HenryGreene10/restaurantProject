@@ -5,6 +5,8 @@ export type ActiveOrderRecord = {
   orderId: string
   tenantSlug: string
   placedAt: string
+  discountCents?: number
+  isNewMember?: boolean
 }
 
 function recordSignature(record: ActiveOrderRecord) {

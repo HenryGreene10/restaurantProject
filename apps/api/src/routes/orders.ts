@@ -96,6 +96,7 @@ function serializePublicOrderStatus(
     fulfillmentType: order.fulfillmentType,
     subtotalCents: order.subtotalCents,
     taxCents: order.taxCents,
+    discountCents: order.discountCents,
     totalCents: order.totalCents,
     notes: order.notes,
     pickupTime: order.pickupTime,

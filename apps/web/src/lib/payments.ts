@@ -18,6 +18,8 @@ export type CheckoutPaymentIntentSession = {
   checkoutSessionId: string
   clientSecret: string
   stripeAccountId: string
+  discountCents: number
+  isNewMember: boolean
 }
 
 export type CheckoutStatusResponse = {
