@@ -2619,15 +2619,15 @@ function LoyaltyPage({ tenantSlug }: { tenantSlug: string }) {
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">Program active</span>
             <button
               type="button"
               onClick={() => void handleToggleProgramActive()}
               aria-pressed={config.active}
+              disabled={togglingActive}
               className={cn(
-                "relative h-6 w-11 rounded-full transition-colors",
-                config.active ? "bg-primary" : "bg-border",
-                togglingActive && "opacity-70",
+                "relative h-6 w-11 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                config.active ? "bg-primary" : "bg-input",
+                togglingActive && "opacity-60",
               )}
             >
               <span
@@ -2637,6 +2637,14 @@ function LoyaltyPage({ tenantSlug }: { tenantSlug: string }) {
                 )}
               />
             </button>
+            <span
+              className={cn(
+                "text-sm font-medium transition-colors",
+                config.active ? "text-primary" : "text-muted-foreground",
+              )}
+            >
+              {config.active ? "Active" : "Inactive"}
+            </span>
           </div>
           <Button
             type="button"
