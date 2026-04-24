@@ -71,7 +71,7 @@ const statusAction: Record<
     }
   | null
 > = {
-  PENDING: { label: "Confirm order", nextStatus: "CONFIRMED" },
+  PENDING: { label: "Confirm & print receipt", nextStatus: "CONFIRMED" },
   CONFIRMED: { label: "Start preparing", nextStatus: "PREPARING" },
   PREPARING: { label: "Mark ready", nextStatus: "READY" },
   READY: { label: "Picked up", nextStatus: "COMPLETED" },
@@ -887,11 +887,7 @@ function OrderCard({
               cursor: updating || printing ? "wait" : "pointer",
             }}
           >
-            {updating
-              ? "Updating…"
-              : order.status === "PENDING"
-                ? "Confirm & print receipt"
-                : action.label}
+            {updating ? "Updating…" : action.label}
           </button>
         ) : null}
 
