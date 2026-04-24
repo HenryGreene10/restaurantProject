@@ -1,13 +1,13 @@
 import { AnimatePresence, motion } from "framer-motion"
-import { Minus, Plus, X } from "lucide-react"
+import { Check, Minus, Plus, X } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { createPortal } from "react-dom"
 
-import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import type { MenuItem } from "../lib/menu"
 import type { CartItem } from "./cartStore"
+import { useTheme } from "../theme/ThemeProvider"
 
 type SelectionMap = Record<string, string[]>
 
@@ -46,6 +46,24 @@ function defaultVariant(item: MenuItem | null) {
   return item.variants.find((variant) => variant.isDefault) ?? item.variants[0] ?? null
 }
 
+function hexToRgba(hex: string, alpha: number) {
+  const normalized = hex.replace("#", "").trim()
+  const expanded =
+    normalized.length === 3
+      ? normalized
+          .split("")
+          .map((char) => `${char}${char}`)
+          .join("")
+      : normalized
+
+  const value = Number.parseInt(expanded, 16)
+  const red = (value >> 16) & 255
+  const green = (value >> 8) & 255
+  const blue = value & 255
+
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`
+}
+
 export function ItemCustomizationDrawer({
   item,
   editingItem = null,
@@ -53,6 +71,7 @@ export function ItemCustomizationDrawer({
   onClose,
   onAddToCart,
 }: DrawerProps) {
+  const { theme } = useTheme()
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null)
   const [selectedOptions, setSelectedOptions] = useState<SelectionMap>({})
   const [quantity, setQuantity] = useState(1)
@@ -121,7 +140,9 @@ export function ItemCustomizationDrawer({
       const currentCount = selectedOptions[itemGroup.group.id]?.length ?? 0
 
       if (itemGroup.isRequired && currentCount < itemGroup.minSelections) {
-        return [`Select at least ${itemGroup.minSelections} option(s) for ${itemGroup.group.name}.`]
+        return [
+          `Select at least ${itemGroup.minSelections} option(s) for ${itemGroup.group.name}.`,
+        ]
       }
 
       return []
@@ -137,6 +158,9 @@ export function ItemCustomizationDrawer({
   }, [item, selectedModifierPayload, selectedVariant])
 
   const canSubmit = !!item && validationErrors.length === 0 && item.visibility !== "SOLD_OUT"
+  const heroImageBackground = item?.photoUrl
+    ? `url(${item.photoUrl}) center/cover`
+    : `linear-gradient(135deg, ${hexToRgba(theme.palette.primary, 0.18)}, ${hexToRgba(theme.palette.accent, 0.14)})`
 
   function toggleMultiSelect(groupId: string, optionId: string, maxSelections: number | null) {
     setSelectedOptions((current) => {
@@ -182,105 +206,131 @@ export function ItemCustomizationDrawer({
       {open && item ? (
         <>
           <motion.div
-            className="fixed inset-0 z-[9999] flex items-center justify-center bg-[rgba(0,0,0,0.6)] p-4"
+            className="fixed inset-0 z-[9998] bg-black/40 backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
+          />
+
+          <motion.aside
+            className="fixed right-0 top-0 z-[9999] flex h-full w-full max-w-[520px] flex-col overflow-hidden"
+            style={{
+              backgroundColor: theme.palette.surface,
+              boxShadow: `0 0 40px ${hexToRgba(theme.palette.text, 0.14)}`,
+            }}
+            initial={{ x: "100%", opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            exit={{ x: "100%", opacity: 0 }}
+            transition={{ type: "spring", stiffness: 280, damping: 28 }}
+            onClick={(event) => event.stopPropagation()}
           >
-            <motion.div
-              className="relative z-[10000] flex w-[90%] max-w-[560px] flex-col overflow-hidden rounded-[12px] bg-white text-black shadow-[0_25px_50px_rgba(0,0,0,0.3)]"
-              style={{ maxHeight: "85vh" }}
-              initial={{ opacity: 0, scale: 0.96 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.96 }}
-              transition={{ duration: 0.18, ease: "easeOut" }}
-              onClick={(event) => event.stopPropagation()}
-            >
-              <div className="shrink-0 border-b border-neutral-200 bg-white px-4 py-4 sm:px-6 sm:py-5">
-                <div className="flex items-center justify-between gap-4">
+            <div className="relative h-72 shrink-0 overflow-hidden">
+              <div
+                className="h-full w-full"
+                style={{
+                  background: heroImageBackground,
+                }}
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+
+              <button
+                type="button"
+                className="absolute left-4 top-4 inline-flex h-12 w-12 items-center justify-center rounded-full border shadow-lg"
+                style={{
+                  backgroundColor: hexToRgba(theme.palette.surface, 0.92),
+                  borderColor: hexToRgba(theme.palette.border, 0.75),
+                  color: theme.palette.text,
+                }}
+                onClick={onClose}
+                aria-label="Close customization drawer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-6 py-8 pb-40">
+              <div className="grid gap-8">
+                <section className="grid gap-4">
                   <div>
-                    <div className="text-xs font-medium uppercase tracking-[0.12em] text-neutral-500">
-                      Customize item
-                    </div>
-                    <h2 className="mt-2 text-2xl text-black" style={{ fontFamily: "var(--font-heading)" }}>
+                    <h2
+                      className="text-4xl font-bold leading-tight text-foreground"
+                      style={{ fontFamily: "var(--font-heading)" }}
+                    >
                       {item.name}
                     </h2>
+                    {item.description ? (
+                      <p className="mt-4 text-lg leading-9 text-muted-foreground">
+                        {item.description}
+                      </p>
+                    ) : null}
                   </div>
-                  <Button type="button" variant="ghost" size="icon-sm" onClick={onClose}>
-                    <X className="h-5 w-5" />
-                  </Button>
-                </div>
-              </div>
 
-              <div className="flex-1 overflow-y-auto bg-white px-4 py-4 sm:px-6 sm:py-6">
-                <div className="grid gap-6 bg-white">
-                {item.description ? (
-                  <p className="max-w-2xl text-sm leading-6 text-neutral-600">{item.description}</p>
-                ) : null}
+                  {item.tags.length > 0 ? (
+                    <div className="flex flex-wrap items-center gap-3 text-sm font-semibold">
+                      {item.tags.slice(0, 2).map((tag, index) => (
+                        <div key={tag} className="flex items-center gap-3">
+                          <span style={{ color: index === 0 ? theme.palette.primary : "#16A34A" }}>
+                            {tag.toUpperCase()}
+                          </span>
+                          {index < Math.min(item.tags.length, 2) - 1 ? (
+                            <span style={{ color: hexToRgba(theme.palette.muted, 0.5) }}>•</span>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </section>
 
                 {item.variants.length > 0 ? (
-                  <section className="space-y-4">
-                    <div className="space-y-2">
-                      <Badge variant="outline" className="border-neutral-200 bg-white text-neutral-600">
-                        Choose size
-                      </Badge>
-                      <div className="text-sm text-neutral-600">Pick the size that fits this order.</div>
-                    </div>
-                    <div className="grid gap-4">
+                  <DrawerSection
+                    title="Choose a Size"
+                    hint="Required"
+                    themeBorder={theme.palette.border}
+                    themeMuted={theme.palette.muted}
+                  >
+                    <div className="grid gap-3">
                       {item.variants.map((variant) => {
-                        const active = selectedVariant?.id === variant.id
+                        const selected = selectedVariant?.id === variant.id
                         return (
-                          <Button
+                          <SelectableRow
                             key={variant.id}
-                            type="button"
+                            selected={selected}
+                            multi={false}
+                            label={variant.name}
+                            detail={variant.isDefault ? "Included" : formatPrice(variant.priceCents)}
                             onClick={() => setSelectedVariantId(variant.id)}
-                            variant="outline"
-                            className={[
-                              "h-auto w-full items-start justify-between gap-4 px-4 py-4 text-left",
-                              active
-                                ? "border-primary bg-primary/10 text-black"
-                                : "border-neutral-200 bg-white text-black",
-                            ].join(" ")}
-                          >
-                            <span>
-                              <span className="block font-semibold">{variant.name}</span>
-                              {variant.isDefault ? (
-                                <span className="mt-2 block text-sm text-neutral-500">Default</span>
-                              ) : null}
-                            </span>
-                            <span className="font-semibold">{formatPrice(variant.priceCents)}</span>
-                          </Button>
+                          />
                         )
                       })}
                     </div>
-                  </section>
+                  </DrawerSection>
                 ) : null}
 
                 {item.itemModifierGroups.map((itemGroup) => (
-                  <section key={itemGroup.id} className="space-y-4">
-                    <div>
-                      <Badge variant="outline" className="border-neutral-200 bg-white text-neutral-600">
-                        {itemGroup.group.name}
-                      </Badge>
-                      <p className="mt-2 text-sm text-neutral-600">
-                        {itemGroup.group.selection === "SINGLE"
-                          ? "Choose one option"
-                          : `Choose up to ${itemGroup.maxSelections ?? itemGroup.group.options.length}`}
-                        {itemGroup.isRequired ? " · Required" : " · Optional"}
-                      </p>
-                    </div>
-
-                    <div className="grid gap-4">
+                  <DrawerSection
+                    key={itemGroup.id}
+                    title={itemGroup.group.name}
+                    hint={itemGroup.isRequired ? "Required" : "Optional"}
+                    themeBorder={theme.palette.border}
+                    themeMuted={theme.palette.muted}
+                  >
+                    <div className="grid gap-3">
                       {itemGroup.group.options.map((option) => {
                         const selected =
                           selectedOptions[itemGroup.group.id]?.includes(option.id) ?? false
 
                         return (
-                          <Button
+                          <SelectableRow
                             key={option.id}
-                            type="button"
-                            variant="outline"
+                            selected={selected}
+                            multi={itemGroup.group.selection !== "SINGLE"}
+                            label={option.name}
+                            detail={
+                              option.priceDeltaCents > 0
+                                ? `+ ${formatPrice(option.priceDeltaCents)}`
+                                : "Included"
+                            }
                             onClick={() =>
                               itemGroup.group.selection === "SINGLE"
                                 ? selectSingle(itemGroup.group.id, option.id)
@@ -290,92 +340,105 @@ export function ItemCustomizationDrawer({
                                     itemGroup.maxSelections,
                                   )
                             }
-                            className={[
-                              "h-auto w-full items-start justify-between gap-4 px-4 py-4 text-left",
-                              selected
-                                ? "border-primary bg-primary/10 text-black"
-                                : "border-neutral-200 bg-white text-black",
-                            ].join(" ")}
-                          >
-                            <span className="font-medium">{option.name}</span>
-                            <span className="text-sm text-neutral-500">
-                              +{formatPrice(option.priceDeltaCents)}
-                            </span>
-                          </Button>
+                          />
                         )
                       })}
                     </div>
-                  </section>
+                  </DrawerSection>
                 ))}
 
-                <section className="space-y-4">
-                  <div className="space-y-2">
-                    <Badge variant="outline" className="border-neutral-200 bg-white text-neutral-600">
-                      Notes
-                    </Badge>
-                    <Label htmlFor="item-notes">Special instructions</Label>
+                <section className="grid gap-3">
+                  <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: hexToRgba(theme.palette.border, 0.7) }}>
+                    <h3 className="text-lg font-medium text-foreground">Notes</h3>
                   </div>
+                  <Label htmlFor="item-notes" className="text-sm text-muted-foreground">
+                    Special instructions
+                  </Label>
                   <textarea
                     id="item-notes"
                     value={notes}
                     onChange={(event) => setNotes(event.target.value)}
                     rows={3}
                     placeholder="Add any special instructions for the kitchen"
-                    className="min-h-24 w-full rounded-[12px] border border-neutral-200 bg-white px-4 py-4 text-sm text-black shadow-sm outline-none placeholder:text-neutral-400 focus-visible:border-neutral-400 focus-visible:ring-0"
+                    className="min-h-28 w-full rounded-[18px] border px-4 py-4 text-sm outline-none placeholder:text-muted-foreground"
+                    style={{
+                      borderColor: hexToRgba(theme.palette.border, 0.9),
+                      backgroundColor: hexToRgba(theme.palette.surface, 0.92),
+                      color: theme.palette.text,
+                    }}
                   />
                 </section>
+              </div>
+            </div>
 
-                <section className="space-y-4">
-                  <Badge variant="outline" className="border-neutral-200 bg-white text-neutral-600">
-                    Quantity
-                  </Badge>
-                  <div className="inline-flex items-center gap-2 rounded-[12px] border border-neutral-200 bg-white px-2 py-2">
-                    <Button
+            <div
+              className="shrink-0 border-t px-6 py-5"
+              style={{
+                backgroundColor: hexToRgba(theme.palette.surface, 0.98),
+                borderColor: hexToRgba(theme.palette.border, 0.75),
+              }}
+            >
+              <div className="grid gap-4">
+                {validationErrors.length > 0 ? (
+                  <div
+                    className="rounded-[16px] border px-4 py-3 text-sm"
+                    style={{
+                      borderColor: hexToRgba("#B91C1C", 0.25),
+                      backgroundColor: hexToRgba("#B91C1C", 0.08),
+                      color: "#8F1D1D",
+                    }}
+                  >
+                    {validationErrors.map((error) => (
+                      <div key={error}>{error}</div>
+                    ))}
+                  </div>
+                ) : null}
+
+                <div className="flex items-center gap-4">
+                  <div
+                    className="inline-flex items-center gap-5 rounded-full border px-5 py-4"
+                    style={{
+                      borderColor: hexToRgba(theme.palette.primary, 0.24),
+                      backgroundColor: hexToRgba(theme.palette.surface, 0.9),
+                    }}
+                  >
+                    <button
                       type="button"
-                      variant="ghost"
-                      size="icon-sm"
+                      className="inline-flex h-6 w-6 items-center justify-center"
                       onClick={() => setQuantity((current) => Math.max(1, current - 1))}
                     >
                       <Minus className="h-4 w-4" />
-                    </Button>
-                    <span className="min-w-8 text-center text-sm font-semibold text-black">{quantity}</span>
-                    <Button
+                    </button>
+                    <span className="min-w-5 text-center text-xl font-semibold text-foreground">
+                      {quantity}
+                    </span>
+                    <button
                       type="button"
-                      variant="ghost"
-                      size="icon-sm"
+                      className="inline-flex h-6 w-6 items-center justify-center"
                       onClick={() => setQuantity((current) => current + 1)}
                     >
                       <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </section>
-                </div>
-              </div>
-
-              <div className="shrink-0 border-t border-[#eee] bg-white px-4 py-4 sm:px-6">
-                <div className="grid gap-4 bg-white">
-                  {validationErrors.length > 0 ? (
-                    <div className="rounded-[12px] border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-700">
-                      {validationErrors.map((error) => (
-                        <div key={error}>{error}</div>
-                      ))}
-                    </div>
-                  ) : null}
-
-                  <div className="flex items-center justify-between text-sm text-neutral-600">
-                    <span>Total</span>
-                    <span className="text-lg font-semibold text-black">
-                      {formatPrice(unitPriceCents * quantity)}
-                    </span>
+                    </button>
                   </div>
 
-                  <Button className="min-h-11 w-full justify-center" disabled={!canSubmit} onClick={handleAdd}>
-                    {editingItem ? "Update cart" : "Add to cart"}
-                  </Button>
+                  <button
+                    type="button"
+                    className="flex min-h-[72px] flex-1 items-center justify-center rounded-full px-6 text-xl font-semibold shadow-[0_14px_30px_rgba(0,0,0,0.12)] transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                    style={{
+                      background: `linear-gradient(135deg, ${theme.palette.primary}, ${theme.palette.accent})`,
+                      color: theme.palette.primaryForeground,
+                    }}
+                    disabled={!canSubmit}
+                    onClick={handleAdd}
+                  >
+                    {editingItem ? "Update Cart" : "Add to Cart"}{" "}
+                    <span className="mx-2 opacity-60">•</span>
+                    {formatPrice(unitPriceCents * quantity)}
+                  </button>
                 </div>
               </div>
-            </motion.div>
-          </motion.div>
+            </div>
+          </motion.aside>
         </>
       ) : null}
     </AnimatePresence>
@@ -386,4 +449,96 @@ export function ItemCustomizationDrawer({
   }
 
   return createPortal(modal, document.body)
+}
+
+function DrawerSection({
+  title,
+  hint,
+  themeBorder,
+  themeMuted,
+  children,
+}: {
+  title: string
+  hint: string
+  themeBorder: string
+  themeMuted: string
+  children: React.ReactNode
+}) {
+  return (
+    <section className="grid gap-5">
+      <div
+        className="flex items-center justify-between border-b pb-3"
+        style={{ borderColor: hexToRgba(themeBorder, 0.7) }}
+      >
+        <h3 className="text-lg font-medium text-foreground">{title}</h3>
+        <span
+          className="rounded-full px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.18em]"
+          style={{
+            backgroundColor: hexToRgba(themeBorder, 0.32),
+            color: themeMuted,
+          }}
+        >
+          {hint}
+        </span>
+      </div>
+      {children}
+    </section>
+  )
+}
+
+function SelectableRow({
+  selected,
+  multi,
+  label,
+  detail,
+  onClick,
+}: {
+  selected: boolean
+  multi: boolean
+  label: string
+  detail: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      className="flex items-center justify-between gap-4 rounded-[18px] border px-5 py-5 text-left transition-colors"
+      style={{
+        borderColor: selected ? "rgb(var(--color-brand-primary) / 0.32)" : "rgb(var(--color-brand-border) / 0.8)",
+        backgroundColor: selected
+          ? "rgb(var(--color-brand-primary) / 0.06)"
+          : "rgb(var(--color-brand-surface) / 0.92)",
+      }}
+      onClick={onClick}
+    >
+      <div className="flex min-w-0 items-center gap-4">
+        <div
+          className="flex h-7 w-7 shrink-0 items-center justify-center border"
+          style={{
+            borderRadius: multi ? "10px" : "9999px",
+            borderColor: selected
+              ? "rgb(var(--color-brand-primary))"
+              : "rgb(var(--color-brand-border) / 0.9)",
+            backgroundColor: selected
+              ? "rgb(var(--color-brand-primary))"
+              : "transparent",
+            color: selected
+              ? "rgb(var(--color-brand-primary-foreground))"
+              : "transparent",
+          }}
+        >
+          <Check className="h-4 w-4" />
+        </div>
+        <span className="text-lg font-medium text-foreground">{label}</span>
+      </div>
+      <span
+        className="shrink-0 text-lg"
+        style={{
+          color: detail === "Included" ? "rgb(var(--color-brand-muted))" : "rgb(var(--color-brand-primary))",
+        }}
+      >
+        {detail}
+      </span>
+    </button>
+  )
 }

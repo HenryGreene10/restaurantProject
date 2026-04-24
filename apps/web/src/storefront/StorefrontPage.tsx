@@ -1,17 +1,22 @@
 import { useEffect, useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { AnimatePresence, motion } from "framer-motion"
-import { ArrowRight, ChefHat, ShieldCheck, UtensilsCrossed } from "lucide-react"
+import {
+  ArrowRight,
+  ChefHat,
+  Megaphone,
+  Search,
+  ShieldCheck,
+  ShoppingCart,
+  Sparkles,
+  Tags,
+  UtensilsCrossed,
+  X,
+} from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
 import {
@@ -80,11 +85,85 @@ function visibleCategories(categories: MenuCategory[]) {
     .filter((category) => category.categoryItems.length > 0)
 }
 
+function normalizeSearchTerm(value: string) {
+  return value.trim().toLowerCase()
+}
+
+function itemMatchesSearch(item: MenuItem, query: string) {
+  const term = normalizeSearchTerm(query)
+  if (!term) {
+    return true
+  }
+
+  return [
+    item.name,
+    item.nameLocalized ?? "",
+    item.description ?? "",
+    item.tags.join(" "),
+  ]
+    .join(" ")
+    .toLowerCase()
+    .includes(term)
+}
+
+function filterCategories(categories: MenuCategory[], query: string) {
+  const term = normalizeSearchTerm(query)
+  if (!term) {
+    return categories
+  }
+
+  return categories
+    .map((category) => {
+      const categoryMatches = category.name.toLowerCase().includes(term)
+      const categoryItems = categoryMatches
+        ? category.categoryItems
+        : category.categoryItems.filter((entry) => itemMatchesSearch(entry.item, term))
+
+      return {
+        ...category,
+        categoryItems,
+      }
+    })
+    .filter((category) => category.categoryItems.length > 0)
+}
+
+function countItems(categories: MenuCategory[]) {
+  return categories.reduce((sum, category) => sum + category.categoryItems.length, 0)
+}
+
 const placeholderPromoBannerMessages = new Set([
   "Give loyal customers a direct-order reward funded by marketplace savings.",
   "Try the direct-order welcome offer and keep ordering through the restaurant.",
   "Design-forward preset for tighter brand systems.",
 ])
+
+const promoBannerDismissStorageKey = "promoBannerDismissed"
+
+function promoBannerSessionKey(tenantSlug: string, message: string) {
+  return `${tenantSlug}:${message}`
+}
+
+function dismissPromoBannerForSession(tenantSlug: string, message: string) {
+  if (typeof window === "undefined") {
+    return
+  }
+
+  window.sessionStorage.setItem(
+    promoBannerDismissStorageKey,
+    promoBannerSessionKey(tenantSlug, message),
+  )
+}
+
+function isPromoBannerDismissed(tenantSlug: string, message: string) {
+  if (typeof window === "undefined") {
+    return false
+  }
+
+  return (
+    window.sessionStorage.getItem(promoBannerDismissStorageKey) ===
+    promoBannerSessionKey(tenantSlug, message)
+  )
+}
 
 function promoBannerMessage(value: string) {
   const normalized = value.trim()
@@ -116,6 +195,8 @@ export function StorefrontPage({
   const [submittingOrder, setSubmittingOrder] = useState(false)
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null)
   const [activeOrderBanner, setActiveOrderBanner] = useState<ActiveOrderRecord | null>(null)
+  const [showPromoBanner, setShowPromoBanner] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
   const cartItems = useCartStore((state) => state.items)
   const addItem = useCartStore((state) => state.addItem)
   const updateCartItem = useCartStore((state) => state.updateItem)
@@ -156,37 +237,24 @@ export function StorefrontPage({
   )
 
   useEffect(() => {
-    console.log("[storefront] theme", theme)
-  }, [theme])
-
-  useEffect(() => {
-    const rawCategories = menuQuery.data?.categories ?? []
-
-    rawCategories.forEach((category) => {
-      console.log("[storefront] category availability", {
-        name: category.name,
-        visibility: category.visibility,
-        availableFrom: category.availableFrom,
-        availableUntil: category.availableUntil,
-        daysOfWeek: category.daysOfWeek,
-        availableNow: isCategoryAvailableNow(category),
-      })
-    })
-  }, [menuQuery.data?.categories])
-
-  useEffect(() => {
     document.body.style.backgroundColor = theme.palette.background || "#ffffff"
   }, [theme.palette.background])
 
+  const filteredCategories = useMemo(
+    () => filterCategories(categories, searchQuery),
+    [categories, searchQuery],
+  )
+
   const featuredItems = useMemo(
     () =>
-      categories.flatMap((category) =>
+      filteredCategories.flatMap((category) =>
         category.categoryItems
           .map((entry) => entry.item)
           .filter((item) => item.isFeatured),
       ),
-    [categories],
+    [filteredCategories],
   )
+
   const itemLookup = useMemo(
     () =>
       new Map(
@@ -197,19 +265,36 @@ export function StorefrontPage({
     [categories],
   )
 
-  const hasVisibleItems = categories.some((category) => category.categoryItems.length > 0)
-  const showLoadingSkeletons = source === "api" && !menuQuery.data && (menuQuery.isLoading || isThemeLoading)
+  const showLoadingSkeletons =
+    source === "api" && !menuQuery.data && (menuQuery.isLoading || isThemeLoading)
   const visiblePromoBanner = promoBannerMessage(theme.promoBannerText)
+  const hasVisibleItems = filteredCategories.some((category) => category.categoryItems.length > 0)
+  const totalItemCount = countItems(categories)
+  const filteredItemCount = countItems(filteredCategories)
+  const cartItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0)
 
   useEffect(() => {
-    if (!categories.length) {
+    if (!visiblePromoBanner) {
+      setShowPromoBanner(false)
+      return
+    }
+
+    setShowPromoBanner(!isPromoBannerDismissed(tenantSlug, visiblePromoBanner))
+  }, [tenantSlug, visiblePromoBanner])
+
+  useEffect(() => {
+    if (!filteredCategories.length) {
       setActiveCategoryId(null)
       return
     }
 
-    setActiveCategoryId((current) => current ?? categories[0]?.id ?? null)
+    setActiveCategoryId((current) =>
+      filteredCategories.some((category) => category.id === current)
+        ? current
+        : filteredCategories[0]?.id ?? null,
+    )
 
-    const sections = categories
+    const sections = filteredCategories
       .map((category) => document.getElementById(`category-${category.id}`))
       .filter((section): section is HTMLElement => Boolean(section))
 
@@ -237,14 +322,14 @@ export function StorefrontPage({
         setActiveCategoryId(visible.target.id.replace("category-", ""))
       },
       {
-        rootMargin: "-88px 0px -55% 0px",
+        rootMargin: "-120px 0px -55% 0px",
         threshold: [0.05, 0.2, 0.4, 0.65],
       },
     )
 
     sections.forEach((section) => observer.observe(section))
     return () => observer.disconnect()
-  }, [categories])
+  }, [filteredCategories])
 
   useEffect(() => {
     if (customerSession.customerPhone && !customerPhone.trim()) {
@@ -331,7 +416,7 @@ export function StorefrontPage({
       return
     }
 
-    const stickyOffset = window.innerWidth < 640 ? 96 : 112
+    const stickyOffset = window.innerWidth < 640 ? 144 : 160
     const top = section.getBoundingClientRect().top + window.scrollY - stickyOffset
 
     window.scrollTo({
@@ -341,18 +426,127 @@ export function StorefrontPage({
     setActiveCategoryId(categoryId)
   }
 
+  function scrollToTop() {
+    window.scrollTo({ top: 0, behavior: "smooth" })
+  }
+
   return (
     <motion.main
-      className="min-h-screen bg-background text-foreground"
+      className="min-h-screen text-foreground"
       style={{
         backgroundColor: theme.palette.background || "#ffffff",
         color: theme.palette.text,
+        backgroundImage: `radial-gradient(circle at top center, ${hexToRgba(theme.palette.accent, 0.08)}, transparent 28%)`,
       }}
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.24, ease: "easeOut" }}
     >
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-8">
+      <header
+        className="sticky top-0 z-40 border-b backdrop-blur-xl"
+        style={{
+          backgroundColor: hexToRgba(theme.palette.surface, 0.92),
+          borderColor: hexToRgba(theme.palette.border, 0.75),
+          boxShadow: `0 4px 24px ${hexToRgba(theme.palette.text, 0.04)}`,
+        }}
+      >
+        <div className="mx-auto flex h-16 w-full max-w-[1160px] items-center gap-4 px-4 sm:px-6">
+          <button
+            type="button"
+            className="shrink-0 text-left text-xl font-extrabold tracking-tight"
+            style={{
+              color: theme.palette.primary,
+              fontFamily: "var(--font-heading)",
+            }}
+            onClick={scrollToTop}
+          >
+            {theme.appTitle || "Storefront"}
+          </button>
+
+          <nav className="hidden items-center gap-6 md:flex">
+            <button
+              type="button"
+              className="border-b-2 pb-1 text-sm font-semibold transition-colors"
+              style={{
+                color: theme.palette.primary,
+                borderColor: theme.palette.primary,
+              }}
+              onClick={scrollToTop}
+            >
+              Discover
+            </button>
+            <button
+              type="button"
+              className="text-sm font-medium transition-colors"
+              style={{
+                color: activeOrderBanner ? theme.palette.text : hexToRgba(theme.palette.muted, 0.9),
+              }}
+              onClick={() => activeOrderBanner && onViewOrder(activeOrderBanner.orderId)}
+              disabled={!activeOrderBanner}
+            >
+              Orders
+            </button>
+            <button
+              type="button"
+              className="text-sm font-medium transition-colors"
+              style={{
+                color:
+                  onViewRewardsWallet && customerSession.isAuthenticated
+                    ? theme.palette.text
+                    : hexToRgba(theme.palette.muted, 0.9),
+              }}
+              onClick={() => onViewRewardsWallet?.()}
+              disabled={!onViewRewardsWallet || !customerSession.isAuthenticated}
+            >
+              Offers
+            </button>
+          </nav>
+
+          <div className="ml-auto flex flex-1 items-center justify-end gap-3">
+            <label
+              className="hidden max-w-[30rem] flex-1 items-center gap-3 rounded-full border px-4 py-2.5 sm:flex"
+              style={{
+                backgroundColor: hexToRgba(theme.palette.surface, 0.96),
+                borderColor: hexToRgba(theme.palette.border, 0.9),
+                color: theme.palette.muted,
+              }}
+            >
+              <Search className="h-4 w-4" />
+              <input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search for dishes..."
+                className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-inherit"
+              />
+            </label>
+
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="relative rounded-full"
+              style={{ color: theme.palette.primary }}
+              onClick={() => setCartOpen(true)}
+              aria-label="Open cart"
+            >
+              <ShoppingCart className="h-5 w-5" />
+              {cartItemCount > 0 ? (
+                <span
+                  className="absolute -right-1 -top-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-semibold"
+                  style={{
+                    backgroundColor: theme.palette.primary,
+                    color: theme.palette.primaryForeground,
+                  }}
+                >
+                  {cartItemCount}
+                </span>
+              ) : null}
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      <div className="mx-auto flex w-full max-w-[1160px] flex-col gap-8 px-4 py-6 sm:px-6 sm:py-8">
         {showDevBanner ? (
           <Card className="border-border/80 bg-card shadow-sm">
             <CardContent className="flex flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6">
@@ -374,30 +568,51 @@ export function StorefrontPage({
         ) : null}
 
         {activeOrderBanner ? (
-          <Card className="border-border/80 bg-card shadow-sm">
+          <Card
+            className="overflow-hidden border shadow-sm"
+            style={{
+              borderColor: hexToRgba(theme.palette.primary, 0.22),
+              background: `linear-gradient(135deg, ${hexToRgba(theme.palette.primary, 0.16)}, ${hexToRgba(theme.palette.accent, 0.3)})`,
+            }}
+          >
             <CardContent className="flex flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6">
-              <div className="text-sm text-muted-foreground">
-                You have an active order —{" "}
-                <button
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="relative flex h-3 w-3 shrink-0 items-center justify-center">
+                  <span className="absolute inline-flex h-3 w-3 animate-ping rounded-full bg-emerald-500/40" />
+                  <span className="relative h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.16)]" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground">You have an active order</p>
+                  <p className="text-sm text-muted-foreground">
+                    Live updates are available while the kitchen works on it.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 sm:gap-3">
+                <Button
                   type="button"
-                  className="font-semibold text-foreground underline"
+                  variant="secondary"
+                  size="sm"
+                  className="rounded-full border border-white/60 bg-white/90 px-4 text-foreground shadow-sm hover:bg-white"
                   onClick={() => onViewOrder(activeOrderBanner.orderId)}
                 >
-                  track it here
-                </button>
+                  Track it here
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className="rounded-full text-muted-foreground hover:bg-white/55 hover:text-foreground"
+                  onClick={() => {
+                    dismissActiveOrderForSession(activeOrderBanner)
+                    setActiveOrderBanner(null)
+                  }}
+                  aria-label="Dismiss active order banner"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
               </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => {
-                  dismissActiveOrderForSession(activeOrderBanner)
-                  setActiveOrderBanner(null)
-                }}
-                aria-label="Dismiss active order banner"
-              >
-                <span aria-hidden="true">×</span>
-              </Button>
             </CardContent>
           </Card>
         ) : null}
@@ -423,141 +638,177 @@ export function StorefrontPage({
               transition={{ duration: 0.2 }}
               className="grid gap-8"
             >
-              <section className="overflow-hidden rounded-[var(--radius)] border border-border/80 bg-card shadow-sm">
+              <section
+                className="relative overflow-hidden rounded-[24px] border shadow-[0_20px_40px_rgba(0,0,0,0.08)]"
+                style={{
+                  borderColor: hexToRgba(theme.palette.border, 0.75),
+                  backgroundColor: theme.palette.surface,
+                }}
+              >
                 <div
-                  className="relative grid min-h-[200px] gap-6 px-4 py-6 sm:px-6 sm:py-8 lg:min-h-[320px] lg:px-8 lg:py-10"
+                  className="relative min-h-[240px] sm:min-h-[320px]"
                   style={{
                     background: theme.heroImageUrl
-                      ? `linear-gradient(to bottom, rgba(0,0,0,0.45), rgba(0,0,0,0.65)), url(${theme.heroImageUrl}) center/cover`
-                      : `linear-gradient(135deg, ${hexToRgba(theme.palette.primary, 0.15)}, ${hexToRgba(theme.palette.primary, 0.1)}), ${theme.palette.surface}`,
+                      ? `linear-gradient(to top, rgba(0,0,0,0.78), rgba(0,0,0,0.12)), url(${theme.heroImageUrl}) center/cover`
+                      : `linear-gradient(135deg, ${hexToRgba(theme.palette.primary, 0.4)}, ${hexToRgba(theme.palette.accent, 0.28)}), linear-gradient(180deg, ${theme.palette.surface}, ${theme.palette.background})`,
                   }}
                 >
-                  <div className="flex items-start justify-between gap-4">
-                    {theme.logoUrl ? (
-                      <img
-                        src={theme.logoUrl}
-                        alt={`${theme.appTitle} logo`}
-                        className="max-h-16 w-auto max-w-[11.25rem] shrink-0 object-contain"
-                      />
-                    ) : (
-                      <div />
-                    )}
-                    <div className="flex items-center gap-3">
-                      {theme.heroBadgeText.trim() ? (
-                        <div
-                          className="inline-flex w-fit rounded-full border px-3 py-1.5 text-xs sm:text-sm"
-                          style={{
-                            backgroundColor: "rgba(255, 252, 247, 0.84)",
-                            borderColor: theme.palette.border,
-                            color: theme.palette.muted,
-                          }}
-                        >
-                          {theme.heroBadgeText}
-                        </div>
-                      ) : null}
-                      {onViewRewardsWallet && customerSession.isAuthenticated ? (
-                        <button
-                          type="button"
-                          className="inline-flex w-fit items-center rounded-full border px-3 py-1.5 text-xs sm:text-sm"
-                          style={{
-                            backgroundColor: "rgba(255, 252, 247, 0.84)",
-                            borderColor: theme.palette.border,
-                            color: theme.palette.primary,
-                          }}
-                          onClick={onViewRewardsWallet}
-                        >
-                          My rewards →
-                        </button>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  <div className="grid max-w-4xl content-end gap-4 justify-items-center text-center sm:justify-items-start sm:text-left">
-                    <div className="grid gap-4">
+                  <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8">
+                    <div className="max-w-3xl">
                       <h1
-                        className="max-w-4xl font-bold leading-[0.95]"
-                        style={{
-                          fontFamily: "var(--font-heading)",
-                          fontSize: "clamp(3rem, 7vw, 5.5rem)",
-                          color: theme.heroImageUrl ? theme.palette.primaryForeground : undefined,
-                        }}
+                        className="text-4xl font-bold leading-none text-white sm:text-5xl"
+                        style={{ fontFamily: "var(--font-heading)" }}
                       >
-                        {theme.heroHeadline}
+                        {theme.heroHeadline || theme.appTitle || tenantSlug}
                       </h1>
-                      <p
-                        className="max-w-3xl leading-8"
-                        style={{
-                          fontSize: "clamp(1.1rem, 2.8vw, 1.2rem)",
-                          color: theme.heroImageUrl ? hexToRgba(theme.palette.primaryForeground, 0.84) : theme.palette.muted,
-                        }}
-                      >
-                        {theme.heroSubheadline}
-                      </p>
+
+                      <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-white/90 sm:text-base">
+                        {theme.heroBadgeText.trim() ? (
+                          <span
+                            className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5"
+                            style={{
+                              backgroundColor: hexToRgba(theme.palette.accent, 0.18),
+                              borderColor: hexToRgba(theme.palette.accent, 0.34),
+                              color: theme.palette.primaryForeground,
+                            }}
+                          >
+                            <Sparkles className="h-4 w-4" />
+                            {theme.heroBadgeText}
+                          </span>
+                        ) : null}
+                        <span>{categories.length} categories</span>
+                        <span className="opacity-60">•</span>
+                        <span>{totalItemCount} dishes</span>
+                        <span className="opacity-60">•</span>
+                        <span>Direct ordering</span>
+                      </div>
                     </div>
                   </div>
                 </div>
               </section>
 
-              {visiblePromoBanner ? (
-                <Card className="border-border/80 bg-card shadow-sm">
-                  <CardContent className="px-4 py-4 sm:px-6">
-                    <p className="text-sm leading-6 text-muted-foreground">{visiblePromoBanner}</p>
+              {visiblePromoBanner && showPromoBanner ? (
+                <Card
+                  className="overflow-hidden border-0 shadow-sm"
+                  style={{
+                    background: `linear-gradient(135deg, ${theme.palette.primary}, ${hexToRgba(theme.palette.primary, 0.88)})`,
+                    color: theme.palette.primaryForeground,
+                  }}
+                >
+                  <CardContent className="flex flex-wrap items-start justify-between gap-4 px-4 py-4 sm:px-6">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <div
+                        className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border"
+                        style={{
+                          backgroundColor: hexToRgba(theme.palette.primaryForeground, 0.16),
+                          borderColor: hexToRgba(theme.palette.primaryForeground, 0.24),
+                        }}
+                      >
+                        <Megaphone className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <p
+                          className="text-[11px] font-semibold uppercase tracking-[0.22em]"
+                          style={{ color: hexToRgba(theme.palette.primaryForeground, 0.78) }}
+                        >
+                          Special offer
+                        </p>
+                        <p className="mt-1 text-sm font-semibold leading-6 sm:text-[0.95rem]">
+                          {visiblePromoBanner}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      className="rounded-full border border-white/15 bg-white/10 text-inherit hover:bg-white/20 hover:text-inherit"
+                      onClick={() => {
+                        dismissPromoBannerForSession(tenantSlug, visiblePromoBanner)
+                        setShowPromoBanner(false)
+                      }}
+                      aria-label="Dismiss announcement banner"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
                   </CardContent>
                 </Card>
               ) : null}
 
-              {categories.length > 0 ? (
-                <div className="sticky top-0 z-20 -mx-4 border-y border-border/70 bg-background/95 px-4 py-4 backdrop-blur sm:-mx-6 sm:px-6 lg:-mx-8 lg:px-8">
-                  <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                    <div className="flex w-max min-w-full gap-2">
-                      {categories.map((category) => (
-                        <Button
+              <div className="sm:hidden">
+                <label
+                  className="flex items-center gap-3 rounded-full border px-4 py-3"
+                  style={{
+                    backgroundColor: hexToRgba(theme.palette.surface, 0.96),
+                    borderColor: hexToRgba(theme.palette.border, 0.9),
+                    color: theme.palette.muted,
+                  }}
+                >
+                  <Search className="h-4 w-4" />
+                  <input
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder="Search for dishes..."
+                    className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-inherit"
+                  />
+                </label>
+              </div>
+
+              {filteredCategories.length > 0 ? (
+                <div
+                  className="sticky top-16 z-20 -mx-4 border-y px-4 py-4 backdrop-blur-xl sm:-mx-6 sm:px-6"
+                  style={{
+                    backgroundColor: hexToRgba(theme.palette.background, 0.84),
+                    borderColor: hexToRgba(theme.palette.border, 0.7),
+                  }}
+                >
+                  <div className="flex gap-3 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    {filteredCategories.map((category) => {
+                      const active = activeCategoryId === category.id
+                      return (
+                        <button
                           key={category.id}
                           type="button"
-                          variant="outline"
-                          className={cn(
-                            "min-h-11 rounded-full px-4",
-                            activeCategoryId === category.id
-                              ? "shadow-sm"
-                              : "bg-card text-foreground hover:bg-card",
-                          )}
-                          style={
-                            activeCategoryId === category.id
-                              ? {
-                                  backgroundColor: theme.palette.accent,
-                                  borderColor: theme.palette.accent,
-                                  color: theme.palette.primaryForeground,
-                                  boxShadow: `0 10px 24px ${hexToRgba(theme.palette.primary, 0.18)}`,
-                                }
-                              : undefined
-                          }
+                          className="whitespace-nowrap rounded-full px-6 py-2.5 text-sm font-medium transition-all"
+                          style={{
+                            backgroundColor: active
+                              ? theme.palette.primary
+                              : hexToRgba(theme.palette.text, 0.06),
+                            color: active
+                              ? theme.palette.primaryForeground
+                              : theme.palette.text,
+                            boxShadow: active
+                              ? `0 10px 24px ${hexToRgba(theme.palette.primary, 0.24)}`
+                              : "none",
+                          }}
                           onClick={() => scrollToCategory(category.id)}
                         >
                           {category.name}
-                        </Button>
-                      ))}
-                    </div>
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
               ) : null}
 
               {featuredItems.length > 0 ? (
                 <section className="grid gap-6">
-                  <div className="flex items-end justify-between gap-4">
-                    <div className="grid gap-2">
-                      <div className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                        Featured
-                      </div>
-                      <h2
-                        className="text-3xl font-bold text-foreground sm:text-4xl"
-                        style={{ fontFamily: "var(--font-heading)" }}
-                      >
-                        Most popular right now
-                      </h2>
+                  <div className="grid gap-2">
+                    <div
+                      className="text-[11px] font-semibold uppercase tracking-[0.16em]"
+                      style={{ color: theme.palette.muted }}
+                    >
+                      Featured
                     </div>
+                    <h2
+                      className="text-3xl font-bold text-foreground sm:text-4xl"
+                      style={{ fontFamily: "var(--font-heading)" }}
+                    >
+                      Featured Items
+                    </h2>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
                     {featuredItems.map((item) => (
                       <MenuItemCard
                         key={`featured-${item.id}`}
@@ -573,16 +824,24 @@ export function StorefrontPage({
                 </section>
               ) : null}
 
-              {!categories.length || !hasVisibleItems ? (
+              {!filteredCategories.length || !hasVisibleItems ? (
                 <EmptyStateCard
-                  icon={UtensilsCrossed}
-                  title="Menu coming soon"
-                  description="This storefront is getting ready for service. Check back soon for the full menu."
+                  icon={searchQuery.trim() ? Search : UtensilsCrossed}
+                  title={searchQuery.trim() ? "No matching dishes" : "Menu coming soon"}
+                  description={
+                    searchQuery.trim()
+                      ? `No menu items matched "${searchQuery.trim()}". Try another dish, tag, or category.`
+                      : "This storefront is getting ready for service. Check back soon for the full menu."
+                  }
                 />
               ) : (
                 <section className="grid gap-12">
-                  {categories.map((category) => (
-                    <section key={category.id} id={`category-${category.id}`} className="scroll-mt-28 grid gap-6">
+                  {filteredCategories.map((category) => (
+                    <section
+                      key={category.id}
+                      id={`category-${category.id}`}
+                      className="scroll-mt-40 grid gap-6"
+                    >
                       <div className="flex items-end justify-between gap-4">
                         <div className="grid gap-2">
                           <h2
@@ -592,12 +851,14 @@ export function StorefrontPage({
                             {category.name}
                           </h2>
                           <div className="text-sm text-muted-foreground">
-                            {category.categoryItems.length} item{category.categoryItems.length === 1 ? "" : "s"}
+                            {category.categoryItems.length} item
+                            {category.categoryItems.length === 1 ? "" : "s"}
+                            {searchQuery.trim() ? ` matching "${searchQuery.trim()}"` : ""}
                           </div>
                         </div>
                       </div>
 
-                      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
                         {category.categoryItems.map((entry) => (
                           <MenuItemCard
                             key={entry.id}
@@ -619,7 +880,10 @@ export function StorefrontPage({
 
         {themeError || menuQuery.error ? (
           <div className="rounded-[var(--radius)] border border-destructive/20 bg-destructive/10 px-4 py-4 text-sm text-foreground sm:px-6">
-            {themeError ?? (menuQuery.error instanceof Error ? menuQuery.error.message : "Failed to load storefront")}
+            {themeError ??
+              (menuQuery.error instanceof Error
+                ? menuQuery.error.message
+                : "Failed to load storefront")}
           </div>
         ) : null}
       </div>
@@ -696,107 +960,140 @@ function MenuItemCard({
   onCustomize: () => void
 }) {
   const { theme } = useTheme()
-  const isPhotoFirst = Boolean(item.photoUrl)
   const meta = [
     item.tags[0] ?? null,
     item.itemModifierGroups.length > 0 ? "Customizable" : null,
     item.variants.length > 1 ? `${item.variants.length} sizes` : null,
   ].filter(Boolean)
   const badgeLabel =
-    item.visibility === "SOLD_OUT" ? "Sold out" : featured ? "Featured" : null
+    item.visibility === "SOLD_OUT" ? "Sold out" : featured ? "Popular" : null
 
   return (
     <motion.div whileTap={{ scale: 0.988 }} transition={{ duration: 0.12, ease: "easeOut" }}>
-      <Card
+      <article
         className={cn(
-          "h-full overflow-hidden border border-stone-200 bg-white shadow-[0_10px_24px_rgba(39,28,23,0.08)]",
+          "group flex h-full flex-col overflow-hidden rounded-[24px] border",
           item.visibility === "SOLD_OUT" && "opacity-70",
         )}
+        style={{
+          backgroundColor: theme.palette.surface,
+          borderColor: hexToRgba(theme.palette.border, 0.55),
+          boxShadow: `0 8px 24px ${hexToRgba(theme.palette.text, 0.06)}`,
+        }}
       >
-        <div className="grid min-h-[11.25rem] grid-cols-[minmax(0,1fr)_7.5rem] grid-rows-[auto_1fr_auto] gap-x-4 gap-y-3 px-4 py-4 sm:min-h-[12rem] sm:grid-cols-[minmax(0,1fr)_8.5rem] sm:px-5 sm:py-5 lg:grid-cols-[minmax(0,1fr)_10rem]">
-          <div className="min-w-0">
-            <h3
-              className="text-lg font-bold text-foreground sm:text-xl"
-              style={{ fontFamily: "var(--font-heading)" }}
-            >
-              {item.name}
-            </h3>
-            {item.nameLocalized ? (
-              <div className="mt-1 text-sm text-muted-foreground sm:text-base">
-                {item.nameLocalized}
+        <div className="relative h-56 overflow-hidden p-6 pb-0">
+          <div
+            className="h-full w-full rounded-[18px] border bg-cover bg-center transition-transform duration-500 group-hover:scale-[1.02]"
+            style={{
+              borderColor: hexToRgba(theme.palette.border, 0.6),
+              backgroundColor: hexToRgba(theme.palette.primary, 0.08),
+              backgroundImage: item.photoUrl
+                ? `url(${item.photoUrl})`
+                : `linear-gradient(135deg, ${hexToRgba(theme.palette.primary, 0.16)}, ${hexToRgba(theme.palette.accent, 0.14)})`,
+            }}
+          >
+            {!item.photoUrl ? (
+              <div className="flex h-full items-center justify-center">
+                <ChefHat
+                  className="h-10 w-10"
+                  style={{ color: hexToRgba(theme.palette.primary, 0.7) }}
+                />
               </div>
             ) : null}
           </div>
 
-          <div className="text-right text-sm font-semibold text-foreground sm:text-base">
-            {formatPrice(itemPrice(item))}
-          </div>
+          {badgeLabel ? (
+            <div className="absolute right-9 top-9">
+              <span
+                className="inline-flex rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.08em]"
+                style={{
+                  backgroundColor:
+                    item.visibility === "SOLD_OUT"
+                      ? hexToRgba(theme.palette.text, 0.82)
+                      : theme.palette.primary,
+                  color: theme.palette.primaryForeground,
+                }}
+              >
+                {badgeLabel}
+              </span>
+            </div>
+          ) : null}
+        </div>
 
-          <div className="min-w-0">
-            <div className="grid gap-3">
-              {item.description ? (
-                <p className="text-sm leading-5 text-muted-foreground sm:leading-6">{item.description}</p>
+        <div className="flex flex-1 flex-col gap-4 px-6 pb-6 pt-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <h3
+                className="text-2xl font-semibold leading-tight text-foreground"
+                style={{ fontFamily: "var(--font-heading)" }}
+              >
+                {item.name}
+              </h3>
+              {item.nameLocalized ? (
+                <div className="mt-1 text-sm text-muted-foreground">{item.nameLocalized}</div>
               ) : null}
-
-              {badgeLabel || meta.length > 0 ? (
-                <div className="flex flex-wrap items-center gap-2">
-                  {badgeLabel ? (
-                    <Badge
-                      variant="outline"
-                      className={
-                        featured && item.visibility !== "SOLD_OUT"
-                          ? "border-primary/20 bg-primary/10 text-foreground"
-                          : "border-border bg-background text-muted-foreground"
-                      }
-                    >
-                      {badgeLabel}
-                    </Badge>
-                  ) : null}
-                  {meta.slice(0, 1).map((tag) => (
-                    <span key={tag} className="text-sm text-muted-foreground">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              ) : null}
+            </div>
+            <div
+              className="shrink-0 text-lg font-semibold"
+              style={{ color: theme.palette.primary }}
+            >
+              {formatPrice(itemPrice(item))}
             </div>
           </div>
 
-          <div className="row-span-2 flex items-end justify-end">
-            {isPhotoFirst ? (
-              <div
-                className="h-[7.5rem] w-[7.5rem] rounded-[18px] border border-border/70 bg-cover bg-center shadow-sm sm:h-[8.5rem] sm:w-[8.5rem] lg:h-[10rem] lg:w-[10rem]"
-                style={{ backgroundImage: `url(${item.photoUrl})` }}
-              />
-            ) : (
-              <div
-                aria-hidden="true"
-                className="h-[7.5rem] w-[7.5rem] opacity-0 sm:h-[8.5rem] sm:w-[8.5rem] lg:h-[10rem] lg:w-[10rem]"
-              />
-            )}
-          </div>
+          {item.description ? (
+            <p className="line-clamp-3 text-sm leading-7 text-muted-foreground">
+              {item.description}
+            </p>
+          ) : null}
 
-          <div className="flex items-end justify-start">
+          {meta.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-2 text-xs font-medium">
+              {meta.map((tag) => (
+                <span
+                  key={tag}
+                  className="inline-flex items-center gap-1 rounded-full px-3 py-1.5"
+                  style={{
+                    backgroundColor: hexToRgba(theme.palette.text, 0.05),
+                    color: theme.palette.muted,
+                  }}
+                >
+                  <Tags className="h-3 w-3" />
+                  {tag}
+                </span>
+              ))}
+            </div>
+          ) : null}
+
+          <div className="mt-auto flex items-end justify-between gap-4">
+            <div className="text-sm text-muted-foreground">
+              {item.visibility === "SOLD_OUT"
+                ? "Sold out today"
+                : item.itemModifierGroups.length > 0
+                  ? "Customize before adding"
+                  : "Ready to add"}
+            </div>
+
             {item.visibility === "SOLD_OUT" ? (
-              <div className="text-sm text-muted-foreground">Sold out today</div>
+              <span className="text-sm font-medium text-muted-foreground">Unavailable</span>
             ) : (
-              <Button
-                variant="outline"
-                className="min-h-11 rounded-full px-5"
+              <button
+                type="button"
+                className="inline-flex h-11 w-11 items-center justify-center rounded-full shadow-lg transition-transform hover:-translate-y-0.5"
                 style={{
-                  borderColor: "transparent",
                   background: `linear-gradient(135deg, ${theme.palette.primary}, ${theme.palette.accent})`,
                   color: theme.palette.primaryForeground,
+                  boxShadow: `0 12px 24px ${hexToRgba(theme.palette.primary, 0.26)}`,
                 }}
                 onClick={onCustomize}
+                aria-label={`Add ${item.name}`}
               >
-                Add
                 <ArrowRight className="h-4 w-4" />
-              </Button>
+              </button>
             )}
           </div>
         </div>
-      </Card>
+      </article>
     </motion.div>
   )
 }
@@ -806,7 +1103,7 @@ function EmptyStateCard({
   title,
   description,
 }: {
-  icon: typeof UtensilsCrossed
+  icon: typeof UtensilsCrossed | typeof Search
   title: string
   description: string
 }) {
@@ -817,10 +1114,15 @@ function EmptyStateCard({
           <Icon className="h-5 w-5" />
         </div>
         <div className="grid gap-2">
-          <h3 className="text-xl font-semibold text-foreground" style={{ fontFamily: "var(--font-heading)" }}>
+          <h3
+            className="text-xl font-semibold text-foreground"
+            style={{ fontFamily: "var(--font-heading)" }}
+          >
             {title}
           </h3>
-          <p className="mx-auto max-w-md text-sm leading-6 text-muted-foreground">{description}</p>
+          <p className="mx-auto max-w-md text-sm leading-6 text-muted-foreground">
+            {description}
+          </p>
         </div>
       </CardContent>
     </Card>
@@ -830,47 +1132,38 @@ function EmptyStateCard({
 function StorefrontLoadingSkeleton() {
   return (
     <>
-      <Card className="overflow-hidden border-border/80 bg-card shadow-sm">
-        <CardContent className="grid min-h-[200px] gap-6 px-4 py-8 sm:px-6 sm:py-12 lg:min-h-[320px] lg:px-8 lg:py-12">
-          <Skeleton className="h-16 w-16 rounded-[12px]" />
-          <div className="grid gap-4">
-            <Skeleton className="h-8 w-32 rounded-full" />
-            <Skeleton className="h-16 w-full max-w-3xl" />
-            <Skeleton className="h-8 w-full max-w-2xl" />
-          </div>
-        </CardContent>
-      </Card>
+      <div className="rounded-[24px] border border-border/70 bg-card p-6 shadow-sm">
+        <Skeleton className="h-[320px] w-full rounded-[18px]" />
+      </div>
 
       <div className="grid gap-8">
-        <div className="overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <div className="flex w-max min-w-full gap-2">
-            {Array.from({ length: 5 }).map((_, index) => (
-              <Skeleton key={index} className="h-11 w-28 rounded-full" />
-            ))}
-          </div>
+        <div className="flex gap-3 overflow-hidden">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <Skeleton key={index} className="h-11 w-28 rounded-full" />
+          ))}
         </div>
 
         <section className="grid gap-6">
           <div className="grid gap-4">
             <Skeleton className="h-10 w-48" />
-            <Skeleton className="h-5 w-28" />
           </div>
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
             {Array.from({ length: 6 }).map((_, index) => (
-              <Card key={index} className="overflow-hidden border-border/80 bg-card shadow-sm">
-                <div className="grid min-h-[11.25rem] grid-cols-[minmax(0,1fr)_7.5rem] grid-rows-[auto_1fr_auto] gap-x-4 gap-y-3 px-4 py-4 sm:min-h-[12rem] sm:grid-cols-[minmax(0,1fr)_8.5rem] sm:px-5 sm:py-5 lg:grid-cols-[minmax(0,1fr)_10rem]">
-                  <Skeleton className="h-6 w-40 self-start" />
-                  <Skeleton className="h-5 w-16 justify-self-end self-start" />
-                  <div className="grid gap-2 self-start">
-                    <Skeleton className="h-4 w-full" />
-                    <Skeleton className="h-4 w-4/5" />
+              <div
+                key={index}
+                className="overflow-hidden rounded-[24px] border border-border/70 bg-card p-6 shadow-sm"
+              >
+                <Skeleton className="h-56 w-full rounded-[18px]" />
+                <div className="mt-4 grid gap-3">
+                  <Skeleton className="h-7 w-3/4" />
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-4 w-4/5" />
+                  <div className="mt-4 flex items-center justify-between">
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-11 w-11 rounded-full" />
                   </div>
-                  <div className="row-span-2 flex items-end justify-end">
-                    <Skeleton className="h-[7.5rem] w-[7.5rem] rounded-[18px] sm:h-[8.5rem] sm:w-[8.5rem] lg:h-[10rem] lg:w-[10rem]" />
-                  </div>
-                  <Skeleton className="h-11 w-24 rounded-full self-end" />
                 </div>
-              </Card>
+              </div>
             ))}
           </div>
         </section>
