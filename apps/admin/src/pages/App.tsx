@@ -1716,6 +1716,15 @@ export const App: React.FC = () => {
     )
   }
 
+  const batchTranslateItems = async () => {
+    const result = await postAdminJson<{ translated: number; skipped: number }>(
+      "/admin/menu/batch-translate",
+      {},
+    )
+    await reloadMenuData()
+    return result
+  }
+
   const updateItemVisibility = async (
     itemId: string,
     visibility: CategoryItemEntry["item"]["visibility"],
@@ -2141,6 +2150,7 @@ export const App: React.FC = () => {
         <MenuTab
           categories={categories}
           menuActionMessage={menuActionMessage}
+          onBatchTranslate={batchTranslateItems}
           onCategoryDelete={deleteCategoryFromMenu}
           onAddItem={addItemToCategory}
           onCategoryScheduleChange={updateCategorySchedule}
@@ -3949,6 +3959,7 @@ function MenuTab({
   onAddItem,
   categories,
   menuActionMessage,
+  onBatchTranslate,
   onCategoryDelete,
   onCategoryReorder,
   onCategoryScheduleChange,
@@ -3966,6 +3977,7 @@ function MenuTab({
   ) => void | Promise<void>
   categories: MenuCategory[]
   menuActionMessage: string | null
+  onBatchTranslate: () => Promise<{ translated: number; skipped: number }>
   onCategoryDelete: (categoryId: string) => void | Promise<void>
   onCategoryReorder: (nextCategoryIds: string[]) => void
   onCategoryScheduleChange: (
@@ -3990,6 +4002,8 @@ function MenuTab({
 }) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
   const categoryIds = categories.map((category) => category.id)
+  const [translateState, setTranslateState] = useState<"idle" | "loading" | "done" | "error">("idle")
+  const [translateCount, setTranslateCount] = useState(0)
   const [activeDragId, setActiveDragId] = useState<string | null>(null)
   const [activeDragType, setActiveDragType] = useState<"category" | "item" | null>(null)
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null)
@@ -4041,8 +4055,44 @@ function MenuTab({
 
   return (
     <div className="grid gap-4">
-      <div className={cn("text-sm", menuActionMessage?.includes("Failed") ? "text-destructive" : "text-muted-foreground")}>
-        {menuActionMessage ?? "These changes shape what customers see in the storefront."}
+      <div className="flex items-center justify-between gap-4">
+        <p
+          className={cn(
+            "text-sm",
+            translateState === "error"
+              ? "text-destructive"
+              : menuActionMessage?.includes("Failed")
+                ? "text-destructive"
+                : "text-muted-foreground",
+          )}
+        >
+          {translateState === "done"
+            ? `${translateCount} item${translateCount === 1 ? "" : "s"} translated to Chinese`
+            : translateState === "error"
+              ? "Translation failed — check that ANTHROPIC_API_KEY is set"
+              : (menuActionMessage ?? "These changes shape what customers see in the storefront.")}
+        </p>
+        <Button
+          variant="outline"
+          size="sm"
+          className="shrink-0"
+          disabled={translateState === "loading"}
+          onClick={() => {
+            setTranslateState("loading")
+            void onBatchTranslate()
+              .then((result) => {
+                setTranslateCount(result.translated)
+                setTranslateState("done")
+                setTimeout(() => setTranslateState("idle"), 5000)
+              })
+              .catch(() => {
+                setTranslateState("error")
+                setTimeout(() => setTranslateState("idle"), 5000)
+              })
+          }}
+        >
+          {translateState === "loading" ? "Translating..." : "Auto-translate to Chinese"}
+        </Button>
       </div>
 
       <DndContext

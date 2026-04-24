@@ -1,6 +1,7 @@
 import type { Response, Router } from 'express'
 import { createTenantDataAccess, createTenantScope } from '@repo/data-access'
 import type { TenantRequest } from '../middleware/tenant.js'
+import { env } from '../config/env.js'
 
 type CatalogVisibility = 'AVAILABLE' | 'SOLD_OUT' | 'HIDDEN' | 'SCHEDULED'
 type ModifierSelectionType = 'SINGLE' | 'MULTIPLE'
@@ -540,6 +541,87 @@ export function registerAdminMenuRoutes(r: Router) {
       }
 
       res.status(204).send()
+    } catch (error) {
+      handleRouteError(res, error)
+    }
+  })
+
+  r.post('/admin/menu/batch-translate', async (req: TenantRequest, res) => {
+    try {
+      const anthropicApiKey = env().ANTHROPIC_API_KEY
+      if (!anthropicApiKey) {
+        return res.status(503).json({
+          error: 'Translation service not configured. Add ANTHROPIC_API_KEY to the API environment.',
+        })
+      }
+
+      const tenantDataAccess = tenantDataAccessFor(req)
+      const items = await tenantDataAccess.menu.listItems()
+      const toTranslate = items.filter((item) => !item.nameLocalized?.trim())
+
+      if (toTranslate.length === 0) {
+        return res.json({ translated: 0, skipped: items.length })
+      }
+
+      const names = toTranslate.map((item) => item.name)
+
+      const aiResponse = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': anthropicApiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 1024,
+          messages: [
+            {
+              role: 'user',
+              content:
+                `Translate each of these Chinese restaurant dish names to Simplified Chinese. ` +
+                `Return only a JSON object mapping each exact English name to its Chinese translation. No explanations.\n\n` +
+                JSON.stringify(names),
+            },
+          ],
+        }),
+      })
+
+      if (!aiResponse.ok) {
+        const errorBody = await aiResponse.text().catch(() => '')
+        throw new Error(
+          `Anthropic request failed (${aiResponse.status}): ${errorBody || 'unknown error'}`,
+        )
+      }
+
+      const aiData = (await aiResponse.json()) as {
+        content: Array<{ type: string; text?: string }>
+      }
+
+      const textBlock = aiData.content.find((b) => b.type === 'text')
+      if (!textBlock?.text) {
+        throw new Error('No text content in translation response')
+      }
+
+      let translations: Record<string, string>
+      try {
+        const jsonMatch = textBlock.text.match(/\{[\s\S]*\}/)
+        if (!jsonMatch) throw new Error('No JSON object found in response')
+        translations = JSON.parse(jsonMatch[0]) as Record<string, string>
+      } catch {
+        throw new Error('Failed to parse translation response as JSON')
+      }
+
+      let translated = 0
+      for (const item of toTranslate) {
+        const translation = translations[item.name]
+        if (translation && typeof translation === 'string' && translation.trim()) {
+          await tenantDataAccess.menu.updateItem(item.id, { nameLocalized: translation.trim() })
+          translated++
+        }
+      }
+
+      res.json({ translated, skipped: items.length - toTranslate.length })
     } catch (error) {
       handleRouteError(res, error)
     }
