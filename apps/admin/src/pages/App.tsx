@@ -288,6 +288,34 @@ function storefrontUrlForTenant(tenantSlug: string) {
   return `https://${tenantSlug}.easymenu.website`
 }
 
+function kioskUrl() {
+  if (typeof window === "undefined") {
+    return "https://kiosk.easymenu.website"
+  }
+
+  const hostname = window.location.hostname.toLowerCase()
+  const protocol = window.location.protocol
+
+  if (localHostname(hostname)) {
+    return "http://localhost:5175"
+  }
+
+  if (hostname.startsWith("admin.")) {
+    return `${protocol}//kiosk.${hostname.slice("admin.".length)}`
+  }
+
+  if (hostname.endsWith(".vercel.app")) {
+    const labels = hostname.split(".")
+    const firstLabel = labels[0] ?? ""
+    if (firstLabel.includes("admin")) {
+      labels[0] = firstLabel.replace("admin", "kiosk")
+      return `${protocol}//${labels.join(".")}`
+    }
+  }
+
+  return "https://kiosk.easymenu.website"
+}
+
 function areThemesEqual(left: ThemeDraft, right: ThemeDraft) {
   return JSON.stringify(left) === JSON.stringify(right)
 }
@@ -1851,6 +1879,7 @@ export const App: React.FC = () => {
     user?.primaryEmailAddress?.emailAddress ||
     "Admin"
   const storefrontUrl = storefrontUrlForTenant(linkedTenantSlug)
+  const kitchenKioskUrl = kioskUrl()
 
   const paymentsPanel = (
     <div className="grid gap-6">
@@ -2268,17 +2297,51 @@ export const App: React.FC = () => {
             <SectionNav activeSection={activeSection} onChange={setActiveSection} />
           </div>
 
-          <Button
-            type="button"
-            variant="ghost"
-            className="justify-start rounded-[var(--radius)] px-4 text-muted-foreground"
-            onClick={() => {
-              void signOut()
-            }}
-          >
-            <LogOut className="h-4 w-4" />
-            Sign out
-          </Button>
+          <div className="grid gap-3">
+            <div className="rounded-[var(--radius)] border border-border/70 bg-background px-3 py-3">
+              <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                Launch
+              </div>
+              <div className="grid gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="justify-start rounded-[var(--radius)] px-3 text-muted-foreground"
+                  onClick={() => {
+                    window.open(storefrontUrl, "_blank", "noopener,noreferrer")
+                  }}
+                >
+                  <Store className="h-4 w-4" />
+                  Customer site
+                  <ExternalLink className="ml-auto h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="justify-start rounded-[var(--radius)] px-3 text-muted-foreground"
+                  onClick={() => {
+                    window.open(kitchenKioskUrl, "_blank", "noopener,noreferrer")
+                  }}
+                >
+                  <Printer className="h-4 w-4" />
+                  Kitchen kiosk
+                  <ExternalLink className="ml-auto h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            <Button
+              type="button"
+              variant="ghost"
+              className="justify-start rounded-[var(--radius)] px-4 text-muted-foreground"
+              onClick={() => {
+                void signOut()
+              }}
+            >
+              <LogOut className="h-4 w-4" />
+              Sign out
+            </Button>
+          </div>
         </aside>
 
         <section className="flex min-h-0 flex-col overflow-hidden rounded-[calc(var(--radius)+8px)] border border-border/80 bg-card shadow-sm">
