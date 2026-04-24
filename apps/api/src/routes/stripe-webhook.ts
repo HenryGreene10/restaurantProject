@@ -5,12 +5,12 @@ import {
   createTenantDataAccess,
   createTenantScope,
 } from '@repo/data-access'
-import { buildKitchenTicket } from '@repo/notifications'
 import {
   retrieveDirectChargePaymentIntent,
   verifyStripeWebhookEvent,
 } from '@repo/payments'
 import { env } from '../config/env.js'
+import { buildCloudPrntReceiptJob } from '../lib/cloudprnt.js'
 
 async function awardLoyaltyPoints(
   tenantDataAccess: ReturnType<typeof createTenantDataAccess>,
@@ -53,7 +53,7 @@ async function awardLoyaltyPoints(
 }
 
 async function enqueuePrintJob(
-  order: Parameters<typeof buildKitchenTicket>[0],
+  order: Parameters<typeof buildCloudPrntReceiptJob>[0],
   restaurantId: string,
 ) {
   const platformDataAccess = createPlatformDataAccess()
@@ -62,7 +62,7 @@ async function enqueuePrintJob(
     return
   }
 
-  const ticket = buildKitchenTicket(order)
+  const ticket = buildCloudPrntReceiptJob(order)
   await platformDataAccess.updateRestaurantPendingPrintJob(restaurantId, ticket)
 }
 

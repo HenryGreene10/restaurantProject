@@ -4,7 +4,15 @@ export type SmsConfig = {
   messagingServiceSid: string
 }
 
-export { buildKitchenTicket } from "./escpos.js"
+export {
+  buildKitchenReceiptText,
+  buildKitchenTicket,
+} from "./escpos.js"
+export type {
+  KitchenTicketItem,
+  KitchenTicketModifier,
+  KitchenTicketOrder,
+} from "./escpos.js"
 
 export type SMS = { to: string; body: string }
 

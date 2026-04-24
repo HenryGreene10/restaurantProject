@@ -323,6 +323,31 @@ async function sendKitchenDeliveryEta(
   }
 }
 
+async function printKitchenOrder(
+  getToken: ClerkTokenGetter,
+  tenantSlug: string,
+  orderId: string,
+) {
+  const token = await getToken()
+  if (!token) {
+    throw new Error("Unable to authenticate your kitchen session.")
+  }
+
+  const response = await fetch(`${API_BASE_URL}/admin/orders/${orderId}/print`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "x-tenant-slug": tenantSlug,
+    },
+  })
+
+  const body = (await response.json().catch(() => null)) as { error?: string } | null
+
+  if (!response.ok) {
+    throw new Error(body?.error ?? "Failed to queue print job")
+  }
+}
+
 function playAlertTone(audioContextRef: React.MutableRefObject<AudioContext | null>) {
   if (typeof window === "undefined") {
     return
@@ -485,14 +510,22 @@ function TabButton({
 
 function OrderCard({
   onAdvance,
+  onPrint,
   onSendEta,
   order,
+  printMessage,
+  printMessageTone,
   updating,
+  printing,
 }: {
   onAdvance: (order: KitchenOrder) => void
+  onPrint: (order: KitchenOrder) => void
   onSendEta?: (etaMinutes: number) => Promise<void>
   order: KitchenOrder
+  printMessage?: string | null
+  printMessageTone?: "info" | "success" | "error"
   updating: boolean
+  printing: boolean
 }) {
   const action = statusAction[order.status]
   const colors = statusStyles(order.status)
@@ -794,37 +827,92 @@ function OrderCard({
         </div>
       ) : null}
 
-      {action ? (
-        <button
-          type="button"
-          onClick={() => onAdvance(order)}
-          disabled={updating}
+      {printMessage ? (
+        <div
           style={{
-            minHeight: "56px",
-            border: "none",
-            borderRadius: "16px",
+            borderRadius: "12px",
+            padding: "12px 14px",
+            fontSize: "14px",
+            fontWeight: 700,
             background:
-              order.status === "READY"
-                ? "#22c55e"
-                : order.status === "PREPARING"
-                  ? "#f59e0b"
-                  : order.status === "CONFIRMED"
-                    ? "#60a5fa"
-                    : "#f9fafb",
+              printMessageTone === "error"
+                ? "rgba(127,29,29,0.55)"
+                : printMessageTone === "success"
+                  ? "rgba(21,128,61,0.28)"
+                  : "rgba(255,255,255,0.08)",
             color:
-              order.status === "READY" || order.status === "PREPARING"
-                ? "#111827"
-                : order.status === "CONFIRMED"
-                  ? "#0f172a"
-                  : "#111827",
-            fontSize: "20px",
-            fontWeight: 800,
-            cursor: updating ? "wait" : "pointer",
+              printMessageTone === "error"
+                ? "#fecaca"
+                : printMessageTone === "success"
+                  ? "#bbf7d0"
+                  : "#e5e7eb",
+            border:
+              printMessageTone === "error"
+                ? "1px solid rgba(248,113,113,0.25)"
+                : printMessageTone === "success"
+                  ? "1px solid rgba(74,222,128,0.2)"
+                  : "1px solid rgba(255,255,255,0.08)",
           }}
         >
-          {updating ? "Updating…" : action.label}
-        </button>
+          {printMessage}
+        </div>
       ) : null}
+
+      <div style={{ display: "grid", gap: "10px" }}>
+        {action ? (
+          <button
+            type="button"
+            onClick={() => onAdvance(order)}
+            disabled={updating || printing}
+            style={{
+              minHeight: "56px",
+              border: "none",
+              borderRadius: "16px",
+              background:
+                order.status === "READY"
+                  ? "#22c55e"
+                  : order.status === "PREPARING"
+                    ? "#f59e0b"
+                    : order.status === "CONFIRMED"
+                      ? "#60a5fa"
+                      : "#f9fafb",
+              color:
+                order.status === "READY" || order.status === "PREPARING"
+                  ? "#111827"
+                  : order.status === "CONFIRMED"
+                    ? "#0f172a"
+                    : "#111827",
+              fontSize: order.status === "PENDING" ? "18px" : "20px",
+              fontWeight: 800,
+              cursor: updating || printing ? "wait" : "pointer",
+            }}
+          >
+            {updating
+              ? "Updating…"
+              : order.status === "PENDING"
+                ? "Confirm & print receipt"
+                : action.label}
+          </button>
+        ) : null}
+
+        <button
+          type="button"
+          onClick={() => onPrint(order)}
+          disabled={printing || updating}
+          style={{
+            minHeight: "48px",
+            borderRadius: "14px",
+            border: "1px solid rgba(255,255,255,0.16)",
+            background: "rgba(255,255,255,0.06)",
+            color: "#f9fafb",
+            fontSize: "16px",
+            fontWeight: 700,
+            cursor: printing || updating ? "wait" : "pointer",
+          }}
+        >
+          {printing ? "Printing…" : "Print"}
+        </button>
+      </div>
     </section>
   )
 }
@@ -843,6 +931,10 @@ const KitchenDashboard: React.FC<{
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null)
+  const [printingOrderId, setPrintingOrderId] = useState<string | null>(null)
+  const [printFeedbackByOrderId, setPrintFeedbackByOrderId] = useState<
+    Record<string, { text: string; tone: "info" | "success" | "error" }>
+  >({})
   const [soundEnabled, setSoundEnabled] = useState(readSoundPreference)
   const [activeTab, setActiveTab] = useState<KitchenTab>("active")
   const audioContextRef = useRef<AudioContext | null>(null)
@@ -921,6 +1013,20 @@ const KitchenDashboard: React.FC<{
     try {
       await transitionKitchenOrder(getToken, tenantSlug, order.id, action.nextStatus)
 
+      if (order.status === "PENDING") {
+        setActiveTab("active")
+        setPrintingOrderId(order.id)
+        setPrintFeedbackByOrderId((current) => ({
+          ...current,
+          [order.id]: { text: "Printing…", tone: "info" },
+        }))
+        await printKitchenOrder(getToken, tenantSlug, order.id)
+        setPrintFeedbackByOrderId((current) => ({
+          ...current,
+          [order.id]: { text: "Receipt queued for printer", tone: "success" },
+        }))
+      }
+
       if (action.nextStatus === "COMPLETED") {
         const nextCompleted = mergeCompletedOrders(tenantSlug, [], [
           ...readCompletedOrders(tenantSlug),
@@ -937,11 +1043,76 @@ const KitchenDashboard: React.FC<{
 
       await loadOrders()
     } catch (updateError) {
+      if (order.status === "PENDING") {
+        setPrintFeedbackByOrderId((current) => ({
+          ...current,
+          [order.id]: {
+            text:
+              updateError instanceof Error
+                ? updateError.message
+                : "Failed to confirm and print order",
+            tone: "error",
+          },
+        }))
+      }
       setError(updateError instanceof Error ? updateError.message : "Failed to update order")
     } finally {
       setUpdatingOrderId(null)
+      if (order.status === "PENDING") {
+        setPrintingOrderId(null)
+      }
     }
   }
+
+  async function handlePrint(order: KitchenOrder) {
+    if (!tenantSlug) {
+      return
+    }
+
+    setPrintingOrderId(order.id)
+    setPrintFeedbackByOrderId((current) => ({
+      ...current,
+      [order.id]: { text: "Printing…", tone: "info" },
+    }))
+
+    try {
+      await printKitchenOrder(getToken, tenantSlug, order.id)
+      setPrintFeedbackByOrderId((current) => ({
+        ...current,
+        [order.id]: { text: "Receipt queued for printer", tone: "success" },
+      }))
+    } catch (printError) {
+      setPrintFeedbackByOrderId((current) => ({
+        ...current,
+        [order.id]: {
+          text: printError instanceof Error ? printError.message : "Failed to queue print job",
+          tone: "error",
+        },
+      }))
+      setError(printError instanceof Error ? printError.message : "Failed to queue print job")
+    } finally {
+      setPrintingOrderId(null)
+    }
+  }
+
+  useEffect(() => {
+    const orderIds = Object.keys(printFeedbackByOrderId)
+    if (orderIds.length === 0) {
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setPrintFeedbackByOrderId((current) => {
+        const next = { ...current }
+        for (const orderId of orderIds) {
+          delete next[orderId]
+        }
+        return next
+      })
+    }, 3000)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [printFeedbackByOrderId])
 
   const pendingOrders = useMemo(
     () =>
@@ -1175,12 +1346,16 @@ const KitchenDashboard: React.FC<{
               key={`${activeTab}-${order.id}`}
               order={order}
               updating={updatingOrderId === order.id}
+              printing={printingOrderId === order.id}
               onAdvance={handleAdvance}
+              onPrint={handlePrint}
               onSendEta={
                 order.fulfillmentType === "DELIVERY"
                   ? (etaMinutes) => handleSendDeliveryEta(order.id, etaMinutes)
                   : undefined
               }
+              printMessage={printFeedbackByOrderId[order.id]?.text ?? null}
+              printMessageTone={printFeedbackByOrderId[order.id]?.tone}
             />
           ))}
         </div>
