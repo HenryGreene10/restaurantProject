@@ -393,7 +393,7 @@ const actionSchema = z.union([
     ),
 ])
 
-const toolInputSchema = z.union([
+export const assistantPlannerResultSchema = z.discriminatedUnion("kind", [
   z.object({
     kind: z.literal("actions"),
     actions: z.array(actionSchema).min(1),
@@ -664,7 +664,7 @@ export async function classifyAdminCommand(input: {
         throw new Error("Groq response did not include classify_admin_command output")
       }
 
-      return toolInputSchema.parse(normalizeToolInput(parseGroqToolArguments(toolCall)))
+      return assistantPlannerResultSchema.parse(normalizeToolInput(parseGroqToolArguments(toolCall)))
     } catch (error) {
       if (!input.anthropicApiKey) {
         throw error
@@ -707,7 +707,7 @@ export async function classifyAdminCommand(input: {
     throw new Error("Anthropic response did not include classify_admin_command output")
   }
 
-  return toolInputSchema.parse(normalizeToolInput(toolUse.input))
+  return assistantPlannerResultSchema.parse(normalizeToolInput(toolUse.input))
 }
 
 export async function summarizeExecutedActions(input: {
