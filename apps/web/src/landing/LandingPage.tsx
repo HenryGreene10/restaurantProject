@@ -509,6 +509,10 @@ export function LandingPage() {
                 <a href="https://admin.easymenu.website/signup">Sign up</a>
                 <a href="https://admin.easymenu.website">Admin login</a>
               </div>
+              <div className="lp-footer-col">
+                <h4>Legal</h4>
+                <a href="/sms-policy">SMS Policy</a>
+              </div>
             </div>
           </div>
           <div className="lp-footer-bottom">

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 
 import { LandingPage } from "../landing/LandingPage"
+import { SmsPolicyPage } from "../landing/SmsPolicyPage"
 import { OrderStatusPage } from "../storefront/OrderStatusPage"
 import { RewardsWalletPage } from "../storefront/RewardsWalletPage"
 import { StorefrontPage } from "../storefront/StorefrontPage"
@@ -44,6 +45,10 @@ export function App() {
     window.history.pushState({}, "", nextPath)
     window.scrollTo({ top: 0, behavior: "auto" })
     setPathname(nextPath)
+  }
+
+  if (pathname === "/sms-policy") {
+    return <SmsPolicyPage />
   }
 
   if (!tenantSlug) {
