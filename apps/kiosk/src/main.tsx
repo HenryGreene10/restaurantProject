@@ -55,6 +55,26 @@ type KitchenTab = "pending" | "active" | "completed"
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api"
 const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY ?? ""
+const TENANT_DOMAIN_SUFFIX = (import.meta.env.VITE_TENANT_DOMAIN_SUFFIX ?? "").trim().toLowerCase()
+
+const RESERVED_KITCHEN_SUBDOMAINS = new Set(["www", "admin", "api", "app", "kiosk", "kitchen"])
+
+function getTenantSlugFromSubdomain(): string | null {
+  if (typeof window === "undefined") return null
+  const hostname = window.location.hostname.toLowerCase()
+
+  if (TENANT_DOMAIN_SUFFIX && hostname.endsWith(`.${TENANT_DOMAIN_SUFFIX}`)) {
+    const sub = hostname.slice(0, -(`.${TENANT_DOMAIN_SUFFIX}`.length)).trim()
+    if (sub && !RESERVED_KITCHEN_SUBDOMAINS.has(sub)) return sub
+  }
+
+  if (import.meta.env.DEV) {
+    const q = new URLSearchParams(window.location.search).get("tenant")?.trim()
+    return q || null
+  }
+
+  return null
+}
 const POLL_INTERVAL_MS = 10_000
 const EIGHT_HOURS_MS = 8 * 60 * 60 * 1000
 const FOUR_HOURS_MS = 4 * 60 * 60 * 1000
@@ -1367,11 +1387,12 @@ const ClerkProviderWithEnv = ClerkProvider as unknown as React.ComponentType<
   }>
 >
 
-function SignedInKitchenApp() {
+function SignedInKitchenApp({ subdomainTenant }: { subdomainTenant: string | null }) {
   const { signOut } = useClerk()
   const { getToken } = useAuth()
   const { user } = useUser()
-  const tenantSlug = tenantSlugFromMetadata(user?.publicMetadata?.tenantSlug)
+  const tenantSlug =
+    subdomainTenant ?? tenantSlugFromMetadata(user?.publicMetadata?.tenantSlug)
 
   if (!tenantSlug) {
     return (
@@ -1451,6 +1472,8 @@ function SignedInKitchenApp() {
 }
 
 function Root() {
+  const subdomainTenant = getTenantSlugFromSubdomain()
+
   if (!CLERK_PUBLISHABLE_KEY) {
     return (
       <main
@@ -1517,7 +1540,7 @@ function Root() {
         </main>
       </SignedOut>
       <SignedIn>
-        <SignedInKitchenApp />
+        <SignedInKitchenApp subdomainTenant={subdomainTenant} />
       </SignedIn>
     </ClerkProviderWithEnv>
   )
