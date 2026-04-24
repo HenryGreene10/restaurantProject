@@ -17,6 +17,7 @@ import {
 import { CSS } from "@dnd-kit/utilities"
 import { AnimatePresence, motion } from "framer-motion"
 import {
+  Search,
   BarChart3,
   Bot,
   CheckCircle2,
@@ -30,6 +31,7 @@ import {
   LogOut,
   Palette,
   Printer,
+  ShoppingCart,
   Sparkles,
   Star,
   Store,
@@ -656,8 +658,15 @@ function PreviewPane({
   theme: ThemeDraft
   categories: MenuCategory[]
 }) {
-  const cardRadius = defaultThemeDraft.radius
   const visible = previewCategories(categories)
+  const featured = visible.flatMap((category) =>
+    category.categoryItems.map((entry) => entry.item).filter((item) => item.isFeatured),
+  )
+  const totalItemCount = visible.reduce(
+    (sum, category) => sum + category.categoryItems.length,
+    0,
+  )
+  const shellRadius = 24
 
   return (
     <div
@@ -670,116 +679,172 @@ function PreviewPane({
       <div
         style={{
           minHeight: "100%",
-          borderRadius: "24px",
+          borderRadius: "28px",
           background: "var(--preview-background)",
           color: "var(--preview-text)",
-          padding: 24,
+          padding: 20,
           boxShadow: "var(--shadow-brand)",
         }}
       >
         <div
           style={{
-            borderRadius: cardRadius,
-            padding: "22px 22px 16px",
-            background: theme.heroImageUrl
-              ? `linear-gradient(${hexToRgba("#271c17", 0.48)}, ${hexToRgba("#271c17", 0.48)}), url(${theme.heroImageUrl}) center/cover`
-              : `linear-gradient(135deg, ${hexToRgba(theme.primaryColor, 0.14)}, ${hexToRgba(theme.primaryColor, 0.1)}), var(--preview-surface)`,
-            border: "1px solid var(--preview-border)",
-            display: "grid",
-            gap: 18,
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            justifyContent: "space-between",
+            marginBottom: 16,
+            padding: "2px 4px 0",
           }}
         >
-          <div style={{ display: "flex", justifyContent: "space-between", gap: 16, alignItems: "flex-start" }}>
-            {theme.logoUrl ? (
-              <img
-                src={theme.logoUrl}
-                alt={`${theme.appTitle} logo`}
+          <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0 }}>
+            <div
+              style={{
+                color: "var(--preview-primary)",
+                fontFamily: "var(--preview-heading-font)",
+                fontWeight: 800,
+                fontSize: 24,
+                lineHeight: 1,
+              }}
+            >
+              {theme.appTitle}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+              <span
                 style={{
-                  maxHeight: 56,
-                  width: "auto",
-                  maxWidth: 180,
-                  objectFit: "contain",
-                  flexShrink: 0,
-                }}
-              />
-            ) : (
-              <div />
-            )}
-            {theme.heroBadgeText.trim() ? (
-              <div
-                style={{
-                  display: "inline-flex",
-                  width: "fit-content",
-                  borderRadius: cardRadius,
-                  padding: "6px 10px",
-                  background: hexToRgba("#fffcf7", 0.84),
-                  border: "1px solid var(--preview-border)",
-                  color: "var(--preview-muted)",
+                  color: "var(--preview-primary)",
                   fontSize: 12,
+                  fontWeight: 700,
+                  borderBottom: "2px solid var(--preview-primary)",
+                  paddingBottom: 4,
                 }}
               >
-                {theme.heroBadgeText}
-              </div>
-            ) : (
-              <div />
-            )}
+                Discover
+              </span>
+              <span style={{ color: "var(--preview-muted)", fontSize: 12 }}>Orders</span>
+            </div>
           </div>
-          <div style={{ display: "grid", gap: 10 }}>
+
+          <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                borderRadius: 9999,
+                border: "1px solid var(--preview-border)",
+                background: "var(--preview-surface)",
+                color: "var(--preview-muted)",
+                padding: "8px 12px",
+                minWidth: 180,
+              }}
+            >
+              <Search className="h-4 w-4" />
+              <span style={{ fontSize: 12 }}>Search for dishes...</span>
+            </div>
+            <div style={{ color: "var(--preview-primary)" }}>
+              <ShoppingCart className="h-4 w-4" />
+            </div>
+          </div>
+        </div>
+
+        <div
+          style={{
+            borderRadius: shellRadius,
+            padding: 0,
+            background: theme.heroImageUrl
+              ? `linear-gradient(to top, rgba(0,0,0,0.78), rgba(0,0,0,0.12)), url(${theme.heroImageUrl}) center/cover`
+              : `linear-gradient(135deg, ${hexToRgba(theme.primaryColor, 0.4)}, ${hexToRgba(theme.accentColor, 0.26)}), var(--preview-surface)`,
+            border: "1px solid var(--preview-border)",
+            display: "grid",
+            minHeight: 260,
+            overflow: "hidden",
+            position: "relative",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              inset: "auto 0 0 0",
+              padding: 24,
+              display: "grid",
+              gap: 12,
+            }}
+          >
             <h1
               style={{
                 margin: 0,
                 fontFamily: "var(--preview-heading-font)",
-                fontSize: 56,
+                fontSize: 44,
                 lineHeight: 0.95,
                 fontWeight: 700,
-                maxWidth: 760,
-                color: theme.heroImageUrl ? "#fff7ed" : "var(--preview-text)",
+                maxWidth: 540,
+                color: "#fff7ed",
               }}
             >
               {theme.heroHeadline}
             </h1>
-            <p
-              style={{
-                margin: 0,
-                color: theme.heroImageUrl ? hexToRgba("#fff7ed", 0.84) : "var(--preview-muted)",
-                maxWidth: 620,
-                lineHeight: 1.7,
-                fontSize: 19,
-              }}
-            >
-              {theme.heroSubheadline}
-            </p>
-          </div>
-          {theme.showCategoryChips ? (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-              {visible.map((category) => (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", color: "#fff7ed", fontSize: 13 }}>
+              {theme.heroBadgeText.trim() ? (
                 <span
-                  key={category.id}
                   style={{
-                    borderRadius: cardRadius,
-                    border: "1px solid var(--preview-border)",
-                    background: "var(--preview-surface)",
-                    color: "var(--preview-text)",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 6,
+                    borderRadius: 9999,
                     padding: "7px 12px",
-                    fontSize: 13,
+                    background: hexToRgba(theme.accentColor, 0.18),
+                    border: `1px solid ${hexToRgba(theme.accentColor, 0.34)}`,
                   }}
                 >
-                  {category.name}
+                  <Sparkles className="h-3.5 w-3.5" />
+                  {theme.heroBadgeText}
                 </span>
-              ))}
+              ) : null}
+              <span>{visible.length} categories</span>
+              <span style={{ opacity: 0.6 }}>•</span>
+              <span>{totalItemCount} dishes</span>
             </div>
-          ) : null}
+          </div>
         </div>
+
+        {theme.showCategoryChips ? (
+          <div
+            style={{
+              marginTop: 16,
+              display: "flex",
+              gap: 10,
+              overflowX: "auto",
+              paddingBottom: 4,
+            }}
+          >
+            {visible.map((category, index) => (
+              <span
+                key={category.id}
+                style={{
+                  whiteSpace: "nowrap",
+                  borderRadius: 9999,
+                  padding: "10px 18px",
+                  fontSize: 13,
+                  fontWeight: 500,
+                  background: index === 0 ? "var(--preview-primary)" : hexToRgba(theme.textColor, 0.06),
+                  color: index === 0 ? "var(--preview-on-primary)" : "var(--preview-text)",
+                  boxShadow: index === 0 ? `0 10px 24px ${hexToRgba(theme.primaryColor, 0.24)}` : "none",
+                }}
+              >
+                {category.name}
+              </span>
+            ))}
+          </div>
+        ) : null}
 
         {theme.promoBannerText ? (
           <div
             style={{
               marginTop: 16,
-              borderRadius: cardRadius,
-              border: "1px solid var(--preview-border)",
-              background: "var(--preview-surface)",
-              color: "var(--preview-muted)",
-              padding: "13px 16px",
+              borderRadius: 18,
+              background: `linear-gradient(135deg, ${theme.primaryColor}, ${hexToRgba(theme.primaryColor, 0.88)})`,
+              color: theme.onPrimary,
+              padding: "14px 16px",
               fontSize: 14,
               lineHeight: 1.55,
             }}
@@ -788,7 +853,38 @@ function PreviewPane({
           </div>
         ) : null}
 
-        <div style={{ display: "grid", gap: 22, marginTop: 22 }}>
+        {featured.length > 0 ? (
+          <section style={{ display: "grid", gap: 16, marginTop: 24 }}>
+            <div style={{ display: "grid", gap: 6 }}>
+              <div style={{ color: "var(--preview-muted)", fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase" }}>
+                Featured
+              </div>
+              <h2
+                style={{
+                  margin: 0,
+                  fontFamily: "var(--preview-heading-font)",
+                  fontSize: 32,
+                  fontWeight: 700,
+                }}
+              >
+                Featured Items
+              </h2>
+            </div>
+
+            <div style={{ display: "grid", gap: 16 }}>
+              {featured.slice(0, 2).map((item) => (
+                <PreviewMenuCard
+                  key={`featured-${item.id}`}
+                  item={item}
+                  theme={theme}
+                  featured={theme.showFeaturedBadges}
+                />
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        <div style={{ display: "grid", gap: 24, marginTop: 24 }}>
           {visible.map((category) => (
             <section key={category.id} style={{ display: "grid", gap: 12 }}>
               <div
@@ -799,14 +895,14 @@ function PreviewPane({
                   gap: 16,
                 }}
               >
-                <h2
-                  style={{
-                    margin: 0,
-                    fontFamily: "var(--preview-heading-font)",
-                    fontSize: 30,
-                    fontWeight: 700,
-                  }}
-                >
+                  <h2
+                    style={{
+                      margin: 0,
+                      fontFamily: "var(--preview-heading-font)",
+                      fontSize: 28,
+                      fontWeight: 700,
+                    }}
+                  >
                   {category.name}
                 </h2>
                 <span style={{ color: "var(--preview-muted)", fontSize: 13 }}>
@@ -814,151 +910,14 @@ function PreviewPane({
                 </span>
               </div>
 
-              <div style={{ display: "grid", gap: 12 }}>
+              <div style={{ display: "grid", gap: 16 }}>
                 {category.categoryItems.map(({ id, item }) => (
-                  <article
+                  <PreviewMenuCard
                     key={id}
-                    style={{
-                      borderRadius: cardRadius,
-                      padding: theme.menuCardLayout === "compact" ? 14 : 18,
-                      border: "1px solid var(--preview-border)",
-                      background: "var(--preview-surface)",
-                      display: "grid",
-                      gap: 12,
-                      opacity: item.visibility === "SOLD_OUT" ? 0.76 : 1,
-                      gridTemplateColumns: item.photoUrl ? "132px minmax(0, 1fr)" : "1fr",
-                    }}
-                  >
-                    {item.photoUrl ? (
-                      <div
-                        style={{
-                          minHeight: 124,
-                          borderRadius: Math.max(12, cardRadius - 8),
-                          border: "1px solid var(--preview-border)",
-                          background: `url(${item.photoUrl}) center/cover`,
-                        }}
-                      />
-                    ) : null}
-
-                    <div style={{ display: "grid", gap: 12 }}>
-                      <div style={{ display: "grid", gap: 8 }}>
-                        <div
-                          style={{
-                            display: "flex",
-                            justifyContent: "space-between",
-                            alignItems: "flex-start",
-                            gap: 16,
-                          }}
-                        >
-                          <div style={{ display: "grid", gap: 8 }}>
-                            <div
-                              style={{
-                                display: "flex",
-                                alignItems: "center",
-                                flexWrap: "wrap",
-                                gap: 8,
-                              }}
-                            >
-                              <h3
-                                style={{
-                                  margin: 0,
-                                  fontSize: 20,
-                                  fontWeight: 600,
-                                  fontFamily: "var(--preview-heading-font)",
-                                }}
-                              >
-                                {item.name}
-                              </h3>
-                              {theme.showFeaturedBadges && item.isFeatured ? (
-                                <span
-                                  style={{
-                                    borderRadius: cardRadius,
-                                    border: "1px solid transparent",
-                                    background: "var(--preview-primary)",
-                                    color: "var(--preview-on-primary)",
-                                    fontSize: 11,
-                                    padding: "4px 8px",
-                                  }}
-                                >
-                                  Featured
-                                </span>
-                              ) : null}
-                              {item.visibility === "SOLD_OUT" ? (
-                                <span
-                                  style={{
-                                    borderRadius: cardRadius,
-                                    border: "1px solid var(--preview-border)",
-                                    background: "var(--preview-surface)",
-                                    color: "var(--preview-muted)",
-                                    fontSize: 11,
-                                    padding: "4px 8px",
-                                  }}
-                                >
-                                  Sold out
-                                </span>
-                              ) : null}
-                            </div>
-                            {item.description ? (
-                              <p
-                                style={{
-                                  margin: 0,
-                                  color: "var(--preview-muted)",
-                                  lineHeight: 1.55,
-                                }}
-                              >
-                                {item.description}
-                              </p>
-                            ) : null}
-                          </div>
-                          <strong>{formatPrice(item.variants[0]?.priceCents ?? item.basePriceCents)}</strong>
-                        </div>
-
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                          {item.tags.slice(0, 1).map((tag) => (
-                            <span
-                              key={tag}
-                              style={{
-                                borderRadius: cardRadius,
-                                border: "1px solid var(--preview-border)",
-                                color: "var(--preview-muted)",
-                                fontSize: 12,
-                                padding: "4px 8px",
-                              }}
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                          {item.prepTimeMinutes ? (
-                            <span style={{ color: "var(--preview-muted)", fontSize: 12 }}>
-                              {item.prepTimeMinutes} min prep
-                            </span>
-                          ) : null}
-                        </div>
-                      </div>
-
-                      {item.visibility === "SOLD_OUT" ? (
-                        <div style={{ color: "var(--preview-muted)", fontSize: 14, textAlign: "right" }}>Sold out today</div>
-                      ) : (
-                        <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                          <button
-                            type="button"
-                            style={{
-                              width: "fit-content",
-                              borderRadius: cardRadius,
-                              border: "1px solid transparent",
-                              padding: "10px 14px",
-                              background:
-                                "linear-gradient(135deg, var(--preview-primary), var(--preview-accent))",
-                              color: "var(--preview-on-primary)",
-                              fontWeight: 600,
-                            }}
-                          >
-                            Add
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </article>
+                    item={item}
+                    theme={theme}
+                    featured={theme.showFeaturedBadges && item.isFeatured}
+                  />
                 ))}
               </div>
             </section>
@@ -966,6 +925,138 @@ function PreviewPane({
         </div>
       </div>
     </div>
+  )
+}
+
+function PreviewMenuCard({
+  item,
+  theme,
+  featured,
+}: {
+  item: MenuCategory["categoryItems"][number]["item"]
+  theme: ThemeDraft
+  featured: boolean
+}) {
+  return (
+    <article
+      style={{
+        borderRadius: 24,
+        padding: 16,
+        border: "1px solid var(--preview-border)",
+        background: "var(--preview-surface)",
+        display: "grid",
+        gap: 14,
+        opacity: item.visibility === "SOLD_OUT" ? 0.76 : 1,
+        boxShadow: `0 8px 24px ${hexToRgba(theme.textColor, 0.06)}`,
+      }}
+    >
+      <div
+        style={{
+          minHeight: 168,
+          borderRadius: 18,
+          border: "1px solid var(--preview-border)",
+          background: item.photoUrl
+            ? `url(${item.photoUrl}) center/cover`
+            : `linear-gradient(135deg, ${hexToRgba(theme.primaryColor, 0.16)}, ${hexToRgba(theme.accentColor, 0.14)})`,
+          position: "relative",
+          overflow: "hidden",
+        }}
+      >
+        {featured ? (
+          <span
+            style={{
+              position: "absolute",
+              top: 10,
+              right: 10,
+              borderRadius: 9999,
+              background: "var(--preview-primary)",
+              color: "var(--preview-on-primary)",
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: "0.06em",
+              textTransform: "uppercase",
+              padding: "5px 9px",
+            }}
+          >
+            Popular
+          </span>
+        ) : null}
+      </div>
+
+      <div style={{ display: "grid", gap: 10 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
+          <h3
+            style={{
+              margin: 0,
+              fontSize: 18,
+              fontWeight: 600,
+              fontFamily: "var(--preview-heading-font)",
+              lineHeight: 1.2,
+            }}
+          >
+            {item.name}
+          </h3>
+          <strong style={{ color: "var(--preview-primary)", whiteSpace: "nowrap" }}>
+            {formatPrice(item.variants[0]?.priceCents ?? item.basePriceCents)}
+          </strong>
+        </div>
+
+        {item.description ? (
+          <p
+            style={{
+              margin: 0,
+              color: "var(--preview-muted)",
+              lineHeight: 1.6,
+              fontSize: 13,
+            }}
+          >
+            {item.description}
+          </p>
+        ) : null}
+
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {item.tags.slice(0, 1).map((tag) => (
+              <span
+                key={tag}
+                style={{
+                  borderRadius: 9999,
+                  background: hexToRgba(theme.textColor, 0.05),
+                  color: "var(--preview-muted)",
+                  fontSize: 12,
+                  padding: "6px 10px",
+                }}
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+
+          {item.visibility === "SOLD_OUT" ? (
+            <span style={{ color: "var(--preview-muted)", fontSize: 13 }}>Sold out</span>
+          ) : (
+            <button
+              type="button"
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 9999,
+                border: "1px solid transparent",
+                background:
+                  "linear-gradient(135deg, var(--preview-primary), var(--preview-accent))",
+                color: "var(--preview-on-primary)",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                boxShadow: `0 10px 24px ${hexToRgba(theme.primaryColor, 0.24)}`,
+              }}
+            >
+              <ShoppingCart className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      </div>
+    </article>
   )
 }
 
