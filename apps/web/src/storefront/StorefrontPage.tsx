@@ -453,14 +453,23 @@ export function StorefrontPage({
         <div className="mx-auto flex h-16 w-full max-w-[1160px] items-center gap-4 px-4 sm:px-6">
           <button
             type="button"
-            className="shrink-0 text-left text-xl font-extrabold tracking-tight"
-            style={{
-              color: theme.palette.primary,
-              fontFamily: "var(--font-heading)",
-            }}
+            className="shrink-0 text-left"
             onClick={scrollToTop}
           >
-            {theme.appTitle || "Storefront"}
+            {theme.logoUrl ? (
+              <img
+                src={theme.logoUrl}
+                alt={theme.appTitle || "Storefront"}
+                className="h-7 w-auto max-w-[80px] object-contain"
+              />
+            ) : (
+              <span
+                className="text-xl font-extrabold tracking-tight"
+                style={{ color: theme.palette.primary, fontFamily: "var(--font-heading)" }}
+              >
+                {theme.appTitle || "Storefront"}
+              </span>
+            )}
           </button>
 
           <nav className="hidden items-center gap-6 md:flex">

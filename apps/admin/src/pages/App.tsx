@@ -725,17 +725,25 @@ function PreviewPane({
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0 }}>
-            <div
-              style={{
-                color: "var(--preview-primary)",
-                fontFamily: "var(--preview-heading-font)",
-                fontWeight: 800,
-                fontSize: 24,
-                lineHeight: 1,
-              }}
-            >
-              {theme.appTitle}
-            </div>
+            {theme.logoUrl ? (
+              <img
+                src={theme.logoUrl}
+                alt={theme.appTitle}
+                style={{ height: 28, width: "auto", maxWidth: 80, objectFit: "contain" }}
+              />
+            ) : (
+              <div
+                style={{
+                  color: "var(--preview-primary)",
+                  fontFamily: "var(--preview-heading-font)",
+                  fontWeight: 800,
+                  fontSize: 24,
+                  lineHeight: 1,
+                }}
+              >
+                {theme.appTitle}
+              </div>
+            )}
             <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
               <span
                 style={{
