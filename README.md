@@ -3,7 +3,7 @@
 A multi-tenant restaurant ordering platform built as a
 commission-free alternative to Grubhub and DoorDash.
 
-**[Live Demo](https://easymenu.website)**
+**[Live Demo](https://easymenu.website)** | **[Live Pilot — Wa Jeal Sichuan](https://wajeal.easymenu.website/)**
 
 ![EasyMenu Screenshot](docs/product/screenshot.png)
 
