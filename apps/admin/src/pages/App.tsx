@@ -288,32 +288,18 @@ function storefrontUrlForTenant(tenantSlug: string) {
   return `https://${tenantSlug}.easymenu.website`
 }
 
-function kioskUrl() {
+function kioskUrl(tenantSlug: string) {
   if (typeof window === "undefined") {
-    return "https://kiosk.easymenu.website"
+    return `https://${tenantSlug}.kitchen.easymenu.website`
   }
 
   const hostname = window.location.hostname.toLowerCase()
-  const protocol = window.location.protocol
 
   if (localHostname(hostname)) {
-    return "http://localhost:5175"
+    return `http://localhost:5175/?tenant=${encodeURIComponent(tenantSlug)}`
   }
 
-  if (hostname.startsWith("admin.")) {
-    return `${protocol}//kiosk.${hostname.slice("admin.".length)}`
-  }
-
-  if (hostname.endsWith(".vercel.app")) {
-    const labels = hostname.split(".")
-    const firstLabel = labels[0] ?? ""
-    if (firstLabel.includes("admin")) {
-      labels[0] = firstLabel.replace("admin", "kiosk")
-      return `${protocol}//${labels.join(".")}`
-    }
-  }
-
-  return "https://kiosk.easymenu.website"
+  return `https://${tenantSlug}.kitchen.easymenu.website`
 }
 
 function areThemesEqual(left: ThemeDraft, right: ThemeDraft) {
@@ -1896,7 +1882,7 @@ export const App: React.FC = () => {
     user?.primaryEmailAddress?.emailAddress ||
     "Admin"
   const storefrontUrl = storefrontUrlForTenant(linkedTenantSlug)
-  const kitchenKioskUrl = kioskUrl()
+  const kitchenKioskUrl = kioskUrl(linkedTenantSlug)
 
   const paymentsPanel = (
     <div className="grid gap-6">
