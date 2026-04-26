@@ -111,8 +111,10 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useLayoutEffect(() => {
     applyThemeVariables(theme)
-    document.title = `${theme.appTitle} · Theme Playground`
-  }, [theme])
+    if (tenantSlug) {
+      document.title = theme.appTitle
+    }
+  }, [theme, tenantSlug])
 
   useLayoutEffect(() => {
     if (
