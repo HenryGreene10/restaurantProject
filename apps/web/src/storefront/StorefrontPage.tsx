@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react"
-import { useQuery } from "@tanstack/react-query"
-import { AnimatePresence, motion } from "framer-motion"
+import { useEffect, useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { AnimatePresence, motion } from 'framer-motion'
 import {
   ArrowRight,
   ChefHat,
@@ -12,40 +12,40 @@ import {
   Tags,
   UtensilsCrossed,
   X,
-} from "lucide-react"
+} from 'lucide-react'
 
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
-import { Skeleton } from "@/components/ui/skeleton"
-import { cn } from "@/lib/utils"
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Skeleton } from '@/components/ui/skeleton'
+import { cn } from '@/lib/utils'
 import {
   createCheckoutPaymentIntent,
   fetchCheckoutStatus,
   type CheckoutPaymentIntentSession,
-} from "../lib/payments"
-import { fetchTenantMenu, isCategoryAvailableNow } from "../lib/menu"
-import type { MenuCategory, MenuItem } from "../lib/menu"
-import { fetchCustomerLoyaltyAccount } from "../lib/loyalty"
-import { CartSummary } from "./CartSummary"
+} from '../lib/payments'
+import { fetchTenantMenu, isCategoryAvailableNow } from '../lib/menu'
+import type { MenuCategory, MenuItem } from '../lib/menu'
+import { fetchCustomerLoyaltyAccount } from '../lib/loyalty'
+import { CartSummary } from './CartSummary'
 import {
   dismissActiveOrderForSession,
   isActiveOrderDismissed,
   readActiveOrder,
   type ActiveOrderRecord,
   writeActiveOrder,
-} from "./activeOrder"
-import { useCheckoutStore } from "./checkoutStore"
-import { ItemCustomizationDrawer } from "./ItemCustomizationDrawer"
-import { type CartItem, useCartStore } from "./cartStore"
-import { useTheme } from "../theme/ThemeProvider"
-import { useThemePlaygroundStore } from "../theme/store"
-import type { CustomerSessionController } from "./useCustomerSession"
+} from './activeOrder'
+import { useCheckoutStore } from './checkoutStore'
+import { ItemCustomizationDrawer } from './ItemCustomizationDrawer'
+import { type CartItem, useCartStore } from './cartStore'
+import { useTheme } from '../theme/ThemeProvider'
+import { useThemePlaygroundStore } from '../theme/store'
+import type { CustomerSessionController } from './useCustomerSession'
 
 function formatPrice(priceCents: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
   }).format(priceCents / 100)
 }
 
@@ -54,13 +54,13 @@ function itemPrice(item: MenuItem) {
 }
 
 function hexToRgba(hex: string, alpha: number) {
-  const normalized = hex.replace("#", "").trim()
+  const normalized = hex.replace('#', '').trim()
   const expanded =
     normalized.length === 3
       ? normalized
-          .split("")
+          .split('')
           .map((char) => `${char}${char}`)
-          .join("")
+          .join('')
       : normalized
 
   const value = Number.parseInt(expanded, 16)
@@ -73,14 +73,10 @@ function hexToRgba(hex: string, alpha: number) {
 
 function visibleCategories(categories: MenuCategory[]) {
   return categories
-    .filter(
-      (category) => category.visibility !== "HIDDEN" && isCategoryAvailableNow(category),
-    )
+    .filter((category) => category.visibility !== 'HIDDEN' && isCategoryAvailableNow(category))
     .map((category) => ({
       ...category,
-      categoryItems: category.categoryItems.filter(
-        (entry) => entry.item.visibility !== "HIDDEN",
-      ),
+      categoryItems: category.categoryItems.filter((entry) => entry.item.visibility !== 'HIDDEN'),
     }))
     .filter((category) => category.categoryItems.length > 0)
 }
@@ -95,13 +91,8 @@ function itemMatchesSearch(item: MenuItem, query: string) {
     return true
   }
 
-  return [
-    item.name,
-    item.nameLocalized ?? "",
-    item.description ?? "",
-    item.tags.join(" "),
-  ]
-    .join(" ")
+  return [item.name, item.nameLocalized ?? '', item.description ?? '', item.tags.join(' ')]
+    .join(' ')
     .toLowerCase()
     .includes(term)
 }
@@ -132,30 +123,30 @@ function countItems(categories: MenuCategory[]) {
 }
 
 const placeholderPromoBannerMessages = new Set([
-  "Give loyal customers a direct-order reward funded by marketplace savings.",
-  "Try the direct-order welcome offer and keep ordering through the restaurant.",
-  "Design-forward preset for tighter brand systems.",
+  'Give loyal customers a direct-order reward funded by marketplace savings.',
+  'Try the direct-order welcome offer and keep ordering through the restaurant.',
+  'Design-forward preset for tighter brand systems.',
 ])
 
-const promoBannerDismissStorageKey = "promoBannerDismissed"
+const promoBannerDismissStorageKey = 'promoBannerDismissed'
 
 function promoBannerSessionKey(tenantSlug: string, message: string) {
   return `${tenantSlug}:${message}`
 }
 
 function dismissPromoBannerForSession(tenantSlug: string, message: string) {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return
   }
 
   window.sessionStorage.setItem(
     promoBannerDismissStorageKey,
-    promoBannerSessionKey(tenantSlug, message),
+    promoBannerSessionKey(tenantSlug, message)
   )
 }
 
 function isPromoBannerDismissed(tenantSlug: string, message: string) {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return false
   }
 
@@ -184,9 +175,9 @@ export function StorefrontPage({
   onViewRewardsWallet?: () => void
 }) {
   const showDevBanner =
-    typeof window !== "undefined" &&
-    new URLSearchParams(window.location.search).get("dev") === "true"
-  const stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ?? ""
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('dev') === 'true'
+  const stripePublishableKey = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY ?? ''
   const { theme, isLoading: isThemeLoading, errorMessage: themeError } = useTheme()
   const { tenantSlug, source } = useThemePlaygroundStore()
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null)
@@ -196,7 +187,7 @@ export function StorefrontPage({
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null)
   const [activeOrderBanner, setActiveOrderBanner] = useState<ActiveOrderRecord | null>(null)
   const [showPromoBanner, setShowPromoBanner] = useState(false)
-  const [searchQuery, setSearchQuery] = useState("")
+  const [searchQuery, setSearchQuery] = useState('')
   const cartItems = useCartStore((state) => state.items)
   const addItem = useCartStore((state) => state.addItem)
   const updateCartItem = useCartStore((state) => state.updateItem)
@@ -212,16 +203,16 @@ export function StorefrontPage({
   const setOrderNotes = useCheckoutStore((state) => state.setOrderNotes)
   const resetAfterOrder = useCheckoutStore((state) => state.resetAfterOrder)
   const menuQuery = useQuery({
-    queryKey: ["tenant-menu", tenantSlug],
+    queryKey: ['tenant-menu', tenantSlug],
     queryFn: () => fetchTenantMenu(tenantSlug),
-    enabled: source === "api",
+    enabled: source === 'api',
     staleTime: 0,
-    refetchOnMount: "always",
+    refetchOnMount: 'always',
     refetchOnWindowFocus: true,
   })
 
   const loyaltyQuery = useQuery({
-    queryKey: ["customer-loyalty-storefront", tenantSlug, customerSession.customerId],
+    queryKey: ['customer-loyalty-storefront', tenantSlug, customerSession.customerId],
     queryFn: () =>
       fetchCustomerLoyaltyAccount({
         tenantSlug,
@@ -233,26 +224,24 @@ export function StorefrontPage({
 
   const categories = useMemo(
     () => visibleCategories(menuQuery.data?.categories ?? []),
-    [menuQuery.data?.categories],
+    [menuQuery.data?.categories]
   )
 
   useEffect(() => {
-    document.body.style.backgroundColor = theme.palette.background || "#ffffff"
+    document.body.style.backgroundColor = theme.palette.background || '#ffffff'
   }, [theme.palette.background])
 
   const filteredCategories = useMemo(
     () => filterCategories(categories, searchQuery),
-    [categories, searchQuery],
+    [categories, searchQuery]
   )
 
   const featuredItems = useMemo(
     () =>
       filteredCategories.flatMap((category) =>
-        category.categoryItems
-          .map((entry) => entry.item)
-          .filter((item) => item.isFeatured),
+        category.categoryItems.map((entry) => entry.item).filter((item) => item.isFeatured)
       ),
-    [filteredCategories],
+    [filteredCategories]
   )
 
   const itemLookup = useMemo(
@@ -260,17 +249,16 @@ export function StorefrontPage({
       new Map(
         categories
           .flatMap((category) => category.categoryItems.map((entry) => entry.item))
-          .map((item) => [item.id, item] as const),
+          .map((item) => [item.id, item] as const)
       ),
-    [categories],
+    [categories]
   )
 
   const showLoadingSkeletons =
-    source === "api" && !menuQuery.data && (menuQuery.isLoading || isThemeLoading)
+    source === 'api' && !menuQuery.data && (menuQuery.isLoading || isThemeLoading)
   const visiblePromoBanner = promoBannerMessage(theme.promoBannerText)
   const hasVisibleItems = filteredCategories.some((category) => category.categoryItems.length > 0)
   const totalItemCount = countItems(categories)
-  const filteredItemCount = countItems(filteredCategories)
   const cartItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0)
 
   useEffect(() => {
@@ -291,7 +279,7 @@ export function StorefrontPage({
     setActiveCategoryId((current) =>
       filteredCategories.some((category) => category.id === current)
         ? current
-        : filteredCategories[0]?.id ?? null,
+        : (filteredCategories[0]?.id ?? null)
     )
 
     const sections = filteredCategories
@@ -319,12 +307,12 @@ export function StorefrontPage({
 
         if (!visible) return
 
-        setActiveCategoryId(visible.target.id.replace("category-", ""))
+        setActiveCategoryId(visible.target.id.replace('category-', ''))
       },
       {
-        rootMargin: "-120px 0px -55% 0px",
+        rootMargin: '-120px 0px -55% 0px',
         threshold: [0.05, 0.2, 0.4, 0.65],
-      },
+      }
     )
 
     sections.forEach((section) => observer.observe(section))
@@ -339,7 +327,11 @@ export function StorefrontPage({
 
   useEffect(() => {
     const activeOrder = readActiveOrder()
-    if (!activeOrder || activeOrder.tenantSlug !== tenantSlug || isActiveOrderDismissed(activeOrder)) {
+    if (
+      !activeOrder ||
+      activeOrder.tenantSlug !== tenantSlug ||
+      isActiveOrderDismissed(activeOrder)
+    ) {
       setActiveOrderBanner(null)
       return
     }
@@ -351,7 +343,7 @@ export function StorefrontPage({
     customerName: string
     customerPhone: string
     orderNotes: string | null
-    fulfillmentType: "PICKUP" | "DELIVERY"
+    fulfillmentType: 'PICKUP' | 'DELIVERY'
     deliveryAddress: string | null
   }): Promise<CheckoutPaymentIntentSession> {
     return createCheckoutPaymentIntent({
@@ -378,7 +370,7 @@ export function StorefrontPage({
           checkoutSessionId: paymentSession.checkoutSessionId,
         })
 
-        if (checkoutStatus.status === "ORDER_CREATED" && checkoutStatus.orderId) {
+        if (checkoutStatus.status === 'ORDER_CREATED' && checkoutStatus.orderId) {
           const activeOrder = {
             orderId: checkoutStatus.orderId,
             tenantSlug,
@@ -397,14 +389,14 @@ export function StorefrontPage({
           return
         }
 
-        if (checkoutStatus.status === "PAYMENT_FAILED" || checkoutStatus.status === "EXPIRED") {
-          throw new Error(checkoutStatus.error ?? "Payment did not complete")
+        if (checkoutStatus.status === 'PAYMENT_FAILED' || checkoutStatus.status === 'EXPIRED') {
+          throw new Error(checkoutStatus.error ?? 'Payment did not complete')
         }
 
         await new Promise((resolve) => window.setTimeout(resolve, 1000))
       }
 
-      throw new Error("Payment succeeded, but order creation is still pending")
+      throw new Error('Payment succeeded, but order creation is still pending')
     } finally {
       setSubmittingOrder(false)
     }
@@ -421,26 +413,26 @@ export function StorefrontPage({
 
     window.scrollTo({
       top: Math.max(0, top),
-      behavior: "smooth",
+      behavior: 'smooth',
     })
     setActiveCategoryId(categoryId)
   }
 
   function scrollToTop() {
-    window.scrollTo({ top: 0, behavior: "smooth" })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   return (
     <motion.main
       className="min-h-screen text-foreground"
       style={{
-        backgroundColor: theme.palette.background || "#ffffff",
+        backgroundColor: theme.palette.background || '#ffffff',
         color: theme.palette.text,
         backgroundImage: `radial-gradient(circle at top center, ${hexToRgba(theme.palette.accent, 0.08)}, transparent 28%)`,
       }}
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.24, ease: "easeOut" }}
+      transition={{ duration: 0.24, ease: 'easeOut' }}
     >
       <header
         className="sticky top-0 z-40 border-b backdrop-blur-xl"
@@ -451,23 +443,19 @@ export function StorefrontPage({
         }}
       >
         <div className="mx-auto flex h-16 w-full max-w-[1160px] items-center gap-4 px-4 sm:px-6">
-          <button
-            type="button"
-            className="shrink-0 text-left"
-            onClick={scrollToTop}
-          >
+          <button type="button" className="shrink-0 text-left" onClick={scrollToTop}>
             {theme.logoUrl ? (
               <img
                 src={theme.logoUrl}
-                alt={theme.appTitle || "Storefront"}
+                alt={theme.appTitle || 'Storefront'}
                 className="h-7 w-auto max-w-[80px] object-contain"
               />
             ) : (
               <span
                 className="text-xl font-extrabold tracking-tight"
-                style={{ color: theme.palette.primary, fontFamily: "var(--font-heading)" }}
+                style={{ color: theme.palette.primary, fontFamily: 'var(--font-heading)' }}
               >
-                {theme.appTitle || "Storefront"}
+                {theme.appTitle || 'Storefront'}
               </span>
             )}
           </button>
@@ -562,13 +550,16 @@ export function StorefrontPage({
               <div className="flex items-center gap-4 text-sm text-muted-foreground">
                 <ShieldCheck className="h-4 w-4" />
                 <span>
-                  Live storefront for tenant{" "}
+                  Live storefront for tenant{' '}
                   <span className="font-semibold text-foreground">{tenantSlug}</span>
                 </span>
               </div>
               <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                <span>Source: {source === "api" ? "Saved admin config" : "Preset preview"}</span>
-                <Badge variant="outline" className="border-border bg-background text-muted-foreground">
+                <span>Source: {source === 'api' ? 'Saved admin config' : 'Preset preview'}</span>
+                <Badge
+                  variant="outline"
+                  className="border-border bg-background text-muted-foreground"
+                >
                   Direct ordering
                 </Badge>
               </div>
@@ -666,7 +657,7 @@ export function StorefrontPage({
                     <div className="max-w-3xl">
                       <h1
                         className="text-4xl font-bold leading-none text-white sm:text-5xl"
-                        style={{ fontFamily: "var(--font-heading)" }}
+                        style={{ fontFamily: 'var(--font-heading)' }}
                       >
                         {theme.heroHeadline || theme.appTitle || tenantSlug}
                       </h1>
@@ -783,12 +774,10 @@ export function StorefrontPage({
                             backgroundColor: active
                               ? theme.palette.primary
                               : hexToRgba(theme.palette.text, 0.06),
-                            color: active
-                              ? theme.palette.primaryForeground
-                              : theme.palette.text,
+                            color: active ? theme.palette.primaryForeground : theme.palette.text,
                             boxShadow: active
                               ? `0 10px 24px ${hexToRgba(theme.palette.primary, 0.24)}`
-                              : "none",
+                              : 'none',
                           }}
                           onClick={() => scrollToCategory(category.id)}
                         >
@@ -811,7 +800,7 @@ export function StorefrontPage({
                     </div>
                     <h2
                       className="text-3xl font-bold text-foreground sm:text-4xl"
-                      style={{ fontFamily: "var(--font-heading)" }}
+                      style={{ fontFamily: 'var(--font-heading)' }}
                     >
                       Featured Items
                     </h2>
@@ -836,11 +825,11 @@ export function StorefrontPage({
               {!filteredCategories.length || !hasVisibleItems ? (
                 <EmptyStateCard
                   icon={searchQuery.trim() ? Search : UtensilsCrossed}
-                  title={searchQuery.trim() ? "No matching dishes" : "Menu coming soon"}
+                  title={searchQuery.trim() ? 'No matching dishes' : 'Menu coming soon'}
                   description={
                     searchQuery.trim()
                       ? `No menu items matched "${searchQuery.trim()}". Try another dish, tag, or category.`
-                      : "This storefront is getting ready for service. Check back soon for the full menu."
+                      : 'This storefront is getting ready for service. Check back soon for the full menu.'
                   }
                 />
               ) : (
@@ -855,14 +844,14 @@ export function StorefrontPage({
                         <div className="grid gap-2">
                           <h2
                             className="text-3xl font-bold text-foreground sm:text-4xl"
-                            style={{ fontFamily: "var(--font-heading)" }}
+                            style={{ fontFamily: 'var(--font-heading)' }}
                           >
                             {category.name}
                           </h2>
                           <div className="text-sm text-muted-foreground">
                             {category.categoryItems.length} item
-                            {category.categoryItems.length === 1 ? "" : "s"}
-                            {searchQuery.trim() ? ` matching "${searchQuery.trim()}"` : ""}
+                            {category.categoryItems.length === 1 ? '' : 's'}
+                            {searchQuery.trim() ? ` matching "${searchQuery.trim()}"` : ''}
                           </div>
                         </div>
                       </div>
@@ -892,7 +881,7 @@ export function StorefrontPage({
             {themeError ??
               (menuQuery.error instanceof Error
                 ? menuQuery.error.message
-                : "Failed to load storefront")}
+                : 'Failed to load storefront')}
           </div>
         ) : null}
       </div>
@@ -938,7 +927,7 @@ export function StorefrontPage({
         onClear={clearCart}
         onEdit={(lineId) => {
           const cartItem = cartItems.find((entry) => entry.lineId === lineId) ?? null
-          const menuItem = cartItem ? itemLookup.get(cartItem.itemId) ?? null : null
+          const menuItem = cartItem ? (itemLookup.get(cartItem.itemId) ?? null) : null
           if (!cartItem || !menuItem) {
             return
           }
@@ -971,18 +960,17 @@ function MenuItemCard({
   const { theme } = useTheme()
   const meta = [
     item.tags[0] ?? null,
-    item.itemModifierGroups.length > 0 ? "Customizable" : null,
+    item.itemModifierGroups.length > 0 ? 'Customizable' : null,
     item.variants.length > 1 ? `${item.variants.length} sizes` : null,
   ].filter(Boolean)
-  const badgeLabel =
-    item.visibility === "SOLD_OUT" ? "Sold out" : featured ? "Popular" : null
+  const badgeLabel = item.visibility === 'SOLD_OUT' ? 'Sold out' : featured ? 'Popular' : null
 
   return (
-    <motion.div whileTap={{ scale: 0.988 }} transition={{ duration: 0.12, ease: "easeOut" }}>
+    <motion.div whileTap={{ scale: 0.988 }} transition={{ duration: 0.12, ease: 'easeOut' }}>
       <article
         className={cn(
-          "group flex h-full flex-col overflow-hidden rounded-[24px] border",
-          item.visibility === "SOLD_OUT" && "opacity-70",
+          'group flex h-full flex-col overflow-hidden rounded-[24px] border',
+          item.visibility === 'SOLD_OUT' && 'opacity-70'
         )}
         style={{
           backgroundColor: theme.palette.surface,
@@ -1017,7 +1005,7 @@ function MenuItemCard({
                 className="inline-flex rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.08em]"
                 style={{
                   backgroundColor:
-                    item.visibility === "SOLD_OUT"
+                    item.visibility === 'SOLD_OUT'
                       ? hexToRgba(theme.palette.text, 0.82)
                       : theme.palette.primary,
                   color: theme.palette.primaryForeground,
@@ -1034,7 +1022,7 @@ function MenuItemCard({
             <div className="min-w-0">
               <h3
                 className="text-2xl font-semibold leading-tight text-foreground"
-                style={{ fontFamily: "var(--font-heading)" }}
+                style={{ fontFamily: 'var(--font-heading)' }}
               >
                 {item.name}
               </h3>
@@ -1076,14 +1064,14 @@ function MenuItemCard({
 
           <div className="mt-auto flex items-end justify-between gap-4">
             <div className="text-sm text-muted-foreground">
-              {item.visibility === "SOLD_OUT"
-                ? "Sold out today"
+              {item.visibility === 'SOLD_OUT'
+                ? 'Sold out today'
                 : item.itemModifierGroups.length > 0
-                  ? "Customize before adding"
-                  : "Ready to add"}
+                  ? 'Customize before adding'
+                  : 'Ready to add'}
             </div>
 
-            {item.visibility === "SOLD_OUT" ? (
+            {item.visibility === 'SOLD_OUT' ? (
               <span className="text-sm font-medium text-muted-foreground">Unavailable</span>
             ) : (
               <button
@@ -1125,13 +1113,11 @@ function EmptyStateCard({
         <div className="grid gap-2">
           <h3
             className="text-xl font-semibold text-foreground"
-            style={{ fontFamily: "var(--font-heading)" }}
+            style={{ fontFamily: 'var(--font-heading)' }}
           >
             {title}
           </h3>
-          <p className="mx-auto max-w-md text-sm leading-6 text-muted-foreground">
-            {description}
-          </p>
+          <p className="mx-auto max-w-md text-sm leading-6 text-muted-foreground">{description}</p>
         </div>
       </CardContent>
     </Card>

@@ -1,45 +1,45 @@
-import { CheckCircle2, Clock3, MapPin, ShoppingBag, Star } from "lucide-react"
-import React, { useEffect, useMemo } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { Clock3, MapPin, ShoppingBag, Star } from 'lucide-react'
+import React, { useEffect, useMemo } from 'react'
+import { useQuery } from '@tanstack/react-query'
 
-import { Button } from "../components/Button"
-import { fetchCustomerLoyaltyAccount } from "../lib/loyalty"
-import type { CustomerOrder } from "../lib/orders"
-import { clearActiveOrder, readActiveOrder } from "./activeOrder"
-import { useOrderStatusPoll } from "./useOrderStatusPoll"
-import { useTheme } from "../theme/ThemeProvider"
-import type { CustomerSessionController } from "./useCustomerSession"
+import { Button } from '../components/Button'
+import { fetchCustomerLoyaltyAccount } from '../lib/loyalty'
+import type { CustomerOrder } from '../lib/orders'
+import { clearActiveOrder, readActiveOrder } from './activeOrder'
+import { useOrderStatusPoll } from './useOrderStatusPoll'
+import { useTheme } from '../theme/ThemeProvider'
+import type { CustomerSessionController } from './useCustomerSession'
 
 function formatPrice(priceCents: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
   }).format(priceCents / 100)
 }
 
 function formatTimestamp(value: string) {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
   }).format(new Date(value))
 }
 
-function statusCopy(status: CustomerOrder["status"]) {
+function statusCopy(status: CustomerOrder['status']) {
   switch (status) {
-    case "PENDING":
-      return "Order received"
-    case "CONFIRMED":
-      return "Order confirmed"
-    case "PREPARING":
-      return "Kitchen is preparing your order"
-    case "READY":
-      return "Ready for pickup"
-    case "COMPLETED":
-      return "Order completed"
-    case "CANCELLED":
-      return "Order cancelled"
+    case 'PENDING':
+      return 'Order received'
+    case 'CONFIRMED':
+      return 'Order confirmed'
+    case 'PREPARING':
+      return 'Kitchen is preparing your order'
+    case 'READY':
+      return 'Ready for pickup'
+    case 'COMPLETED':
+      return 'Order completed'
+    case 'CANCELLED':
+      return 'Order cancelled'
   }
 }
 
@@ -49,17 +49,17 @@ function ProgressBar({ value, max }: { value: number; max: number }) {
     <div className="h-2 w-full overflow-hidden rounded-full bg-brand-border/40">
       <div
         className="h-full rounded-full transition-all duration-700"
-        style={{ width: `${pct}%`, background: "rgb(var(--color-brand-primary))" }}
+        style={{ width: `${pct}%`, background: 'rgb(var(--color-brand-primary))' }}
       />
     </div>
   )
 }
 
 const STATUS_STEPS = [
-  { key: "PENDING", label: "Received" },
-  { key: "CONFIRMED", label: "Confirmed" },
-  { key: "PREPARING", label: "Preparing" },
-  { key: "READY", label: "Ready" },
+  { key: 'PENDING', label: 'Received' },
+  { key: 'CONFIRMED', label: 'Confirmed' },
+  { key: 'PREPARING', label: 'Preparing' },
+  { key: 'READY', label: 'Ready' },
 ] as const
 
 function OrderStepper({ status }: { status: string }) {
@@ -78,17 +78,20 @@ function OrderStepper({ status }: { status: string }) {
               <div
                 className="flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold transition-all"
                 style={{
-                  background: done || active ? "rgb(var(--color-brand-primary))" : "transparent",
-                  border: future ? "2px solid rgb(var(--color-brand-border))" : "none",
-                  color: done || active ? "rgb(var(--color-brand-primary-foreground))" : "rgb(var(--color-brand-muted))",
+                  background: done || active ? 'rgb(var(--color-brand-primary))' : 'transparent',
+                  border: future ? '2px solid rgb(var(--color-brand-border))' : 'none',
+                  color:
+                    done || active
+                      ? 'rgb(var(--color-brand-primary-foreground))'
+                      : 'rgb(var(--color-brand-muted))',
                 }}
               >
-                {done ? "✓" : i + 1}
+                {done ? '✓' : i + 1}
               </div>
               <span
                 className="whitespace-nowrap text-center text-xs"
                 style={{
-                  color: future ? "rgb(var(--color-brand-muted))" : "inherit",
+                  color: future ? 'rgb(var(--color-brand-muted))' : 'inherit',
                   fontWeight: active ? 700 : 500,
                 }}
               >
@@ -98,7 +101,11 @@ function OrderStepper({ status }: { status: string }) {
             {i < STATUS_STEPS.length - 1 ? (
               <div
                 className="mb-5 mx-1 h-0.5 flex-1 transition-all"
-                style={{ background: done ? "rgb(var(--color-brand-primary))" : "rgb(var(--color-brand-border))" }}
+                style={{
+                  background: done
+                    ? 'rgb(var(--color-brand-primary))'
+                    : 'rgb(var(--color-brand-border))',
+                }}
               />
             ) : null}
           </React.Fragment>
@@ -135,7 +142,7 @@ export function OrderStatusPage({
     return record
   }, [orderId, tenantSlug])
   const loyaltyQuery = useQuery({
-    queryKey: ["customer-loyalty", tenantSlug, customerSession.customerId, orderId],
+    queryKey: ['customer-loyalty', tenantSlug, customerSession.customerId, orderId],
     queryFn: () =>
       fetchCustomerLoyaltyAccount({
         tenantSlug,
@@ -144,10 +151,10 @@ export function OrderStatusPage({
     enabled: Boolean(orderQuery.data && customerSession.accessToken),
     refetchInterval: (query) => {
       const hasCurrentOrderPoints = query.state.data?.history?.some(
-        (event) => event.orderId === orderId && event.delta > 0,
+        (event) => event.orderId === orderId && event.delta > 0
       )
       const status = orderQuery.data?.status
-      if (hasCurrentOrderPoints || status === "COMPLETED" || status === "CANCELLED") {
+      if (hasCurrentOrderPoints || status === 'COMPLETED' || status === 'CANCELLED') {
         return false
       }
 
@@ -159,22 +166,22 @@ export function OrderStatusPage({
       loyaltyQuery.data?.history
         .filter((event) => event.orderId === orderId && event.delta > 0)
         .reduce((sum, event) => sum + event.delta, 0) ?? 0,
-    [loyaltyQuery.data, orderId],
+    [loyaltyQuery.data, orderId]
   )
   const welcomeBonusPts = useMemo(
     () =>
       loyaltyQuery.data?.history
-        .filter((event) => event.orderId === orderId && event.type === "WELCOME_BONUS")
+        .filter((event) => event.orderId === orderId && event.type === 'WELCOME_BONUS')
         .reduce((sum, event) => sum + event.delta, 0) ?? 0,
-    [loyaltyQuery.data, orderId],
+    [loyaltyQuery.data, orderId]
   )
   const appliedDiscountCents = orderQuery.data?.discountCents ?? activeOrder?.discountCents ?? 0
   const welcomeOfferApplied =
     Boolean(activeOrder?.isNewMember) ||
     Boolean(
       loyaltyQuery.data?.history.some(
-        (event) => event.orderId === orderId && event.type === "WELCOME_BONUS",
-      ),
+        (event) => event.orderId === orderId && event.type === 'WELCOME_BONUS'
+      )
     )
 
   const firstName = orderQuery.data?.customerNameSnapshot?.trim().split(/\s+/)[0] ?? null
@@ -187,7 +194,7 @@ export function OrderStatusPage({
 
   useEffect(() => {
     const status = orderQuery.data?.status
-    if (status !== "COMPLETED" && status !== "CANCELLED") {
+    if (status !== 'COMPLETED' && status !== 'CANCELLED') {
       return
     }
 
@@ -209,7 +216,8 @@ export function OrderStatusPage({
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-brand border border-brand-border/70 bg-brand-surface/90 px-4 py-3 text-sm text-brand-muted shadow-brand">
           <div className="flex items-center gap-2">
             <ShoppingBag className="h-4 w-4" />
-            Order from <span className="font-semibold text-brand-text">{theme.appTitle || tenantSlug}</span>
+            Order from{' '}
+            <span className="font-semibold text-brand-text">{theme.appTitle || tenantSlug}</span>
           </div>
           <button type="button" className="underline" onClick={onBackToMenu}>
             Back to menu
@@ -217,276 +225,307 @@ export function OrderStatusPage({
         </div>
 
         <>
-            {orderQuery.isLoading ? (
-              <section className="rounded-[32px] border border-brand-border/70 bg-brand-surface px-6 py-8 shadow-brand">
-                Loading live order status…
-              </section>
-            ) : null}
+          {orderQuery.isLoading ? (
+            <section className="rounded-[32px] border border-brand-border/70 bg-brand-surface px-6 py-8 shadow-brand">
+              Loading live order status…
+            </section>
+          ) : null}
 
-            {orderQuery.error ? (
-              <section className="rounded-[32px] border border-red-200 bg-red-50 px-6 py-8 shadow-brand">
-                <div className="text-sm font-semibold uppercase tracking-[0.12em] text-red-700">
-                  Unable to load order
-                </div>
-                <div className="mt-2 text-red-800">
-                  {orderQuery.error instanceof Error ? orderQuery.error.message : "Order lookup failed"}
-                </div>
-                <div className="mt-4">
-                  <Button type="button" onClick={() => void orderQuery.refetch()}>
-                    Retry
-                  </Button>
-                </div>
-              </section>
-            ) : null}
+          {orderQuery.error ? (
+            <section className="rounded-[32px] border border-red-200 bg-red-50 px-6 py-8 shadow-brand">
+              <div className="text-sm font-semibold uppercase tracking-[0.12em] text-red-700">
+                Unable to load order
+              </div>
+              <div className="mt-2 text-red-800">
+                {orderQuery.error instanceof Error
+                  ? orderQuery.error.message
+                  : 'Order lookup failed'}
+              </div>
+              <div className="mt-4">
+                <Button type="button" onClick={() => void orderQuery.refetch()}>
+                  Retry
+                </Button>
+              </div>
+            </section>
+          ) : null}
 
-            {orderQuery.data ? (
-              <section className="space-y-5">
-                <div className="rounded-[32px] border border-brand-border/70 bg-brand-surface px-6 py-8 shadow-brand">
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div>
-                      <div className="text-sm font-semibold uppercase tracking-[0.12em] text-brand-muted">
-                        Pickup order #{orderQuery.data.orderNumber}
-                      </div>
-                      <h1 className="mt-2 text-3xl" style={{ fontFamily: "var(--font-heading)" }}>
-                        {statusCopy(orderQuery.data.status)}
-                      </h1>
-
-                      {/* Welcome message for new members */}
-                      {welcomeOfferApplied && firstName ? (
-                        <p className="mt-3 text-sm text-brand-muted">
-                          Welcome, <span className="font-semibold text-brand-text">{firstName}</span>! Your order is confirmed
-                          and your 10% new-member discount is applied.
-                        </p>
-                      ) : null}
-
-                      <div className="mt-3 flex flex-wrap gap-4 text-sm text-brand-muted">
-                        <div className="flex items-center gap-2">
-                          <Clock3 className="h-4 w-4" />
-                          Placed {formatTimestamp(orderQuery.data.createdAt)}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <MapPin className="h-4 w-4" />
-                          Pickup for {orderQuery.data.customerNameSnapshot ?? "guest"}
-                        </div>
-                      </div>
+          {orderQuery.data ? (
+            <section className="space-y-5">
+              <div className="rounded-[32px] border border-brand-border/70 bg-brand-surface px-6 py-8 shadow-brand">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <div className="text-sm font-semibold uppercase tracking-[0.12em] text-brand-muted">
+                      Pickup order #{orderQuery.data.orderNumber}
                     </div>
+                    <h1 className="mt-2 text-3xl" style={{ fontFamily: 'var(--font-heading)' }}>
+                      {statusCopy(orderQuery.data.status)}
+                    </h1>
 
-                    <div className="rounded-full border border-brand-border bg-brand-background px-4 py-2 text-sm font-semibold">
-                      {orderQuery.data.status}
+                    {/* Welcome message for new members */}
+                    {welcomeOfferApplied && firstName ? (
+                      <p className="mt-3 text-sm text-brand-muted">
+                        Welcome, <span className="font-semibold text-brand-text">{firstName}</span>!
+                        Your order is confirmed and your 10% new-member discount is applied.
+                      </p>
+                    ) : null}
+
+                    <div className="mt-3 flex flex-wrap gap-4 text-sm text-brand-muted">
+                      <div className="flex items-center gap-2">
+                        <Clock3 className="h-4 w-4" />
+                        Placed {formatTimestamp(orderQuery.data.createdAt)}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4" />
+                        Pickup for {orderQuery.data.customerNameSnapshot ?? 'guest'}
+                      </div>
                     </div>
                   </div>
 
-                  {orderQuery.data.status === "CANCELLED" ? (
-                    <div className="mt-5 rounded-brand border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
-                      This order has been cancelled.
-                    </div>
-                  ) : (
-                    <div className="mt-6">
-                      <OrderStepper status={orderQuery.data.status} />
-                    </div>
-                  )}
-
-                  {orderQuery.data.notes ? (
-                    <div className="mt-5 rounded-brand border border-brand-border/70 bg-brand-background px-4 py-4 text-sm text-brand-muted">
-                      Note: {orderQuery.data.notes}
-                    </div>
-                  ) : null}
+                  <div className="rounded-full border border-brand-border bg-brand-background px-4 py-2 text-sm font-semibold">
+                    {orderQuery.data.status}
+                  </div>
                 </div>
 
-                <div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
+                {orderQuery.data.status === 'CANCELLED' ? (
+                  <div className="mt-5 rounded-brand border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                    This order has been cancelled.
+                  </div>
+                ) : (
+                  <div className="mt-6">
+                    <OrderStepper status={orderQuery.data.status} />
+                  </div>
+                )}
+
+                {orderQuery.data.notes ? (
+                  <div className="mt-5 rounded-brand border border-brand-border/70 bg-brand-background px-4 py-4 text-sm text-brand-muted">
+                    Note: {orderQuery.data.notes}
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
+                <div className="rounded-[32px] border border-brand-border/70 bg-brand-surface px-6 py-6 shadow-brand">
+                  <div className="text-sm font-semibold uppercase tracking-[0.12em] text-brand-muted">
+                    Order summary
+                  </div>
+                  <div className="mt-4 space-y-4">
+                    {orderQuery.data.items.map((item) => (
+                      <article
+                        key={item.id}
+                        className="rounded-brand border border-brand-border/70 bg-brand-background px-4 py-4"
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <div className="font-semibold">
+                              {item.quantity} × {item.name}
+                            </div>
+                            <div className="mt-1 text-sm text-brand-muted">
+                              {item.variantName ?? 'Standard'}
+                            </div>
+                            {item.modifierSelections.length > 0 ? (
+                              <div className="mt-2 flex flex-wrap gap-2 text-xs text-brand-muted">
+                                {item.modifierSelections.map((modifier) => (
+                                  <span
+                                    key={modifier.id}
+                                    className="rounded-full border border-brand-border px-2 py-1"
+                                  >
+                                    {modifier.optionName}
+                                  </span>
+                                ))}
+                              </div>
+                            ) : null}
+                          </div>
+                          <div className="font-semibold">{formatPrice(item.linePriceCents)}</div>
+                        </div>
+                      </article>
+                    ))}
+
+                    {/* Discount line in order summary */}
+                    {appliedDiscountCents > 0 ? (
+                      <div className="flex items-center justify-between rounded-brand border border-brand-border/40 bg-brand-background px-4 py-3 text-sm">
+                        <span style={{ color: 'rgb(var(--color-brand-primary))' }}>
+                          {welcomeOfferApplied ? 'New member discount 10% off' : 'Reward discount'}
+                        </span>
+                        <span
+                          className="font-semibold"
+                          style={{ color: 'rgb(var(--color-brand-primary))' }}
+                        >
+                          -{formatPrice(appliedDiscountCents)}
+                        </span>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+
+                <div className="space-y-5">
+                  {/* Rewards activated card */}
+                  <div className="rounded-[32px] border border-brand-border/70 bg-brand-surface px-6 py-6 shadow-brand">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-sm font-semibold uppercase tracking-[0.12em] text-brand-muted">
+                        Loyalty
+                      </div>
+                      {welcomeOfferApplied ? (
+                        <div className="rounded-full border border-brand-border bg-brand-background px-3 py-1 text-xs font-semibold">
+                          Welcome offer
+                        </div>
+                      ) : null}
+                    </div>
+
+                    {customerSession.isRestoring ? (
+                      <div className="mt-4 text-sm text-brand-muted">
+                        Restoring your loyalty balance…
+                      </div>
+                    ) : loyaltyQuery.isLoading ? (
+                      <div className="mt-4 text-sm text-brand-muted">Loading loyalty points…</div>
+                    ) : loyaltyQuery.error ? (
+                      <div className="mt-4 text-sm text-brand-muted">
+                        Loyalty summary unavailable right now.
+                      </div>
+                    ) : loyaltyQuery.data ? (
+                      <div className="mt-4 space-y-3">
+                        <div className="flex items-center gap-2 text-sm font-semibold text-brand-text">
+                          <Star
+                            className="h-4 w-4"
+                            style={{ color: 'rgb(var(--color-brand-primary))' }}
+                          />
+                          Rewards activated
+                        </div>
+
+                        <div className="space-y-2 text-sm text-brand-muted">
+                          {pointsEarnedThisOrder > 0 ? (
+                            <div className="flex items-center justify-between">
+                              <span>Earned this order</span>
+                              <span className="font-semibold text-brand-text">
+                                +{(pointsEarnedThisOrder - welcomeBonusPts).toLocaleString()} pts
+                              </span>
+                            </div>
+                          ) : null}
+                          {welcomeBonusPts > 0 ? (
+                            <div className="flex items-center justify-between">
+                              <span>Welcome bonus</span>
+                              <span
+                                className="font-semibold"
+                                style={{ color: 'rgb(var(--color-brand-primary))' }}
+                              >
+                                +{welcomeBonusPts.toLocaleString()} pts
+                              </span>
+                            </div>
+                          ) : null}
+                          <div className="flex items-center justify-between">
+                            <span>Total balance</span>
+                            <span className="font-semibold text-brand-text">
+                              {loyaltyQuery.data.balance.toLocaleString()} pts
+                            </span>
+                          </div>
+                          {appliedDiscountCents > 0 ? (
+                            <div className="flex items-center justify-between">
+                              <span>Reward applied at checkout</span>
+                              <span className="font-semibold text-brand-text">
+                                -{formatPrice(appliedDiscountCents)}
+                              </span>
+                            </div>
+                          ) : null}
+                        </div>
+
+                        {/* Progress to next reward */}
+                        {nextTier ? (
+                          <div className="space-y-1.5 pt-1">
+                            <div className="flex items-center justify-between text-xs text-brand-muted">
+                              <span>
+                                {(nextTier.pointsCost - loyaltyQuery.data.balance).toLocaleString()}{' '}
+                                pts to{' '}
+                                <span className="font-medium text-brand-text">{nextTier.name}</span>
+                              </span>
+                              <span>{formatPrice(nextTier.discountCents)} reward</span>
+                            </div>
+                            <ProgressBar
+                              value={loyaltyQuery.data.balance}
+                              max={nextTier.pointsCost}
+                            />
+                          </div>
+                        ) : null}
+
+                        {/* View wallet link */}
+                        {onViewRewardsWallet ? (
+                          <button
+                            type="button"
+                            className="mt-1 text-xs underline"
+                            style={{ color: 'rgb(var(--color-brand-primary))' }}
+                            onClick={onViewRewardsWallet}
+                          >
+                            View my rewards wallet →
+                          </button>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <div className="mt-4 text-sm text-brand-muted">
+                        Loyalty summary unavailable right now.
+                      </div>
+                    )}
+                  </div>
+
                   <div className="rounded-[32px] border border-brand-border/70 bg-brand-surface px-6 py-6 shadow-brand">
                     <div className="text-sm font-semibold uppercase tracking-[0.12em] text-brand-muted">
-                      Order summary
+                      Total
                     </div>
-                    <div className="mt-4 space-y-4">
-                      {orderQuery.data.items.map((item) => (
-                        <article key={item.id} className="rounded-brand border border-brand-border/70 bg-brand-background px-4 py-4">
-                          <div className="flex items-start justify-between gap-4">
-                            <div>
-                              <div className="font-semibold">
-                                {item.quantity} × {item.name}
-                              </div>
-                              <div className="mt-1 text-sm text-brand-muted">
-                                {item.variantName ?? "Standard"}
-                              </div>
-                              {item.modifierSelections.length > 0 ? (
-                                <div className="mt-2 flex flex-wrap gap-2 text-xs text-brand-muted">
-                                  {item.modifierSelections.map((modifier) => (
-                                    <span key={modifier.id} className="rounded-full border border-brand-border px-2 py-1">
-                                      {modifier.optionName}
-                                    </span>
-                                  ))}
-                                </div>
-                              ) : null}
-                            </div>
-                            <div className="font-semibold">{formatPrice(item.linePriceCents)}</div>
-                          </div>
-                        </article>
-                      ))}
-
-                      {/* Discount line in order summary */}
+                    <div className="mt-4 space-y-2 text-sm text-brand-muted">
+                      <div className="flex items-center justify-between">
+                        <span>Subtotal</span>
+                        <span className="font-semibold text-brand-text">
+                          {formatPrice(orderQuery.data.subtotalCents)}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Tax</span>
+                        <span className="font-semibold text-brand-text">
+                          {formatPrice(orderQuery.data.taxCents)}
+                        </span>
+                      </div>
                       {appliedDiscountCents > 0 ? (
-                        <div className="flex items-center justify-between rounded-brand border border-brand-border/40 bg-brand-background px-4 py-3 text-sm">
-                          <span style={{ color: "rgb(var(--color-brand-primary))" }}>
-                            {welcomeOfferApplied ? "New member discount 10% off" : "Reward discount"}
+                        <div className="flex items-center justify-between">
+                          <span style={{ color: 'rgb(var(--color-brand-primary))' }}>
+                            {welcomeOfferApplied ? 'New member discount' : 'Discount'}
                           </span>
-                          <span className="font-semibold" style={{ color: "rgb(var(--color-brand-primary))" }}>
+                          <span
+                            className="font-semibold"
+                            style={{ color: 'rgb(var(--color-brand-primary))' }}
+                          >
                             -{formatPrice(appliedDiscountCents)}
                           </span>
                         </div>
                       ) : null}
+                      <div className="flex items-center justify-between text-base">
+                        <span>Total</span>
+                        <span className="font-semibold text-brand-text">
+                          {formatPrice(orderQuery.data.totalCents)}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="space-y-5">
-                    {/* Rewards activated card */}
-                    <div className="rounded-[32px] border border-brand-border/70 bg-brand-surface px-6 py-6 shadow-brand">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="text-sm font-semibold uppercase tracking-[0.12em] text-brand-muted">
-                          Loyalty
-                        </div>
-                        {welcomeOfferApplied ? (
-                          <div className="rounded-full border border-brand-border bg-brand-background px-3 py-1 text-xs font-semibold">
-                            Welcome offer
-                          </div>
-                        ) : null}
-                      </div>
-
-                      {customerSession.isRestoring ? (
-                        <div className="mt-4 text-sm text-brand-muted">
-                          Restoring your loyalty balance…
-                        </div>
-                      ) : loyaltyQuery.isLoading ? (
-                        <div className="mt-4 text-sm text-brand-muted">
-                          Loading loyalty points…
-                        </div>
-                      ) : loyaltyQuery.error ? (
-                        <div className="mt-4 text-sm text-brand-muted">
-                          Loyalty summary unavailable right now.
-                        </div>
-                      ) : loyaltyQuery.data ? (
-                        <div className="mt-4 space-y-3">
-                          <div className="flex items-center gap-2 text-sm font-semibold text-brand-text">
-                            <Star className="h-4 w-4" style={{ color: "rgb(var(--color-brand-primary))" }} />
-                            Rewards activated
-                          </div>
-
-                          <div className="space-y-2 text-sm text-brand-muted">
-                            {pointsEarnedThisOrder > 0 ? (
-                              <div className="flex items-center justify-between">
-                                <span>Earned this order</span>
-                                <span className="font-semibold text-brand-text">
-                                  +{(pointsEarnedThisOrder - welcomeBonusPts).toLocaleString()} pts
-                                </span>
-                              </div>
-                            ) : null}
-                            {welcomeBonusPts > 0 ? (
-                              <div className="flex items-center justify-between">
-                                <span>Welcome bonus</span>
-                                <span className="font-semibold" style={{ color: "rgb(var(--color-brand-primary))" }}>
-                                  +{welcomeBonusPts.toLocaleString()} pts
-                                </span>
-                              </div>
-                            ) : null}
-                            <div className="flex items-center justify-between">
-                              <span>Total balance</span>
-                              <span className="font-semibold text-brand-text">
-                                {loyaltyQuery.data.balance.toLocaleString()} pts
-                              </span>
-                            </div>
-                            {appliedDiscountCents > 0 ? (
-                              <div className="flex items-center justify-between">
-                                <span>Reward applied at checkout</span>
-                                <span className="font-semibold text-brand-text">
-                                  -{formatPrice(appliedDiscountCents)}
-                                </span>
-                              </div>
-                            ) : null}
-                          </div>
-
-                          {/* Progress to next reward */}
-                          {nextTier ? (
-                            <div className="space-y-1.5 pt-1">
-                              <div className="flex items-center justify-between text-xs text-brand-muted">
-                                <span>
-                                  {(nextTier.pointsCost - loyaltyQuery.data.balance).toLocaleString()} pts to{" "}
-                                  <span className="font-medium text-brand-text">{nextTier.name}</span>
-                                </span>
-                                <span>{formatPrice(nextTier.discountCents)} reward</span>
-                              </div>
-                              <ProgressBar value={loyaltyQuery.data.balance} max={nextTier.pointsCost} />
-                            </div>
-                          ) : null}
-
-                          {/* View wallet link */}
-                          {onViewRewardsWallet ? (
-                            <button
-                              type="button"
-                              className="mt-1 text-xs underline"
-                              style={{ color: "rgb(var(--color-brand-primary))" }}
-                              onClick={onViewRewardsWallet}
-                            >
-                              View my rewards wallet →
-                            </button>
-                          ) : null}
-                        </div>
-                      ) : (
-                        <div className="mt-4 text-sm text-brand-muted">
-                          Loyalty summary unavailable right now.
-                        </div>
-                      )}
+                  <div className="rounded-[32px] border border-brand-border/70 bg-brand-surface px-6 py-6 shadow-brand">
+                    <div className="text-sm font-semibold uppercase tracking-[0.12em] text-brand-muted">
+                      Status timeline
                     </div>
-
-                    <div className="rounded-[32px] border border-brand-border/70 bg-brand-surface px-6 py-6 shadow-brand">
-                      <div className="text-sm font-semibold uppercase tracking-[0.12em] text-brand-muted">
-                        Total
-                      </div>
-                      <div className="mt-4 space-y-2 text-sm text-brand-muted">
-                        <div className="flex items-center justify-between">
-                          <span>Subtotal</span>
-                          <span className="font-semibold text-brand-text">{formatPrice(orderQuery.data.subtotalCents)}</span>
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span>Tax</span>
-                          <span className="font-semibold text-brand-text">{formatPrice(orderQuery.data.taxCents)}</span>
-                        </div>
-                        {appliedDiscountCents > 0 ? (
-                          <div className="flex items-center justify-between">
-                            <span style={{ color: "rgb(var(--color-brand-primary))" }}>
-                              {welcomeOfferApplied ? "New member discount" : "Discount"}
-                            </span>
-                            <span className="font-semibold" style={{ color: "rgb(var(--color-brand-primary))" }}>
-                              -{formatPrice(appliedDiscountCents)}
-                            </span>
+                    <div className="mt-4 space-y-3">
+                      {orderQuery.data.statusEvents.map((event) => (
+                        <div
+                          key={event.id}
+                          className="rounded-brand border border-brand-border/70 bg-brand-background px-4 py-3"
+                        >
+                          <div className="font-semibold">{event.toStatus}</div>
+                          <div className="mt-1 text-sm text-brand-muted">
+                            {formatTimestamp(event.createdAt)}
                           </div>
-                        ) : null}
-                        <div className="flex items-center justify-between text-base">
-                          <span>Total</span>
-                          <span className="font-semibold text-brand-text">{formatPrice(orderQuery.data.totalCents)}</span>
                         </div>
-                      </div>
-                    </div>
-
-                    <div className="rounded-[32px] border border-brand-border/70 bg-brand-surface px-6 py-6 shadow-brand">
-                      <div className="text-sm font-semibold uppercase tracking-[0.12em] text-brand-muted">
-                        Status timeline
-                      </div>
-                      <div className="mt-4 space-y-3">
-                        {orderQuery.data.statusEvents.map((event) => (
-                          <div key={event.id} className="rounded-brand border border-brand-border/70 bg-brand-background px-4 py-3">
-                            <div className="font-semibold">{event.toStatus}</div>
-                            <div className="mt-1 text-sm text-brand-muted">
-                              {formatTimestamp(event.createdAt)}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                      ))}
                     </div>
                   </div>
                 </div>
-              </section>
-            ) : null}
-          </>
+              </div>
+            </section>
+          ) : null}
+        </>
       </div>
     </main>
   )

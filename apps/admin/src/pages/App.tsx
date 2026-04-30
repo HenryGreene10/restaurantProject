@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react"
-import { UserButton, useAuth, useClerk, useUser } from "@clerk/react"
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import { UserButton, useAuth, useClerk, useUser } from '@clerk/react'
 import {
   DndContext,
   PointerSensor,
@@ -7,15 +7,15 @@ import {
   useSensor,
   useSensors,
   type DragEndEvent,
-} from "@dnd-kit/core"
+} from '@dnd-kit/core'
 import {
   SortableContext,
   arrayMove,
   useSortable,
   verticalListSortingStrategy,
-} from "@dnd-kit/sortable"
-import { CSS } from "@dnd-kit/utilities"
-import { AnimatePresence, motion } from "framer-motion"
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import { AnimatePresence, motion } from 'framer-motion'
 import {
   Search,
   BarChart3,
@@ -36,30 +36,24 @@ import {
   Star,
   Store,
   Trash2,
-} from "lucide-react"
+} from 'lucide-react'
 
-import { AssistantPanel } from "../assistant/AssistantPanel"
+import { AssistantPanel } from '../assistant/AssistantPanel'
 import {
   fetchTenantMenu,
   isCategoryAvailableNow,
   type MenuCategory,
   type MenuResponse,
-} from "../lib/menu"
-import { adminFetchJson, adminUploadFileJson } from "../lib/api"
-import { OnboardingPage } from "./OnboardingPage"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
-import { cn } from "@/lib/utils"
+} from '../lib/menu'
+import { adminFetchJson, adminUploadFileJson } from '../lib/api'
+import { OnboardingPage } from './OnboardingPage'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Separator } from '@/components/ui/separator'
+import { cn } from '@/lib/utils'
 
 type ThemeDraft = {
   appTitle: string
@@ -81,9 +75,9 @@ type ThemeDraft = {
   bodyFont: string
   headingFont: string
   radius: number
-  buttonStyle: "rounded" | "square"
-  heroLayout: "immersive" | "minimal"
-  menuCardLayout: "classic" | "compact" | "photo-first"
+  buttonStyle: 'rounded' | 'square'
+  heroLayout: 'immersive' | 'minimal'
+  menuCardLayout: 'classic' | 'compact' | 'photo-first'
   showFeaturedBadges: boolean
   showCategoryChips: boolean
 }
@@ -94,7 +88,7 @@ type StripeStatus = {
   stripeAccountId: string | null
   chargesEnabled: boolean
   payoutsEnabled: boolean
-  status: "not_connected" | "onboarding_required" | "active"
+  status: 'not_connected' | 'onboarding_required' | 'active'
 }
 
 type PrintingSettings = {
@@ -103,34 +97,34 @@ type PrintingSettings = {
 }
 
 const defaultThemeDraft: ThemeDraft = {
-  appTitle: "Restaurant",
-  tagline: "Direct ordering, owned by the restaurant.",
-  logoUrl: "",
-  heroHeadline: "Neighborhood favorites without marketplace markup.",
-  heroSubheadline: "Make repeat visits easier with direct ordering and better menu presentation.",
-  heroBadgeText: "Direct ordering",
-  promoBannerText: "Give loyal customers a direct-order reward funded by marketplace savings.",
-  heroImageUrl: "",
-  primaryColor: "#b42318",
-  accentColor: "#eca934",
-  backgroundColor: "#faf7f2",
-  surfaceColor: "#fffcf7",
-  textColor: "#271c17",
-  mutedColor: "#745e54",
-  borderColor: "#e8dcd1",
-  onPrimary: "#fff7ed",
-  bodyFont: "Inter, sans-serif",
-  headingFont: "Georgia, serif",
+  appTitle: 'Restaurant',
+  tagline: 'Direct ordering, owned by the restaurant.',
+  logoUrl: '',
+  heroHeadline: 'Neighborhood favorites without marketplace markup.',
+  heroSubheadline: 'Make repeat visits easier with direct ordering and better menu presentation.',
+  heroBadgeText: 'Direct ordering',
+  promoBannerText: 'Give loyal customers a direct-order reward funded by marketplace savings.',
+  heroImageUrl: '',
+  primaryColor: '#b42318',
+  accentColor: '#eca934',
+  backgroundColor: '#faf7f2',
+  surfaceColor: '#fffcf7',
+  textColor: '#271c17',
+  mutedColor: '#745e54',
+  borderColor: '#e8dcd1',
+  onPrimary: '#fff7ed',
+  bodyFont: 'Inter, sans-serif',
+  headingFont: 'Georgia, serif',
   radius: 12,
-  buttonStyle: "rounded",
-  heroLayout: "minimal",
-  menuCardLayout: "photo-first",
+  buttonStyle: 'rounded',
+  heroLayout: 'minimal',
+  menuCardLayout: 'photo-first',
   showFeaturedBadges: true,
   showCategoryChips: true,
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
   return value as Record<string, unknown>
 }
 
@@ -142,7 +136,7 @@ function getBrandConfig(menu: MenuResponse) {
 function getString(config: Record<string, unknown>, ...keys: string[]) {
   for (const key of keys) {
     const value = config[key]
-    if (typeof value === "string") {
+    if (typeof value === 'string') {
       return value
     }
   }
@@ -152,26 +146,25 @@ function getString(config: Record<string, unknown>, ...keys: string[]) {
 
 function buildDraft(menu: MenuResponse): ThemeDraft {
   const config = getBrandConfig(menu)
-  const primaryColor = getString(config, "primaryColor") ?? defaultThemeDraft.primaryColor
-  const backgroundColor =
-    getString(config, "backgroundColor") ?? defaultThemeDraft.backgroundColor
-  const accentColor = getString(config, "accentColor") ?? derivedAccentColor(primaryColor)
-  const surfaceColor = getString(config, "surfaceColor") ?? defaultThemeDraft.surfaceColor
-  const textColor = getString(config, "textColor") ?? defaultThemeDraft.textColor
-  const mutedColor = getString(config, "mutedColor") ?? defaultThemeDraft.mutedColor
+  const primaryColor = getString(config, 'primaryColor') ?? defaultThemeDraft.primaryColor
+  const backgroundColor = getString(config, 'backgroundColor') ?? defaultThemeDraft.backgroundColor
+  const accentColor = getString(config, 'accentColor') ?? derivedAccentColor(primaryColor)
+  const surfaceColor = getString(config, 'surfaceColor') ?? defaultThemeDraft.surfaceColor
+  const textColor = getString(config, 'textColor') ?? defaultThemeDraft.textColor
+  const mutedColor = getString(config, 'mutedColor') ?? defaultThemeDraft.mutedColor
   const borderColor =
-    getString(config, "borderColor") ?? derivedBorderColor(primaryColor, backgroundColor)
+    getString(config, 'borderColor') ?? derivedBorderColor(primaryColor, backgroundColor)
 
   return {
     ...defaultThemeDraft,
-    appTitle: getString(config, "appTitle") ?? defaultThemeDraft.appTitle,
-    tagline: getString(config, "tagline") ?? defaultThemeDraft.tagline,
-    logoUrl: getString(config, "logoUrl") ?? defaultThemeDraft.logoUrl,
-    heroHeadline: getString(config, "heroHeadline") ?? defaultThemeDraft.heroHeadline,
-    heroSubheadline: getString(config, "heroSubheadline") ?? defaultThemeDraft.heroSubheadline,
-    heroBadgeText: getString(config, "heroBadgeText") ?? defaultThemeDraft.heroBadgeText,
-    promoBannerText: getString(config, "promoBannerText") ?? defaultThemeDraft.promoBannerText,
-    heroImageUrl: getString(config, "heroImageUrl") ?? defaultThemeDraft.heroImageUrl,
+    appTitle: getString(config, 'appTitle') ?? defaultThemeDraft.appTitle,
+    tagline: getString(config, 'tagline') ?? defaultThemeDraft.tagline,
+    logoUrl: getString(config, 'logoUrl') ?? defaultThemeDraft.logoUrl,
+    heroHeadline: getString(config, 'heroHeadline') ?? defaultThemeDraft.heroHeadline,
+    heroSubheadline: getString(config, 'heroSubheadline') ?? defaultThemeDraft.heroSubheadline,
+    heroBadgeText: getString(config, 'heroBadgeText') ?? defaultThemeDraft.heroBadgeText,
+    promoBannerText: getString(config, 'promoBannerText') ?? defaultThemeDraft.promoBannerText,
+    heroImageUrl: getString(config, 'heroImageUrl') ?? defaultThemeDraft.heroImageUrl,
     primaryColor,
     accentColor,
     backgroundColor,
@@ -179,9 +172,9 @@ function buildDraft(menu: MenuResponse): ThemeDraft {
     textColor,
     mutedColor,
     borderColor,
-    onPrimary: getString(config, "onPrimary") ?? defaultThemeDraft.onPrimary,
-    bodyFont: getString(config, "fontFamily", "bodyFont") ?? defaultThemeDraft.bodyFont,
-    headingFont: getString(config, "headingFont") ?? defaultThemeDraft.headingFont,
+    onPrimary: getString(config, 'onPrimary') ?? defaultThemeDraft.onPrimary,
+    bodyFont: getString(config, 'fontFamily', 'bodyFont') ?? defaultThemeDraft.bodyFont,
+    headingFont: getString(config, 'headingFont') ?? defaultThemeDraft.headingFont,
     radius: defaultThemeDraft.radius,
     buttonStyle: defaultThemeDraft.buttonStyle,
     heroLayout: defaultThemeDraft.heroLayout,
@@ -192,16 +185,16 @@ function buildDraft(menu: MenuResponse): ThemeDraft {
 }
 
 type AdminSection =
-  | "overview"
-  | "branding"
-  | "menu"
-  | "loyalty"
-  | "insights"
-  | "payments"
-  | "assistant"
+  | 'overview'
+  | 'branding'
+  | 'menu'
+  | 'loyalty'
+  | 'insights'
+  | 'payments'
+  | 'assistant'
 type ThemeChangeHandler = <K extends keyof ThemeDraft>(key: K, value: ThemeDraft[K]) => void
-type CategoryItemEntry = MenuCategory["categoryItems"][number]
-type BrandingImageField = "logoUrl" | "heroImageUrl"
+type CategoryItemEntry = MenuCategory['categoryItems'][number]
+type BrandingImageField = 'logoUrl' | 'heroImageUrl'
 type OverviewOrder = {
   id: string
   createdAt: string
@@ -266,11 +259,11 @@ function currentAdminPath() {
 }
 
 function localHostname(hostname: string) {
-  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "0.0.0.0"
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '0.0.0.0'
 }
 
 function storefrontUrlForTenant(tenantSlug: string) {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return `https://${tenantSlug}.easymenu.website`
   }
 
@@ -281,7 +274,7 @@ function storefrontUrlForTenant(tenantSlug: string) {
     return `http://localhost:5173/?tenant=${encodeURIComponent(tenantSlug)}`
   }
 
-  if (hostname.endsWith(".easymenu.website")) {
+  if (hostname.endsWith('.easymenu.website')) {
     return `${protocol}//${tenantSlug}.easymenu.website`
   }
 
@@ -289,7 +282,7 @@ function storefrontUrlForTenant(tenantSlug: string) {
 }
 
 function kioskUrl(tenantSlug: string) {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return `https://${tenantSlug}.kitchen.easymenu.website`
   }
 
@@ -340,31 +333,31 @@ function themePayload(theme: ThemeDraft) {
 }
 
 const FONT_OPTIONS = [
-  { label: "Inter", value: '"Inter", sans-serif' },
-  { label: "Georgia", value: "Georgia, serif" },
-  { label: "Playfair Display", value: '"Playfair Display", serif' },
-  { label: "Lora", value: '"Lora", serif' },
-  { label: "Merriweather", value: '"Merriweather", serif' },
-  { label: "Raleway", value: '"Raleway", sans-serif' },
-  { label: "Montserrat", value: '"Montserrat", sans-serif' },
-  { label: "Nunito", value: '"Nunito", sans-serif' },
-  { label: "DM Sans", value: '"DM Sans", sans-serif' },
-  { label: "DM Serif Display", value: '"DM Serif Display", serif' },
-  { label: "Fraunces", value: '"Fraunces", serif' },
-  { label: "Cabinet Grotesk", value: '"Cabinet Grotesk", sans-serif' },
-  { label: "Plus Jakarta Sans", value: '"Plus Jakarta Sans", sans-serif' },
-  { label: "Libre Baskerville", value: '"Libre Baskerville", serif' },
-  { label: "Cormorant Garamond", value: '"Cormorant Garamond", serif' },
+  { label: 'Inter', value: '"Inter", sans-serif' },
+  { label: 'Georgia', value: 'Georgia, serif' },
+  { label: 'Playfair Display', value: '"Playfair Display", serif' },
+  { label: 'Lora', value: '"Lora", serif' },
+  { label: 'Merriweather', value: '"Merriweather", serif' },
+  { label: 'Raleway', value: '"Raleway", sans-serif' },
+  { label: 'Montserrat', value: '"Montserrat", sans-serif' },
+  { label: 'Nunito', value: '"Nunito", sans-serif' },
+  { label: 'DM Sans', value: '"DM Sans", sans-serif' },
+  { label: 'DM Serif Display', value: '"DM Serif Display", serif' },
+  { label: 'Fraunces', value: '"Fraunces", serif' },
+  { label: 'Cabinet Grotesk', value: '"Cabinet Grotesk", sans-serif' },
+  { label: 'Plus Jakarta Sans', value: '"Plus Jakarta Sans", sans-serif' },
+  { label: 'Libre Baskerville', value: '"Libre Baskerville", serif' },
+  { label: 'Cormorant Garamond', value: '"Cormorant Garamond", serif' },
 ] as const
 
 function hexToRgba(hex: string, alpha: number) {
-  const normalized = hex.replace("#", "").trim()
+  const normalized = hex.replace('#', '').trim()
   const expanded =
     normalized.length === 3
       ? normalized
-          .split("")
+          .split('')
           .map((char) => `${char}${char}`)
-          .join("")
+          .join('')
       : normalized
 
   const value = Number.parseInt(expanded, 16)
@@ -376,13 +369,13 @@ function hexToRgba(hex: string, alpha: number) {
 }
 
 function parseHexColor(hex: string) {
-  const normalized = hex.replace("#", "").trim()
+  const normalized = hex.replace('#', '').trim()
   const expanded =
     normalized.length === 3
       ? normalized
-          .split("")
+          .split('')
           .map((char) => `${char}${char}`)
-          .join("")
+          .join('')
       : normalized
 
   const value = Number.parseInt(expanded, 16)
@@ -396,8 +389,12 @@ function parseHexColor(hex: string) {
 
 function toHexColor(red: number, green: number, blue: number) {
   return `#${[red, green, blue]
-    .map((value) => Math.max(0, Math.min(255, Math.round(value))).toString(16).padStart(2, "0"))
-    .join("")}`
+    .map((value) =>
+      Math.max(0, Math.min(255, Math.round(value)))
+        .toString(16)
+        .padStart(2, '0')
+    )
+    .join('')}`
 }
 
 function mixHexColors(base: string, overlay: string, alpha: number) {
@@ -407,7 +404,7 @@ function mixHexColors(base: string, overlay: string, alpha: number) {
   return toHexColor(
     background.red * (1 - alpha) + foreground.red * alpha,
     background.green * (1 - alpha) + foreground.green * alpha,
-    background.blue * (1 - alpha) + foreground.blue * alpha,
+    background.blue * (1 - alpha) + foreground.blue * alpha
   )
 }
 
@@ -423,29 +420,29 @@ function readFileAsDataUrl(file: File) {
   return new Promise<string>((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => {
-      if (typeof reader.result === "string") {
+      if (typeof reader.result === 'string') {
         resolve(reader.result)
         return
       }
 
-      reject(new Error("Failed to read file"))
+      reject(new Error('Failed to read file'))
     }
-    reader.onerror = () => reject(new Error("Failed to read file"))
+    reader.onerror = () => reject(new Error('Failed to read file'))
     reader.readAsDataURL(file)
   })
 }
 
 function formatPrice(priceCents: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
   }).format(priceCents / 100)
 }
 
 function formatUsd(amount: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(amount)
@@ -454,31 +451,32 @@ function formatUsd(amount: number) {
 function formatSignedPercentChange(current: number, previous: number) {
   if (previous === 0) {
     if (current === 0) {
-      return { label: "0%", tone: "neutral" as const }
+      return { label: '0%', tone: 'neutral' as const }
     }
 
-    return { label: "New", tone: "positive" as const }
+    return { label: 'New', tone: 'positive' as const }
   }
 
   const delta = ((current - previous) / previous) * 100
-  const prefix = delta > 0 ? "+" : ""
+  const prefix = delta > 0 ? '+' : ''
 
   return {
     label: `${prefix}${delta.toFixed(0)}%`,
-    tone: delta > 0 ? ("positive" as const) : delta < 0 ? ("negative" as const) : ("neutral" as const),
+    tone:
+      delta > 0 ? ('positive' as const) : delta < 0 ? ('negative' as const) : ('neutral' as const),
   }
 }
 
 function shortDateLabel(value: string) {
   const date = new Date(`${value}T00:00:00`)
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
   })
 }
 
 function tenantSlugFromMetadata(value: unknown) {
-  if (typeof value !== "string") {
+  if (typeof value !== 'string') {
     return null
   }
 
@@ -488,12 +486,10 @@ function tenantSlugFromMetadata(value: unknown) {
 
 function previewCategories(categories: MenuCategory[]) {
   return categories
-    .filter(
-      (category) => category.visibility !== "HIDDEN" && isCategoryAvailableNow(category),
-    )
+    .filter((category) => category.visibility !== 'HIDDEN' && isCategoryAvailableNow(category))
     .map((category) => ({
       ...category,
-      categoryItems: category.categoryItems.filter((entry) => entry.item.visibility !== "HIDDEN"),
+      categoryItems: category.categoryItems.filter((entry) => entry.item.visibility !== 'HIDDEN'),
     }))
     .filter((category) => category.categoryItems.length > 0)
 }
@@ -504,45 +500,45 @@ function previewStyle(theme: ThemeDraft): React.CSSProperties {
   const borderColor = theme.borderColor
 
   return {
-    ["--preview-primary" as string]: theme.primaryColor,
-    ["--preview-accent" as string]: accentColor,
-    ["--preview-background" as string]: backgroundColor,
-    ["--preview-surface" as string]: theme.surfaceColor,
-    ["--preview-text" as string]: theme.textColor,
-    ["--preview-muted" as string]: theme.mutedColor,
-    ["--preview-border" as string]: borderColor,
-    ["--preview-on-primary" as string]: theme.onPrimary,
-    ["--preview-radius" as string]: `${defaultThemeDraft.radius}px`,
-    ["--preview-body-font" as string]: theme.bodyFont,
-    ["--preview-heading-font" as string]: theme.headingFont,
+    ['--preview-primary' as string]: theme.primaryColor,
+    ['--preview-accent' as string]: accentColor,
+    ['--preview-background' as string]: backgroundColor,
+    ['--preview-surface' as string]: theme.surfaceColor,
+    ['--preview-text' as string]: theme.textColor,
+    ['--preview-muted' as string]: theme.mutedColor,
+    ['--preview-border' as string]: borderColor,
+    ['--preview-on-primary' as string]: theme.onPrimary,
+    ['--preview-radius' as string]: `${defaultThemeDraft.radius}px`,
+    ['--preview-body-font' as string]: theme.bodyFont,
+    ['--preview-heading-font' as string]: theme.headingFont,
   } as React.CSSProperties
 }
 
 const scheduleDayOrder = [
-  "monday",
-  "tuesday",
-  "wednesday",
-  "thursday",
-  "friday",
-  "saturday",
-  "sunday",
+  'monday',
+  'tuesday',
+  'wednesday',
+  'thursday',
+  'friday',
+  'saturday',
+  'sunday',
 ] as const
 
 const scheduleDayLabels: Record<(typeof scheduleDayOrder)[number], string> = {
-  monday: "Mon",
-  tuesday: "Tue",
-  wednesday: "Wed",
-  thursday: "Thu",
-  friday: "Fri",
-  saturday: "Sat",
-  sunday: "Sun",
+  monday: 'Mon',
+  tuesday: 'Tue',
+  wednesday: 'Wed',
+  thursday: 'Thu',
+  friday: 'Fri',
+  saturday: 'Sat',
+  sunday: 'Sun',
 }
 
-const scheduleTimeFormatter = new Intl.DateTimeFormat("en-US", {
-  hour: "numeric",
-  minute: "2-digit",
+const scheduleTimeFormatter = new Intl.DateTimeFormat('en-US', {
+  hour: 'numeric',
+  minute: '2-digit',
   hour12: true,
-  timeZone: "UTC",
+  timeZone: 'UTC',
 })
 
 function parseUtcScheduleDate(value?: string | null) {
@@ -566,11 +562,11 @@ function formatScheduleTime(value?: string | null) {
 function scheduleTimeInputValue(value?: string | null) {
   const parsed = parseUtcScheduleDate(value)
   if (!parsed) {
-    return ""
+    return ''
   }
 
-  const hours = String(parsed.getUTCHours()).padStart(2, "0")
-  const minutes = String(parsed.getUTCMinutes()).padStart(2, "0")
+  const hours = String(parsed.getUTCHours()).padStart(2, '0')
+  const minutes = String(parsed.getUTCMinutes()).padStart(2, '0')
   return `${hours}:${minutes}`
 }
 
@@ -579,7 +575,7 @@ function scheduleTimeInputToIso(value: string) {
     return null
   }
 
-  const [hoursString, minutesString] = value.split(":")
+  const [hoursString, minutesString] = value.split(':')
   const hours = Number(hoursString)
   const minutes = Number(minutesString)
 
@@ -594,15 +590,15 @@ function formatScheduleDays(days?: string[] | null) {
   const normalized = (days ?? [])
     .map((day) => day.trim().toLowerCase())
     .filter((day): day is (typeof scheduleDayOrder)[number] =>
-      scheduleDayOrder.includes(day as (typeof scheduleDayOrder)[number]),
+      scheduleDayOrder.includes(day as (typeof scheduleDayOrder)[number])
     )
 
   if (normalized.length === 0 || normalized.length === scheduleDayOrder.length) {
-    return "Every day"
+    return 'Every day'
   }
 
   const indexes = [...new Set(normalized.map((day) => scheduleDayOrder.indexOf(day)))].sort(
-    (left, right) => left - right,
+    (left, right) => left - right
   )
   const ranges: string[] = []
 
@@ -618,11 +614,11 @@ function formatScheduleDays(days?: string[] | null) {
     ranges.push(
       start === end
         ? scheduleDayLabels[scheduleDayOrder[start]]
-        : `${scheduleDayLabels[scheduleDayOrder[start]]}\u2013${scheduleDayLabels[scheduleDayOrder[end]]}`,
+        : `${scheduleDayLabels[scheduleDayOrder[start]]}\u2013${scheduleDayLabels[scheduleDayOrder[end]]}`
     )
   }
 
-  return ranges.join(", ")
+  return ranges.join(', ')
 }
 
 function formatCategorySchedule(category: MenuCategory) {
@@ -665,21 +661,12 @@ function SectionCard({
   )
 }
 
-function PreviewPane({
-  theme,
-  categories,
-}: {
-  theme: ThemeDraft
-  categories: MenuCategory[]
-}) {
+function PreviewPane({ theme, categories }: { theme: ThemeDraft; categories: MenuCategory[] }) {
   const visible = previewCategories(categories)
   const featured = visible.flatMap((category) =>
-    category.categoryItems.map((entry) => entry.item).filter((item) => item.isFeatured),
+    category.categoryItems.map((entry) => entry.item).filter((item) => item.isFeatured)
   )
-  const totalItemCount = visible.reduce(
-    (sum, category) => sum + category.categoryItems.length,
-    0,
-  )
+  const totalItemCount = visible.reduce((sum, category) => sum + category.categoryItems.length, 0)
   const shellRadius = 24
 
   return (
@@ -687,41 +674,41 @@ function PreviewPane({
       className="min-h-[860px] rounded-[calc(var(--radius)*1.2)] border border-border/70 bg-card p-5 shadow-sm"
       style={{
         ...previewStyle(theme),
-        fontFamily: "var(--preview-body-font)",
+        fontFamily: 'var(--preview-body-font)',
       }}
     >
       <div
         style={{
-          minHeight: "100%",
-          borderRadius: "28px",
-          background: "var(--preview-background)",
-          color: "var(--preview-text)",
+          minHeight: '100%',
+          borderRadius: '28px',
+          background: 'var(--preview-background)',
+          color: 'var(--preview-text)',
           padding: 20,
-          boxShadow: "var(--shadow-brand)",
+          boxShadow: 'var(--shadow-brand)',
         }}
       >
         <div
           style={{
-            display: "flex",
-            alignItems: "center",
+            display: 'flex',
+            alignItems: 'center',
             gap: 12,
-            justifyContent: "space-between",
+            justifyContent: 'space-between',
             marginBottom: 16,
-            padding: "2px 4px 0",
+            padding: '2px 4px 0',
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
             {theme.logoUrl ? (
               <img
                 src={theme.logoUrl}
                 alt={theme.appTitle}
-                style={{ height: 28, width: "auto", maxWidth: 80, objectFit: "contain" }}
+                style={{ height: 28, width: 'auto', maxWidth: 80, objectFit: 'contain' }}
               />
             ) : (
               <div
                 style={{
-                  color: "var(--preview-primary)",
-                  fontFamily: "var(--preview-heading-font)",
+                  color: 'var(--preview-primary)',
+                  fontFamily: 'var(--preview-heading-font)',
                   fontWeight: 800,
                   fontSize: 24,
                   lineHeight: 1,
@@ -730,40 +717,40 @@ function PreviewPane({
                 {theme.appTitle}
               </div>
             )}
-            <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
               <span
                 style={{
-                  color: "var(--preview-primary)",
+                  color: 'var(--preview-primary)',
                   fontSize: 12,
                   fontWeight: 700,
-                  borderBottom: "2px solid var(--preview-primary)",
+                  borderBottom: '2px solid var(--preview-primary)',
                   paddingBottom: 4,
                 }}
               >
                 Discover
               </span>
-              <span style={{ color: "var(--preview-muted)", fontSize: 12 }}>Orders</span>
+              <span style={{ color: 'var(--preview-muted)', fontSize: 12 }}>Orders</span>
             </div>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
             <div
               style={{
-                display: "flex",
-                alignItems: "center",
+                display: 'flex',
+                alignItems: 'center',
                 gap: 8,
                 borderRadius: 9999,
-                border: "1px solid var(--preview-border)",
-                background: "var(--preview-surface)",
-                color: "var(--preview-muted)",
-                padding: "8px 12px",
+                border: '1px solid var(--preview-border)',
+                background: 'var(--preview-surface)',
+                color: 'var(--preview-muted)',
+                padding: '8px 12px',
                 minWidth: 180,
               }}
             >
               <Search className="h-4 w-4" />
               <span style={{ fontSize: 12 }}>Search for dishes...</span>
             </div>
-            <div style={{ color: "var(--preview-primary)" }}>
+            <div style={{ color: 'var(--preview-primary)' }}>
               <ShoppingCart className="h-4 w-4" />
             </div>
           </div>
@@ -776,44 +763,53 @@ function PreviewPane({
             background: theme.heroImageUrl
               ? `linear-gradient(to top, rgba(0,0,0,0.78), rgba(0,0,0,0.12)), url(${theme.heroImageUrl}) center/cover`
               : `linear-gradient(135deg, ${hexToRgba(theme.primaryColor, 0.4)}, ${hexToRgba(theme.accentColor, 0.26)}), var(--preview-surface)`,
-            border: "1px solid var(--preview-border)",
-            display: "grid",
+            border: '1px solid var(--preview-border)',
+            display: 'grid',
             minHeight: 260,
-            overflow: "hidden",
-            position: "relative",
+            overflow: 'hidden',
+            position: 'relative',
           }}
         >
           <div
             style={{
-              position: "absolute",
-              inset: "auto 0 0 0",
+              position: 'absolute',
+              inset: 'auto 0 0 0',
               padding: 24,
-              display: "grid",
+              display: 'grid',
               gap: 12,
             }}
           >
             <h1
               style={{
                 margin: 0,
-                fontFamily: "var(--preview-heading-font)",
+                fontFamily: 'var(--preview-heading-font)',
                 fontSize: 44,
                 lineHeight: 0.95,
                 fontWeight: 700,
                 maxWidth: 540,
-                color: "#fff7ed",
+                color: '#fff7ed',
               }}
             >
               {theme.heroHeadline}
             </h1>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", color: "#fff7ed", fontSize: 13 }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                flexWrap: 'wrap',
+                color: '#fff7ed',
+                fontSize: 13,
+              }}
+            >
               {theme.heroBadgeText.trim() ? (
                 <span
                   style={{
-                    display: "inline-flex",
-                    alignItems: "center",
+                    display: 'inline-flex',
+                    alignItems: 'center',
                     gap: 6,
                     borderRadius: 9999,
-                    padding: "7px 12px",
+                    padding: '7px 12px',
                     background: hexToRgba(theme.accentColor, 0.18),
                     border: `1px solid ${hexToRgba(theme.accentColor, 0.34)}`,
                   }}
@@ -833,9 +829,9 @@ function PreviewPane({
           <div
             style={{
               marginTop: 16,
-              display: "flex",
+              display: 'flex',
               gap: 10,
-              overflowX: "auto",
+              overflowX: 'auto',
               paddingBottom: 4,
             }}
           >
@@ -843,14 +839,16 @@ function PreviewPane({
               <span
                 key={category.id}
                 style={{
-                  whiteSpace: "nowrap",
+                  whiteSpace: 'nowrap',
                   borderRadius: 9999,
-                  padding: "10px 18px",
+                  padding: '10px 18px',
                   fontSize: 13,
                   fontWeight: 500,
-                  background: index === 0 ? "var(--preview-primary)" : hexToRgba(theme.textColor, 0.06),
-                  color: index === 0 ? "var(--preview-on-primary)" : "var(--preview-text)",
-                  boxShadow: index === 0 ? `0 10px 24px ${hexToRgba(theme.primaryColor, 0.24)}` : "none",
+                  background:
+                    index === 0 ? 'var(--preview-primary)' : hexToRgba(theme.textColor, 0.06),
+                  color: index === 0 ? 'var(--preview-on-primary)' : 'var(--preview-text)',
+                  boxShadow:
+                    index === 0 ? `0 10px 24px ${hexToRgba(theme.primaryColor, 0.24)}` : 'none',
                 }}
               >
                 {category.name}
@@ -866,7 +864,7 @@ function PreviewPane({
               borderRadius: 18,
               background: `linear-gradient(135deg, ${theme.primaryColor}, ${hexToRgba(theme.primaryColor, 0.88)})`,
               color: theme.onPrimary,
-              padding: "14px 16px",
+              padding: '14px 16px',
               fontSize: 14,
               lineHeight: 1.55,
             }}
@@ -876,15 +874,23 @@ function PreviewPane({
         ) : null}
 
         {featured.length > 0 ? (
-          <section style={{ display: "grid", gap: 16, marginTop: 24 }}>
-            <div style={{ display: "grid", gap: 6 }}>
-              <div style={{ color: "var(--preview-muted)", fontSize: 11, fontWeight: 700, letterSpacing: "0.16em", textTransform: "uppercase" }}>
+          <section style={{ display: 'grid', gap: 16, marginTop: 24 }}>
+            <div style={{ display: 'grid', gap: 6 }}>
+              <div
+                style={{
+                  color: 'var(--preview-muted)',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: '0.16em',
+                  textTransform: 'uppercase',
+                }}
+              >
                 Featured
               </div>
               <h2
                 style={{
                   margin: 0,
-                  fontFamily: "var(--preview-heading-font)",
+                  fontFamily: 'var(--preview-heading-font)',
                   fontSize: 32,
                   fontWeight: 700,
                 }}
@@ -893,7 +899,7 @@ function PreviewPane({
               </h2>
             </div>
 
-            <div style={{ display: "grid", gap: 16 }}>
+            <div style={{ display: 'grid', gap: 16 }}>
               {featured.slice(0, 2).map((item) => (
                 <PreviewMenuCard
                   key={`featured-${item.id}`}
@@ -906,33 +912,33 @@ function PreviewPane({
           </section>
         ) : null}
 
-        <div style={{ display: "grid", gap: 24, marginTop: 24 }}>
+        <div style={{ display: 'grid', gap: 24, marginTop: 24 }}>
           {visible.map((category) => (
-            <section key={category.id} style={{ display: "grid", gap: 12 }}>
+            <section key={category.id} style={{ display: 'grid', gap: 12 }}>
               <div
                 style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
                   gap: 16,
                 }}
               >
-                  <h2
-                    style={{
-                      margin: 0,
-                      fontFamily: "var(--preview-heading-font)",
-                      fontSize: 28,
-                      fontWeight: 700,
-                    }}
-                  >
+                <h2
+                  style={{
+                    margin: 0,
+                    fontFamily: 'var(--preview-heading-font)',
+                    fontSize: 28,
+                    fontWeight: 700,
+                  }}
+                >
                   {category.name}
                 </h2>
-                <span style={{ color: "var(--preview-muted)", fontSize: 13 }}>
+                <span style={{ color: 'var(--preview-muted)', fontSize: 13 }}>
                   {category.categoryItems.length} items
                 </span>
               </div>
 
-              <div style={{ display: "grid", gap: 16 }}>
+              <div style={{ display: 'grid', gap: 16 }}>
                 {category.categoryItems.map(({ id, item }) => (
                   <PreviewMenuCard
                     key={id}
@@ -955,7 +961,7 @@ function PreviewMenuCard({
   theme,
   featured,
 }: {
-  item: MenuCategory["categoryItems"][number]["item"]
+  item: MenuCategory['categoryItems'][number]['item']
   theme: ThemeDraft
   featured: boolean
 }) {
@@ -964,11 +970,11 @@ function PreviewMenuCard({
       style={{
         borderRadius: 24,
         padding: 16,
-        border: "1px solid var(--preview-border)",
-        background: "var(--preview-surface)",
-        display: "grid",
+        border: '1px solid var(--preview-border)',
+        background: 'var(--preview-surface)',
+        display: 'grid',
         gap: 14,
-        opacity: item.visibility === "SOLD_OUT" ? 0.76 : 1,
+        opacity: item.visibility === 'SOLD_OUT' ? 0.76 : 1,
         boxShadow: `0 8px 24px ${hexToRgba(theme.textColor, 0.06)}`,
       }}
     >
@@ -976,28 +982,28 @@ function PreviewMenuCard({
         style={{
           minHeight: 168,
           borderRadius: 18,
-          border: "1px solid var(--preview-border)",
+          border: '1px solid var(--preview-border)',
           background: item.photoUrl
             ? `url(${item.photoUrl}) center/cover`
             : `linear-gradient(135deg, ${hexToRgba(theme.primaryColor, 0.16)}, ${hexToRgba(theme.accentColor, 0.14)})`,
-          position: "relative",
-          overflow: "hidden",
+          position: 'relative',
+          overflow: 'hidden',
         }}
       >
         {featured ? (
           <span
             style={{
-              position: "absolute",
+              position: 'absolute',
               top: 10,
               right: 10,
               borderRadius: 9999,
-              background: "var(--preview-primary)",
-              color: "var(--preview-on-primary)",
+              background: 'var(--preview-primary)',
+              color: 'var(--preview-on-primary)',
               fontSize: 10,
               fontWeight: 700,
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-              padding: "5px 9px",
+              letterSpacing: '0.06em',
+              textTransform: 'uppercase',
+              padding: '5px 9px',
             }}
           >
             Popular
@@ -1005,20 +1011,27 @@ function PreviewMenuCard({
         ) : null}
       </div>
 
-      <div style={{ display: "grid", gap: 10 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }}>
+      <div style={{ display: 'grid', gap: 10 }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            gap: 16,
+          }}
+        >
           <h3
             style={{
               margin: 0,
               fontSize: 18,
               fontWeight: 600,
-              fontFamily: "var(--preview-heading-font)",
+              fontFamily: 'var(--preview-heading-font)',
               lineHeight: 1.2,
             }}
           >
             {item.name}
           </h3>
-          <strong style={{ color: "var(--preview-primary)", whiteSpace: "nowrap" }}>
+          <strong style={{ color: 'var(--preview-primary)', whiteSpace: 'nowrap' }}>
             {formatPrice(item.variants[0]?.priceCents ?? item.basePriceCents)}
           </strong>
         </div>
@@ -1027,7 +1040,7 @@ function PreviewMenuCard({
           <p
             style={{
               margin: 0,
-              color: "var(--preview-muted)",
+              color: 'var(--preview-muted)',
               lineHeight: 1.6,
               fontSize: 13,
             }}
@@ -1036,17 +1049,24 @@ function PreviewMenuCard({
           </p>
         ) : null}
 
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 16,
+          }}
+        >
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             {item.tags.slice(0, 1).map((tag) => (
               <span
                 key={tag}
                 style={{
                   borderRadius: 9999,
                   background: hexToRgba(theme.textColor, 0.05),
-                  color: "var(--preview-muted)",
+                  color: 'var(--preview-muted)',
                   fontSize: 12,
-                  padding: "6px 10px",
+                  padding: '6px 10px',
                 }}
               >
                 {tag}
@@ -1054,8 +1074,8 @@ function PreviewMenuCard({
             ))}
           </div>
 
-          {item.visibility === "SOLD_OUT" ? (
-            <span style={{ color: "var(--preview-muted)", fontSize: 13 }}>Sold out</span>
+          {item.visibility === 'SOLD_OUT' ? (
+            <span style={{ color: 'var(--preview-muted)', fontSize: 13 }}>Sold out</span>
           ) : (
             <button
               type="button"
@@ -1063,13 +1083,13 @@ function PreviewMenuCard({
                 width: 40,
                 height: 40,
                 borderRadius: 9999,
-                border: "1px solid transparent",
+                border: '1px solid transparent',
                 background:
-                  "linear-gradient(135deg, var(--preview-primary), var(--preview-accent))",
-                color: "var(--preview-on-primary)",
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
+                  'linear-gradient(135deg, var(--preview-primary), var(--preview-accent))',
+                color: 'var(--preview-on-primary)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
                 boxShadow: `0 10px 24px ${hexToRgba(theme.primaryColor, 0.24)}`,
               }}
             >
@@ -1087,11 +1107,15 @@ export const App: React.FC = () => {
   const { signOut } = useClerk()
   const { isLoaded, user } = useUser()
   const tenantSlug = tenantSlugFromMetadata(user?.publicMetadata?.tenantSlug)
-  const linkedTenantSlug = tenantSlug ?? ""
+  const linkedTenantSlug = tenantSlug ?? ''
   const [pathname, setPathname] = useState(currentAdminPath)
   const [menuData, setMenuData] = useState<MenuResponse | null>(null)
   const [savedTheme, setSavedTheme] = useState<ThemeDraft>(defaultThemeDraft)
   const [draftTheme, setDraftTheme] = useState<ThemeDraft>(defaultThemeDraft)
+  const isThemeDirty = useMemo(
+    () => !areThemesEqual(savedTheme, draftTheme),
+    [draftTheme, savedTheme]
+  )
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
@@ -1103,17 +1127,17 @@ export const App: React.FC = () => {
   const [isStripeLaunching, setIsStripeLaunching] = useState(false)
   const [printingSettings, setPrintingSettings] = useState<PrintingSettings>({
     enabled: false,
-    macAddress: "",
+    macAddress: '',
   })
   const [savedPrintingSettings, setSavedPrintingSettings] = useState<PrintingSettings>({
     enabled: false,
-    macAddress: "",
+    macAddress: '',
   })
   const [printingMessage, setPrintingMessage] = useState<string | null>(null)
   const [isPrintingLoading, setIsPrintingLoading] = useState(true)
   const [isPrintingSaving, setIsPrintingSaving] = useState(false)
   const [isBrandingUploadInProgress, setIsBrandingUploadInProgress] = useState(false)
-  const [activeSection, setActiveSection] = useState<AdminSection>("overview")
+  const [activeSection, setActiveSection] = useState<AdminSection>('overview')
   const [overviewOrdersToday, setOverviewOrdersToday] = useState(0)
   const [isOverviewLoading, setIsOverviewLoading] = useState(true)
   const [insightsData, setInsightsData] = useState<InsightsData | null>(null)
@@ -1122,7 +1146,7 @@ export const App: React.FC = () => {
 
   const handleOnboardingCompleted = useCallback(async () => {
     await user?.reload()
-    window.location.assign("/")
+    window.location.assign('/')
   }, [user])
 
   useEffect(() => {
@@ -1130,8 +1154,8 @@ export const App: React.FC = () => {
       setPathname(currentAdminPath())
     }
 
-    window.addEventListener("popstate", handlePopState)
-    return () => window.removeEventListener("popstate", handlePopState)
+    window.addEventListener('popstate', handlePopState)
+    return () => window.removeEventListener('popstate', handlePopState)
   }, [])
 
   useEffect(() => {
@@ -1139,21 +1163,21 @@ export const App: React.FC = () => {
       return
     }
 
-    if (!tenantSlug && pathname !== "/signup") {
-      window.history.replaceState({}, "", "/signup")
-      setPathname("/signup")
+    if (!tenantSlug && pathname !== '/signup') {
+      window.history.replaceState({}, '', '/signup')
+      setPathname('/signup')
       return
     }
 
-    if (tenantSlug && pathname === "/signup") {
-      window.history.replaceState({}, "", "/")
-      setPathname("/")
+    if (tenantSlug && pathname === '/signup') {
+      window.history.replaceState({}, '', '/')
+      setPathname('/')
     }
   }, [isLoaded, pathname, tenantSlug])
 
   async function patchAdminJson<T>(path: string, body: unknown) {
     return adminFetchJson<T>(path, {
-      method: "PATCH",
+      method: 'PATCH',
       tenantSlug: linkedTenantSlug,
       getToken,
       body,
@@ -1162,34 +1186,28 @@ export const App: React.FC = () => {
 
   async function postAdminJson<T>(path: string, body: unknown) {
     return adminFetchJson<T>(path, {
-      method: "POST",
+      method: 'POST',
       tenantSlug: linkedTenantSlug,
       getToken,
       body,
     })
   }
 
-  async function uploadBrandingImage(
-    file: File,
-    onProgress?: (progressPercent: number) => void,
-  ) {
+  async function uploadBrandingImage(file: File, onProgress?: (progressPercent: number) => void) {
     if (!tenantSlug) {
-      throw new Error("Your account is not linked to a restaurant. Contact support.")
+      throw new Error('Your account is not linked to a restaurant. Contact support.')
     }
 
     setSaveMessage(null)
     setIsBrandingUploadInProgress(true)
 
     try {
-      const response = await adminUploadFileJson<{ url: string }>(
-        "/admin/branding/upload-image",
-        {
-          file,
-          getToken,
-          onProgress,
-          tenantSlug: linkedTenantSlug,
-        },
-      )
+      const response = await adminUploadFileJson<{ url: string }>('/admin/branding/upload-image', {
+        file,
+        getToken,
+        onProgress,
+        tenantSlug: linkedTenantSlug,
+      })
 
       return response.url
     } finally {
@@ -1199,72 +1217,65 @@ export const App: React.FC = () => {
 
   async function deleteAdmin(path: string) {
     await adminFetchJson<void>(path, {
-      method: "DELETE",
+      method: 'DELETE',
       tenantSlug: linkedTenantSlug,
       getToken,
     })
   }
 
   async function loadStripeStatus() {
-    return adminFetchJson<StripeStatus>("/admin/payments/stripe/status", {
+    return adminFetchJson<StripeStatus>('/admin/payments/stripe/status', {
       tenantSlug: linkedTenantSlug,
       getToken,
     })
   }
 
   async function loadPrintingSettings() {
-    return adminFetchJson<PrintingSettings>("/admin/restaurant/printing", {
+    return adminFetchJson<PrintingSettings>('/admin/restaurant/printing', {
       tenantSlug: linkedTenantSlug,
       getToken,
     })
   }
 
   async function loadOverviewOrders() {
-    return adminFetchJson<{ orders: OverviewOrder[] }>("/v1/kitchen/orders", {
+    return adminFetchJson<{ orders: OverviewOrder[] }>('/v1/kitchen/orders', {
       tenantSlug: linkedTenantSlug,
       getToken,
     })
   }
 
   async function loadInsights() {
-    const [
-      summary,
-      ordersOverTime,
-      topItems,
-      neverOrdered,
-      peakHours,
-      peakDays,
-      orderComposition,
-    ] = await Promise.all([
-      adminFetchJson<InsightsSummary>("/admin/insights/summary", {
-        tenantSlug: linkedTenantSlug,
-        getToken,
-      }),
-      adminFetchJson<InsightsOrdersOverTimePoint[]>("/admin/insights/orders-over-time", {
-        tenantSlug: linkedTenantSlug,
-        getToken,
-      }),
-      adminFetchJson<InsightsTopItem[]>("/admin/insights/top-items", {
-        tenantSlug: linkedTenantSlug,
-        getToken,
-      }),
-      adminFetchJson<InsightsNeverOrderedItem[]>("/admin/insights/never-ordered", {
-        tenantSlug: linkedTenantSlug,
-        getToken,
-      }),
-      adminFetchJson<InsightsPeakHour[]>("/admin/insights/peak-hours", {
-        tenantSlug: linkedTenantSlug,
-        getToken,
-      }),
-      adminFetchJson<InsightsPeakDay[]>("/admin/insights/peak-days", {
-        tenantSlug: linkedTenantSlug,
-        getToken,
-      }),
-      adminFetchJson<InsightsOrderComposition>("/admin/insights/order-composition", {
-        tenantSlug: linkedTenantSlug,
-        getToken,
-      }),
-    ])
+    const [summary, ordersOverTime, topItems, neverOrdered, peakHours, peakDays, orderComposition] =
+      await Promise.all([
+        adminFetchJson<InsightsSummary>('/admin/insights/summary', {
+          tenantSlug: linkedTenantSlug,
+          getToken,
+        }),
+        adminFetchJson<InsightsOrdersOverTimePoint[]>('/admin/insights/orders-over-time', {
+          tenantSlug: linkedTenantSlug,
+          getToken,
+        }),
+        adminFetchJson<InsightsTopItem[]>('/admin/insights/top-items', {
+          tenantSlug: linkedTenantSlug,
+          getToken,
+        }),
+        adminFetchJson<InsightsNeverOrderedItem[]>('/admin/insights/never-ordered', {
+          tenantSlug: linkedTenantSlug,
+          getToken,
+        }),
+        adminFetchJson<InsightsPeakHour[]>('/admin/insights/peak-hours', {
+          tenantSlug: linkedTenantSlug,
+          getToken,
+        }),
+        adminFetchJson<InsightsPeakDay[]>('/admin/insights/peak-days', {
+          tenantSlug: linkedTenantSlug,
+          getToken,
+        }),
+        adminFetchJson<InsightsOrderComposition>('/admin/insights/order-composition', {
+          tenantSlug: linkedTenantSlug,
+          getToken,
+        }),
+      ])
 
     return {
       summary,
@@ -1297,8 +1308,8 @@ export const App: React.FC = () => {
       setError(null)
       setStripeStatus(null)
       setStripeMessage(null)
-      setPrintingSettings({ enabled: false, macAddress: "" })
-      setSavedPrintingSettings({ enabled: false, macAddress: "" })
+      setPrintingSettings({ enabled: false, macAddress: '' })
+      setSavedPrintingSettings({ enabled: false, macAddress: '' })
       setPrintingMessage(null)
       return
     }
@@ -1333,11 +1344,11 @@ export const App: React.FC = () => {
         setSavedPrintingSettings(nextPrintingSettings)
         setOverviewOrdersToday(
           overviewOrdersResult.orders.filter((order) => new Date(order.createdAt) >= startOfToday)
-            .length,
+            .length
         )
       } catch (nextError) {
         if (cancelled) return
-        setError(nextError instanceof Error ? nextError.message : "Failed to load menu")
+        setError(nextError instanceof Error ? nextError.message : 'Failed to load menu')
       } finally {
         if (!cancelled) {
           setIsLoading(false)
@@ -1355,7 +1366,7 @@ export const App: React.FC = () => {
   }, [getToken, isLoaded, linkedTenantSlug, tenantSlug])
 
   useEffect(() => {
-    if (!tenantSlug || activeSection !== "insights") {
+    if (!tenantSlug || activeSection !== 'insights') {
       return
     }
 
@@ -1377,9 +1388,7 @@ export const App: React.FC = () => {
           return
         }
 
-        setInsightsError(
-          nextError instanceof Error ? nextError.message : "Failed to load insights",
-        )
+        setInsightsError(nextError instanceof Error ? nextError.message : 'Failed to load insights')
       } finally {
         if (!cancelled) {
           setIsInsightsLoading(false)
@@ -1403,7 +1412,7 @@ export const App: React.FC = () => {
   }
 
   if (!tenantSlug) {
-    const primaryEmail = user?.primaryEmailAddress?.emailAddress ?? ""
+    const primaryEmail = user?.primaryEmailAddress?.emailAddress ?? ''
 
     return (
       <>
@@ -1411,7 +1420,7 @@ export const App: React.FC = () => {
           <UserButton />
         </div>
         <OnboardingPage
-          clerkUserId={user?.id ?? ""}
+          clerkUserId={user?.id ?? ''}
           email={primaryEmail}
           getToken={getToken}
           onCompleted={handleOnboardingCompleted}
@@ -1421,15 +1430,11 @@ export const App: React.FC = () => {
   }
 
   const categories = menuData?.categories ?? []
-  const isThemeDirty = useMemo(
-    () => !areThemesEqual(savedTheme, draftTheme),
-    [draftTheme, savedTheme],
-  )
 
   const updateTheme = <K extends keyof ThemeDraft>(key: K, value: ThemeDraft[K]) => {
     setDraftTheme((current) => {
-      if (key === "primaryColor") {
-        const nextPrimary = value as ThemeDraft["primaryColor"]
+      if (key === 'primaryColor') {
+        const nextPrimary = value as ThemeDraft['primaryColor']
         return {
           ...current,
           primaryColor: nextPrimary,
@@ -1438,8 +1443,8 @@ export const App: React.FC = () => {
         }
       }
 
-      if (key === "backgroundColor") {
-        const nextBackground = value as ThemeDraft["backgroundColor"]
+      if (key === 'backgroundColor') {
+        const nextBackground = value as ThemeDraft['backgroundColor']
         return {
           ...current,
           backgroundColor: nextBackground,
@@ -1452,9 +1457,7 @@ export const App: React.FC = () => {
     setSaveMessage(null)
   }
 
-  const updateMenuCategories = (
-    updater: (categories: MenuCategory[]) => MenuCategory[],
-  ) => {
+  const updateMenuCategories = (updater: (categories: MenuCategory[]) => MenuCategory[]) => {
     setMenuData((current) => {
       if (!current) {
         return current
@@ -1469,7 +1472,7 @@ export const App: React.FC = () => {
 
   const reloadMenuData = async (syncTheme = false) => {
     if (!tenantSlug) {
-      throw new Error("Your account is not linked to a restaurant. Contact support.")
+      throw new Error('Your account is not linked to a restaurant. Contact support.')
     }
 
     const refreshedMenu = await fetchTenantMenu(linkedTenantSlug, getToken)
@@ -1484,12 +1487,12 @@ export const App: React.FC = () => {
 
   const saveTheme = async () => {
     if (!tenantSlug) {
-      setSaveMessage("Your account is not linked to a restaurant. Contact support.")
+      setSaveMessage('Your account is not linked to a restaurant. Contact support.')
       return
     }
 
     if (isBrandingUploadInProgress) {
-      setSaveMessage("Wait for the image upload to finish before saving.")
+      setSaveMessage('Wait for the image upload to finish before saving.')
       return
     }
 
@@ -1497,12 +1500,12 @@ export const App: React.FC = () => {
     setSaveMessage(null)
 
     try {
-      await patchAdminJson("/admin/brand-config", themePayload(draftTheme))
+      await patchAdminJson('/admin/brand-config', themePayload(draftTheme))
 
       await reloadMenuData(true)
-      setSaveMessage("Storefront settings saved.")
+      setSaveMessage('Storefront settings saved.')
     } catch (nextError) {
-      setSaveMessage(nextError instanceof Error ? nextError.message : "Failed to save theme")
+      setSaveMessage(nextError instanceof Error ? nextError.message : 'Failed to save theme')
     } finally {
       setIsSaving(false)
     }
@@ -1520,47 +1523,47 @@ export const App: React.FC = () => {
     updateMenuCategories(() => reordered)
 
     try {
-      setMenuActionMessage("Saving category order…")
+      setMenuActionMessage('Saving category order…')
       await Promise.all(
         reordered.map((category, index) =>
           patchAdminJson(`/admin/menu/categories/${category.id}`, {
             sortOrder: index,
-          }),
-        ),
+          })
+        )
       )
       await reloadMenuData()
-      setMenuActionMessage("Category order saved.")
+      setMenuActionMessage('Category order saved.')
     } catch (nextError) {
       await reloadMenuData()
       setMenuActionMessage(
-        nextError instanceof Error ? nextError.message : "Failed to reorder categories",
+        nextError instanceof Error ? nextError.message : 'Failed to reorder categories'
       )
     }
   }
 
   const updateCategoryVisibility = async (
     categoryId: string,
-    visibility: MenuCategory["visibility"],
+    visibility: MenuCategory['visibility']
   ) => {
     const previousCategories = categories
 
     updateMenuCategories((current) =>
       current.map((category) =>
-        category.id === categoryId ? { ...category, visibility } : category,
-      ),
+        category.id === categoryId ? { ...category, visibility } : category
+      )
     )
 
     try {
-      setMenuActionMessage("Saving category visibility…")
+      setMenuActionMessage('Saving category visibility…')
       await patchAdminJson(`/admin/menu/categories/${categoryId}/availability`, {
         visibility,
       })
       await reloadMenuData()
-      setMenuActionMessage("Category visibility updated.")
+      setMenuActionMessage('Category visibility updated.')
     } catch (nextError) {
       updateMenuCategories(() => previousCategories)
       setMenuActionMessage(
-        nextError instanceof Error ? nextError.message : "Failed to update category visibility",
+        nextError instanceof Error ? nextError.message : 'Failed to update category visibility'
       )
     }
   }
@@ -1568,11 +1571,11 @@ export const App: React.FC = () => {
   const updateCategorySchedule = async (
     categoryId: string,
     schedule: {
-      visibility: MenuCategory["visibility"]
+      visibility: MenuCategory['visibility']
       availableFrom: string | null
       availableUntil: string | null
       daysOfWeek: string[] | null
-    },
+    }
   ) => {
     const previousCategories = categories
 
@@ -1586,23 +1589,23 @@ export const App: React.FC = () => {
               availableUntil: schedule.availableUntil,
               daysOfWeek: schedule.daysOfWeek,
             }
-          : category,
-      ),
+          : category
+      )
     )
 
     try {
-      setMenuActionMessage("Saving category schedule…")
+      setMenuActionMessage('Saving category schedule…')
       await patchAdminJson(`/admin/menu/categories/${categoryId}`, schedule)
       await reloadMenuData()
       setMenuActionMessage(
-        schedule.visibility === "AVAILABLE"
-          ? "Category schedule removed."
-          : "Category schedule updated.",
+        schedule.visibility === 'AVAILABLE'
+          ? 'Category schedule removed.'
+          : 'Category schedule updated.'
       )
     } catch (nextError) {
       updateMenuCategories(() => previousCategories)
       setMenuActionMessage(
-        nextError instanceof Error ? nextError.message : "Failed to update category schedule",
+        nextError instanceof Error ? nextError.message : 'Failed to update category schedule'
       )
     }
   }
@@ -1612,14 +1615,14 @@ export const App: React.FC = () => {
     updateMenuCategories((current) => current.filter((category) => category.id !== categoryId))
 
     try {
-      setMenuActionMessage("Deleting section…")
+      setMenuActionMessage('Deleting section…')
       await deleteAdmin(`/admin/menu/categories/${categoryId}`)
       await reloadMenuData()
-      setMenuActionMessage("Section deleted.")
+      setMenuActionMessage('Section deleted.')
     } catch (nextError) {
       updateMenuCategories(() => previousCategories)
       setMenuActionMessage(
-        nextError instanceof Error ? nextError.message : "Failed to delete section",
+        nextError instanceof Error ? nextError.message : 'Failed to delete section'
       )
     }
   }
@@ -1628,9 +1631,7 @@ export const App: React.FC = () => {
     const category = categories.find((entry) => entry.id === categoryId)
     if (!category) return
 
-    const entryByItemId = new Map(
-      category.categoryItems.map((entry) => [entry.item.id, entry]),
-    )
+    const entryByItemId = new Map(category.categoryItems.map((entry) => [entry.item.id, entry]))
     const reorderedEntries = nextItemIds
       .map((itemId) => entryByItemId.get(itemId))
       .filter((entry): entry is CategoryItemEntry => Boolean(entry))
@@ -1642,29 +1643,29 @@ export const App: React.FC = () => {
     const previousCategories = categories
     updateMenuCategories((current) =>
       current.map((entry) =>
-        entry.id === categoryId
-          ? { ...entry, categoryItems: reorderedEntries }
-          : entry,
-      ),
+        entry.id === categoryId ? { ...entry, categoryItems: reorderedEntries } : entry
+      )
     )
 
     try {
-      setMenuActionMessage("Saving item order…")
+      setMenuActionMessage('Saving item order…')
       await patchAdminJson(`/admin/menu/categories/${categoryId}/items/reorder`, {
         itemIds: nextItemIds,
       })
       await reloadMenuData()
-      setMenuActionMessage("Item order saved.")
+      setMenuActionMessage('Item order saved.')
     } catch (nextError) {
       updateMenuCategories(() => previousCategories)
-      setMenuActionMessage(nextError instanceof Error ? nextError.message : "Failed to reorder items")
+      setMenuActionMessage(
+        nextError instanceof Error ? nextError.message : 'Failed to reorder items'
+      )
     }
   }
 
   const updateItemPresentation = async (
     itemId: string,
     body: Record<string, unknown>,
-    successMessage: string,
+    successMessage: string
   ) => {
     const previousCategories = categories
     updateMenuCategories((current) =>
@@ -1676,27 +1677,25 @@ export const App: React.FC = () => {
                 ...entry,
                 item: {
                   ...entry.item,
-                  ...(typeof body.isFeatured === "boolean"
-                    ? { isFeatured: body.isFeatured }
-                    : {}),
-                  ...(Object.prototype.hasOwnProperty.call(body, "photoUrl")
+                  ...(typeof body.isFeatured === 'boolean' ? { isFeatured: body.isFeatured } : {}),
+                  ...(Object.prototype.hasOwnProperty.call(body, 'photoUrl')
                     ? { photoUrl: (body.photoUrl as string | null | undefined) ?? null }
                     : {}),
                 },
               }
-            : entry,
+            : entry
         ),
-      })),
+      }))
     )
 
     try {
-      setMenuActionMessage("Saving item settings…")
+      setMenuActionMessage('Saving item settings…')
       await patchAdminJson(`/admin/menu/items/${itemId}`, body)
       await reloadMenuData()
       setMenuActionMessage(successMessage)
     } catch (nextError) {
       updateMenuCategories(() => previousCategories)
-      setMenuActionMessage(nextError instanceof Error ? nextError.message : "Failed to update item")
+      setMenuActionMessage(nextError instanceof Error ? nextError.message : 'Failed to update item')
     }
   }
 
@@ -1706,14 +1705,14 @@ export const App: React.FC = () => {
       {
         nameLocalized: nameLocalized.trim() ? nameLocalized.trim() : null,
       },
-      nameLocalized.trim() ? "Localized item name updated." : "Localized item name removed.",
+      nameLocalized.trim() ? 'Localized item name updated.' : 'Localized item name removed.'
     )
   }
 
   const batchTranslateItems = async () => {
     const result = await postAdminJson<{ translated: number; skipped: number }>(
-      "/admin/menu/batch-translate",
-      {},
+      '/admin/menu/batch-translate',
+      {}
     )
     await reloadMenuData()
     return result
@@ -1721,7 +1720,7 @@ export const App: React.FC = () => {
 
   const updateItemVisibility = async (
     itemId: string,
-    visibility: CategoryItemEntry["item"]["visibility"],
+    visibility: CategoryItemEntry['item']['visibility']
   ) => {
     const previousCategories = categories
     updateMenuCategories((current) =>
@@ -1736,44 +1735,46 @@ export const App: React.FC = () => {
                   visibility,
                 },
               }
-            : entry,
+            : entry
         ),
-      })),
+      }))
     )
 
     try {
       setMenuActionMessage(
-        visibility === "HIDDEN"
-          ? "Hiding item…"
-          : visibility === "SOLD_OUT"
-            ? "Marking item sold out…"
-            : "Updating item visibility…",
+        visibility === 'HIDDEN'
+          ? 'Hiding item…'
+          : visibility === 'SOLD_OUT'
+            ? 'Marking item sold out…'
+            : 'Updating item visibility…'
       )
       await patchAdminJson(`/admin/menu/items/${itemId}/availability`, { visibility })
       await reloadMenuData()
       setMenuActionMessage(
-        visibility === "HIDDEN"
-          ? "Item hidden."
-          : visibility === "SOLD_OUT"
-            ? "Item marked sold out."
-            : "Item shown.",
+        visibility === 'HIDDEN'
+          ? 'Item hidden.'
+          : visibility === 'SOLD_OUT'
+            ? 'Item marked sold out.'
+            : 'Item shown.'
       )
     } catch (nextError) {
       updateMenuCategories(() => previousCategories)
-      setMenuActionMessage(nextError instanceof Error ? nextError.message : "Failed to update availability")
+      setMenuActionMessage(
+        nextError instanceof Error ? nextError.message : 'Failed to update availability'
+      )
     }
   }
 
   const addItemToCategory = async (
     categoryId: string,
-    input: { name: string; description: string; priceCents: number },
+    input: { name: string; description: string; priceCents: number }
   ) => {
     const category = categories.find((entry) => entry.id === categoryId)
     if (!category) return
 
     try {
-      setMenuActionMessage("Adding item…")
-      const created = await postAdminJson<{ id: string }>("/admin/menu/items", {
+      setMenuActionMessage('Adding item…')
+      const created = await postAdminJson<{ id: string }>('/admin/menu/items', {
         name: input.name,
         description: input.description || null,
         basePriceCents: input.priceCents,
@@ -1782,7 +1783,7 @@ export const App: React.FC = () => {
         prepTimeMinutes: 0,
         specialInstructionsEnabled: false,
         isFeatured: false,
-        visibility: "AVAILABLE",
+        visibility: 'AVAILABLE',
         categoryIds: [categoryId],
       })
 
@@ -1791,9 +1792,9 @@ export const App: React.FC = () => {
       })
 
       await reloadMenuData()
-      setMenuActionMessage("Item added.")
+      setMenuActionMessage('Item added.')
     } catch (nextError) {
-      setMenuActionMessage(nextError instanceof Error ? nextError.message : "Failed to add item")
+      setMenuActionMessage(nextError instanceof Error ? nextError.message : 'Failed to add item')
     }
   }
 
@@ -1803,17 +1804,17 @@ export const App: React.FC = () => {
       current.map((category) => ({
         ...category,
         categoryItems: category.categoryItems.filter((entry) => entry.item.id !== itemId),
-      })),
+      }))
     )
 
     try {
-      setMenuActionMessage("Deleting item…")
+      setMenuActionMessage('Deleting item…')
       await deleteAdmin(`/admin/menu/items/${itemId}`)
       await reloadMenuData()
-      setMenuActionMessage("Item deleted.")
+      setMenuActionMessage('Item deleted.')
     } catch (nextError) {
       updateMenuCategories(() => previousCategories)
-      setMenuActionMessage(nextError instanceof Error ? nextError.message : "Failed to delete item")
+      setMenuActionMessage(nextError instanceof Error ? nextError.message : 'Failed to delete item')
     }
   }
 
@@ -1823,19 +1824,17 @@ export const App: React.FC = () => {
 
     try {
       const response = await adminFetchJson<{ url: string }>(
-        "/admin/payments/stripe/onboarding-link",
+        '/admin/payments/stripe/onboarding-link',
         {
-          method: "POST",
+          method: 'POST',
           tenantSlug: linkedTenantSlug,
           getToken,
-        },
+        }
       )
       window.location.assign(response.url)
     } catch (nextError) {
       setStripeMessage(
-        nextError instanceof Error
-          ? nextError.message
-          : "Failed to launch Stripe onboarding",
+        nextError instanceof Error ? nextError.message : 'Failed to launch Stripe onboarding'
       )
     } finally {
       setIsStripeLaunching(false)
@@ -1847,17 +1846,17 @@ export const App: React.FC = () => {
     setPrintingMessage(null)
 
     try {
-      const nextSettings = await patchAdminJson<PrintingSettings>("/admin/restaurant/printing", {
+      const nextSettings = await patchAdminJson<PrintingSettings>('/admin/restaurant/printing', {
         enabled: printingSettings.enabled,
-        macAddress: printingSettings.macAddress?.trim() || "",
+        macAddress: printingSettings.macAddress?.trim() || '',
       })
 
       setPrintingSettings(nextSettings)
       setSavedPrintingSettings(nextSettings)
-      setPrintingMessage("Printing settings saved.")
+      setPrintingMessage('Printing settings saved.')
     } catch (nextError) {
       setPrintingMessage(
-        nextError instanceof Error ? nextError.message : "Failed to save printing settings",
+        nextError instanceof Error ? nextError.message : 'Failed to save printing settings'
       )
     } finally {
       setIsPrintingSaving(false)
@@ -1865,22 +1864,18 @@ export const App: React.FC = () => {
   }
 
   const stripeStatusLabel =
-    stripeStatus?.status === "active"
-      ? "Connected and ready"
-      : stripeStatus?.status === "onboarding_required"
-        ? "Onboarding required"
-        : "Not connected"
-  const isPrintingDirty =
-    JSON.stringify(printingSettings) !== JSON.stringify(savedPrintingSettings)
+    stripeStatus?.status === 'active'
+      ? 'Connected and ready'
+      : stripeStatus?.status === 'onboarding_required'
+        ? 'Onboarding required'
+        : 'Not connected'
+  const isPrintingDirty = JSON.stringify(printingSettings) !== JSON.stringify(savedPrintingSettings)
   const printingStatusLabel =
-    printingSettings.enabled && printingSettings.macAddress ? "Printer connected" : "Not configured"
+    printingSettings.enabled && printingSettings.macAddress ? 'Printer connected' : 'Not configured'
   const restaurantDisplayName =
     draftTheme.appTitle.trim() || stripeStatus?.displayName || linkedTenantSlug
   const userDisplayName =
-    user?.fullName ||
-    user?.firstName ||
-    user?.primaryEmailAddress?.emailAddress ||
-    "Admin"
+    user?.fullName || user?.firstName || user?.primaryEmailAddress?.emailAddress || 'Admin'
   const storefrontUrl = storefrontUrlForTenant(linkedTenantSlug)
   const kitchenKioskUrl = kioskUrl(linkedTenantSlug)
 
@@ -1895,17 +1890,17 @@ export const App: React.FC = () => {
             <div className="grid gap-2">
               <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                 <CreditCard className="h-4 w-4 text-primary" />
-                {stripeStatus?.displayName ?? "Restaurant payouts"}
+                {stripeStatus?.displayName ?? 'Restaurant payouts'}
               </div>
               <div className="text-sm text-muted-foreground">
-                {isStripeLoading ? "Checking Stripe onboarding status…" : stripeStatusLabel}
+                {isStripeLoading ? 'Checking Stripe onboarding status…' : stripeStatusLabel}
               </div>
             </div>
             <Badge
               variant="outline"
               className={cn(
-                "border-border bg-card",
-                stripeStatus?.status === "active" && "border-primary/30 text-foreground",
+                'border-border bg-card',
+                stripeStatus?.status === 'active' && 'border-primary/30 text-foreground'
               )}
             >
               {stripeStatusLabel}
@@ -1917,13 +1912,13 @@ export const App: React.FC = () => {
               <div className="flex items-center justify-between gap-4">
                 <span>Charges enabled</span>
                 <span className="font-medium text-foreground">
-                  {stripeStatus.chargesEnabled ? "Yes" : "No"}
+                  {stripeStatus.chargesEnabled ? 'Yes' : 'No'}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-4">
                 <span>Payouts enabled</span>
                 <span className="font-medium text-foreground">
-                  {stripeStatus.payoutsEnabled ? "Yes" : "No"}
+                  {stripeStatus.payoutsEnabled ? 'Yes' : 'No'}
                 </span>
               </div>
               {stripeStatus.stripeAccountId ? (
@@ -1950,22 +1945,23 @@ export const App: React.FC = () => {
             onClick={() => void launchStripeOnboarding()}
           >
             <span>
-              {stripeStatus?.status === "active"
-                ? "Review Stripe account"
-                : stripeStatus?.status === "onboarding_required"
-                  ? "Continue Stripe onboarding"
-                  : "Connect Stripe"}
+              {stripeStatus?.status === 'active'
+                ? 'Review Stripe account'
+                : stripeStatus?.status === 'onboarding_required'
+                  ? 'Continue Stripe onboarding'
+                  : 'Connect Stripe'}
             </span>
             <ExternalLink className="h-4 w-4" />
           </Button>
 
           {!stripeStatus?.configured ? (
             <div className="text-sm text-muted-foreground">
-              Stripe is not configured yet. Add the Stripe env values before onboarding a restaurant.
+              Stripe is not configured yet. Add the Stripe env values before onboarding a
+              restaurant.
             </div>
           ) : null}
 
-          {stripeStatus?.status === "active" ? (
+          {stripeStatus?.status === 'active' ? (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <CheckCircle2 className="h-4 w-4 text-primary" />
               This restaurant can take live card payments.
@@ -1986,16 +1982,16 @@ export const App: React.FC = () => {
                 Automatic kitchen printing
               </div>
               <div className="text-sm text-muted-foreground">
-                {isPrintingLoading ? "Loading printer settings…" : printingStatusLabel}
+                {isPrintingLoading ? 'Loading printer settings…' : printingStatusLabel}
               </div>
             </div>
             <Badge
               variant="outline"
               className={cn(
-                "border-border bg-card",
+                'border-border bg-card',
                 printingSettings.enabled &&
                   printingSettings.macAddress &&
-                  "border-primary/30 text-foreground",
+                  'border-primary/30 text-foreground'
               )}
             >
               {printingStatusLabel}
@@ -2027,7 +2023,7 @@ export const App: React.FC = () => {
             <Label htmlFor="printer-mac-address">Printer MAC address</Label>
             <Input
               id="printer-mac-address"
-              value={printingSettings.macAddress ?? ""}
+              value={printingSettings.macAddress ?? ''}
               placeholder="XX:XX:XX:XX:XX:XX"
               spellCheck={false}
               autoCapitalize="characters"
@@ -2040,19 +2036,17 @@ export const App: React.FC = () => {
               }}
             />
             <div className="text-sm text-muted-foreground">
-              Find this on your printer&apos;s configuration sheet. Format:
-              {" "}
-              XX:XX:XX:XX:XX:XX
+              Find this on your printer&apos;s configuration sheet. Format: XX:XX:XX:XX:XX:XX
             </div>
           </div>
 
           {printingMessage ? (
             <div
               className={cn(
-                "rounded-[var(--radius)] px-4 py-4 text-sm",
-                printingMessage === "Printing settings saved."
-                  ? "border border-primary/20 bg-primary/10 text-foreground"
-                  : "border border-destructive/20 bg-destructive/10 text-destructive",
+                'rounded-[var(--radius)] px-4 py-4 text-sm',
+                printingMessage === 'Printing settings saved.'
+                  ? 'border border-primary/20 bg-primary/10 text-foreground'
+                  : 'border border-destructive/20 bg-destructive/10 text-destructive'
               )}
             >
               {printingMessage}
@@ -2065,7 +2059,7 @@ export const App: React.FC = () => {
             disabled={isPrintingLoading || isPrintingSaving || !isPrintingDirty}
             onClick={() => void savePrintingSettings()}
           >
-            {isPrintingSaving ? "Saving…" : "Save"}
+            {isPrintingSaving ? 'Saving…' : 'Save'}
           </Button>
         </div>
       </SectionCard>
@@ -2081,12 +2075,12 @@ export const App: React.FC = () => {
         <div className="grid min-w-0 gap-4 xl:grid-cols-2 2xl:grid-cols-3">
           <OverviewMetricCard
             label="Stripe status"
-            value={isStripeLoading ? "Checking…" : stripeStatusLabel}
-            hint={stripeStatus?.status === "active" ? "Payments live" : "Needs review"}
+            value={isStripeLoading ? 'Checking…' : stripeStatusLabel}
+            hint={stripeStatus?.status === 'active' ? 'Payments live' : 'Needs review'}
           />
           <OverviewMetricCard
             label="Orders today"
-            value={isOverviewLoading ? "Loading…" : String(overviewOrdersToday)}
+            value={isOverviewLoading ? 'Loading…' : String(overviewOrdersToday)}
             hint="Current kitchen feed"
           />
           <OverviewMetricCard
@@ -2097,10 +2091,10 @@ export const App: React.FC = () => {
         </div>
 
         <div className="mt-6 flex flex-wrap gap-3">
-          <Button type="button" onClick={() => setActiveSection("branding")}>
+          <Button type="button" onClick={() => setActiveSection('branding')}>
             Open branding
           </Button>
-          <Button type="button" variant="outline" onClick={() => setActiveSection("menu")}>
+          <Button type="button" variant="outline" onClick={() => setActiveSection('menu')}>
             Open menu
           </Button>
         </div>
@@ -2152,13 +2146,13 @@ export const App: React.FC = () => {
           onCategoryReorder={reorderCategories}
           onDeleteItem={deleteItemFromMenu}
           onItemFeaturedChange={(itemId, isFeatured) =>
-            void updateItemPresentation(itemId, { isFeatured }, "Featured state updated.")
+            void updateItemPresentation(itemId, { isFeatured }, 'Featured state updated.')
           }
           onItemImageChange={(itemId, photoUrl) =>
             void updateItemPresentation(
               itemId,
               { photoUrl },
-              photoUrl ? "Item image updated." : "Item image removed.",
+              photoUrl ? 'Item image updated.' : 'Item image removed.'
             )
           }
           onItemLocalizedNameChange={(itemId, nameLocalized) =>
@@ -2184,7 +2178,7 @@ export const App: React.FC = () => {
           })
           .catch((nextError) => {
             setInsightsError(
-              nextError instanceof Error ? nextError.message : "Failed to load insights",
+              nextError instanceof Error ? nextError.message : 'Failed to load insights'
             )
           })
       }}
@@ -2201,7 +2195,7 @@ export const App: React.FC = () => {
         getToken={getToken}
         tenantSlug={linkedTenantSlug}
         onRefreshTargets={(targets) => {
-          if (targets.includes("menu")) {
+          if (targets.includes('menu')) {
             void reloadMenuData(true)
           }
         }}
@@ -2211,19 +2205,19 @@ export const App: React.FC = () => {
 
   const activeSectionContent = (() => {
     switch (activeSection) {
-      case "overview":
+      case 'overview':
         return overviewPanel
-      case "branding":
+      case 'branding':
         return brandingPanel
-      case "menu":
+      case 'menu':
         return menuPanel
-      case "insights":
+      case 'insights':
         return insightsPanel
-      case "loyalty":
+      case 'loyalty':
         return <LoyaltyPage tenantSlug={linkedTenantSlug} />
-      case "payments":
+      case 'payments':
         return paymentsPanel
-      case "assistant":
+      case 'assistant':
         return assistantPanel
     }
   })()
@@ -2233,7 +2227,7 @@ export const App: React.FC = () => {
       className="flex h-[100dvh] min-h-[100dvh] flex-col overflow-hidden bg-background"
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.22, ease: "easeOut" }}
+      transition={{ duration: 0.22, ease: 'easeOut' }}
     >
       <header className="shrink-0 border-b border-border/70 bg-background/95 backdrop-blur">
         <div className="mx-auto flex h-20 w-full max-w-[1800px] items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
@@ -2256,7 +2250,7 @@ export const App: React.FC = () => {
               variant="outline"
               className="hidden min-h-11 sm:inline-flex"
               onClick={() => {
-                window.open(storefrontUrl, "_blank", "noopener,noreferrer")
+                window.open(storefrontUrl, '_blank', 'noopener,noreferrer')
               }}
             >
               Live view
@@ -2312,7 +2306,7 @@ export const App: React.FC = () => {
                   variant="ghost"
                   className="justify-start rounded-[var(--radius)] px-3 text-muted-foreground"
                   onClick={() => {
-                    window.open(storefrontUrl, "_blank", "noopener,noreferrer")
+                    window.open(storefrontUrl, '_blank', 'noopener,noreferrer')
                   }}
                 >
                   <Store className="h-4 w-4" />
@@ -2324,7 +2318,7 @@ export const App: React.FC = () => {
                   variant="ghost"
                   className="justify-start rounded-[var(--radius)] px-3 text-muted-foreground"
                   onClick={() => {
-                    window.open(kitchenKioskUrl, "_blank", "noopener,noreferrer")
+                    window.open(kitchenKioskUrl, '_blank', 'noopener,noreferrer')
                   }}
                 >
                   <Printer className="h-4 w-4" />
@@ -2360,7 +2354,7 @@ export const App: React.FC = () => {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.18, ease: "easeOut" }}
+                transition={{ duration: 0.18, ease: 'easeOut' }}
                 className="grid gap-6"
               >
                 {activeSectionContent}
@@ -2394,7 +2388,7 @@ export const App: React.FC = () => {
                 variant="outline"
                 className="min-h-10 shrink-0"
                 onClick={() => {
-                  window.open(storefrontUrl, "_blank", "noopener,noreferrer")
+                  window.open(storefrontUrl, '_blank', 'noopener,noreferrer')
                 }}
               >
                 Open live site
@@ -2419,13 +2413,13 @@ function SectionNav({
   onChange: (value: AdminSection) => void
 }) {
   const sections: Array<{ id: AdminSection; icon: React.ReactNode; label: string }> = [
-    { id: "overview", icon: <LayoutDashboard className="h-4 w-4" />, label: "Overview" },
-    { id: "branding", icon: <Palette className="h-4 w-4" />, label: "Branding" },
-    { id: "menu", icon: <Store className="h-4 w-4" />, label: "Menu" },
-    { id: "loyalty", icon: <Star className="h-4 w-4" />, label: "Loyalty" },
-    { id: "insights", icon: <BarChart3 className="h-4 w-4" />, label: "Insights" },
-    { id: "payments", icon: <CreditCard className="h-4 w-4" />, label: "Payments" },
-    { id: "assistant", icon: <Bot className="h-4 w-4" />, label: "Assistant" },
+    { id: 'overview', icon: <LayoutDashboard className="h-4 w-4" />, label: 'Overview' },
+    { id: 'branding', icon: <Palette className="h-4 w-4" />, label: 'Branding' },
+    { id: 'menu', icon: <Store className="h-4 w-4" />, label: 'Menu' },
+    { id: 'loyalty', icon: <Star className="h-4 w-4" />, label: 'Loyalty' },
+    { id: 'insights', icon: <BarChart3 className="h-4 w-4" />, label: 'Insights' },
+    { id: 'payments', icon: <CreditCard className="h-4 w-4" />, label: 'Payments' },
+    { id: 'assistant', icon: <Bot className="h-4 w-4" />, label: 'Assistant' },
   ]
 
   return (
@@ -2439,10 +2433,10 @@ function SectionNav({
             type="button"
             variant="ghost"
             className={cn(
-              "w-full justify-start gap-2.5 rounded-[var(--radius)] px-3 py-2.5 text-left text-[13px] leading-5",
+              'w-full justify-start gap-2.5 rounded-[var(--radius)] px-3 py-2.5 text-left text-[13px] leading-5',
               isActive
-                ? "border border-primary/25 bg-primary/10 text-foreground shadow-sm"
-                : "text-muted-foreground hover:text-foreground",
+                ? 'border border-primary/25 bg-primary/10 text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
             )}
             onClick={() => onChange(section.id)}
           >
@@ -2463,13 +2457,13 @@ function CompactSectionNav({
   onChange: (value: AdminSection) => void
 }) {
   const sections: Array<{ id: AdminSection; label: string }> = [
-    { id: "overview", label: "Overview" },
-    { id: "branding", label: "Branding" },
-    { id: "menu", label: "Menu" },
-    { id: "loyalty", label: "Loyalty" },
-    { id: "insights", label: "Insights" },
-    { id: "payments", label: "Payments" },
-    { id: "assistant", label: "Assistant" },
+    { id: 'overview', label: 'Overview' },
+    { id: 'branding', label: 'Branding' },
+    { id: 'menu', label: 'Menu' },
+    { id: 'loyalty', label: 'Loyalty' },
+    { id: 'insights', label: 'Insights' },
+    { id: 'payments', label: 'Payments' },
+    { id: 'assistant', label: 'Assistant' },
   ]
 
   return (
@@ -2479,7 +2473,7 @@ function CompactSectionNav({
           <Button
             key={section.id}
             type="button"
-            variant={activeSection === section.id ? "default" : "outline"}
+            variant={activeSection === section.id ? 'default' : 'outline'}
             className="rounded-full"
             onClick={() => onChange(section.id)}
           >
@@ -2501,9 +2495,15 @@ type LoyaltyConfig = {
   expiryMonths: number
   welcomeBonus: number
   newMemberDiscountEnabled: boolean
-  newMemberDiscountType: "PERCENTAGE" | "FIXED"
+  newMemberDiscountType: 'PERCENTAGE' | 'FIXED'
   newMemberDiscountValue: number
-  tiers: Array<{ id: string; name: string; pointsCost: number; discountCents: number; sortOrder: number }>
+  tiers: Array<{
+    id: string
+    name: string
+    pointsCost: number
+    discountCents: number
+    sortOrder: number
+  }>
 }
 
 type LoyaltyAnalytics = {
@@ -2579,7 +2579,7 @@ function LoyaltyFieldRow({
 }
 
 function LoyaltyPage({ tenantSlug }: { tenantSlug: string }) {
-  const [tab, setTab] = useState<"rules" | "analytics">("rules")
+  const [tab, setTab] = useState<'rules' | 'analytics'>('rules')
   const [config, setConfig] = useState<LoyaltyConfig | null>(null)
   const [analytics, setAnalytics] = useState<LoyaltyAnalytics | null>(null)
   const [loadingConfig, setLoadingConfig] = useState(true)
@@ -2592,7 +2592,7 @@ function LoyaltyPage({ tenantSlug }: { tenantSlug: string }) {
   const { getToken } = useAuth()
 
   // Tier editing state
-  const [newTierName, setNewTierName] = useState("")
+  const [newTierName, setNewTierName] = useState('')
   const [newTierPts, setNewTierPts] = useState(0)
   const [newTierCents, setNewTierCents] = useState(0)
   const [addingTier, setAddingTier] = useState(false)
@@ -2601,16 +2601,14 @@ function LoyaltyPage({ tenantSlug }: { tenantSlug: string }) {
     setLoadingConfig(true)
     setConfigError(null)
     try {
-      const nextConfig = await adminFetchJson<LoyaltyConfig>("/admin/loyalty", {
+      const nextConfig = await adminFetchJson<LoyaltyConfig>('/admin/loyalty', {
         tenantSlug,
         getToken,
       })
       setConfig(nextConfig)
     } catch (error) {
       setConfig(null)
-      setConfigError(
-        error instanceof Error ? error.message : "Failed to load loyalty settings",
-      )
+      setConfigError(error instanceof Error ? error.message : 'Failed to load loyalty settings')
     } finally {
       setLoadingConfig(false)
     }
@@ -2620,15 +2618,13 @@ function LoyaltyPage({ tenantSlug }: { tenantSlug: string }) {
     setLoadingAnalytics(true)
     setAnalyticsError(null)
     try {
-      const nextAnalytics = await adminFetchJson<LoyaltyAnalytics>("/admin/loyalty/analytics", {
+      const nextAnalytics = await adminFetchJson<LoyaltyAnalytics>('/admin/loyalty/analytics', {
         tenantSlug,
         getToken,
       })
       setAnalytics(nextAnalytics)
     } catch (error) {
-      setAnalyticsError(
-        error instanceof Error ? error.message : "Failed to load loyalty analytics",
-      )
+      setAnalyticsError(error instanceof Error ? error.message : 'Failed to load loyalty analytics')
     } finally {
       setLoadingAnalytics(false)
     }
@@ -2639,7 +2635,7 @@ function LoyaltyPage({ tenantSlug }: { tenantSlug: string }) {
   }, [loadConfig])
 
   useEffect(() => {
-    if (tab !== "analytics") return
+    if (tab !== 'analytics') return
     if (analytics) return
     void loadAnalytics()
   }, [tab, analytics, loadAnalytics])
@@ -2649,8 +2645,8 @@ function LoyaltyPage({ tenantSlug }: { tenantSlug: string }) {
     setSaving(true)
     setConfigError(null)
     try {
-      const nextConfig = await adminFetchJson<LoyaltyConfig>("/admin/loyalty", {
-        method: "PATCH",
+      const nextConfig = await adminFetchJson<LoyaltyConfig>('/admin/loyalty', {
+        method: 'PATCH',
         tenantSlug,
         getToken,
         body: {
@@ -2669,7 +2665,7 @@ function LoyaltyPage({ tenantSlug }: { tenantSlug: string }) {
       setSaved(true)
       setTimeout(() => setSaved(false), 2200)
     } catch (error) {
-      setConfigError(error instanceof Error ? error.message : "Failed to update loyalty settings")
+      setConfigError(error instanceof Error ? error.message : 'Failed to update loyalty settings')
     } finally {
       setSaving(false)
     }
@@ -2681,24 +2677,24 @@ function LoyaltyPage({ tenantSlug }: { tenantSlug: string }) {
     const nextActive = !config.active
     setTogglingActive(true)
     setConfigError(null)
-    setConfig(current => current ? { ...current, active: nextActive } : current)
+    setConfig((current) => (current ? { ...current, active: nextActive } : current))
 
     try {
-      const nextConfig = await adminFetchJson<LoyaltyConfig>("/admin/loyalty", {
-        method: "PATCH",
+      const nextConfig = await adminFetchJson<LoyaltyConfig>('/admin/loyalty', {
+        method: 'PATCH',
         tenantSlug,
         getToken,
         body: {
           active: nextActive,
         },
       })
-      setConfig(current => {
+      setConfig((current) => {
         const merged = nextConfig ?? current
         return merged ? { ...merged, active: nextActive } : merged
       })
     } catch (error) {
-      setConfig(current => current ? { ...current, active: !nextActive } : current)
-      setConfigError(error instanceof Error ? error.message : "Failed to update loyalty status")
+      setConfig((current) => (current ? { ...current, active: !nextActive } : current))
+      setConfigError(error instanceof Error ? error.message : 'Failed to update loyalty status')
     } finally {
       setTogglingActive(false)
     }
@@ -2709,18 +2705,18 @@ function LoyaltyPage({ tenantSlug }: { tenantSlug: string }) {
     setAddingTier(true)
     setConfigError(null)
     try {
-      await adminFetchJson<{ id: string }>("/admin/loyalty/tiers", {
-        method: "POST",
+      await adminFetchJson<{ id: string }>('/admin/loyalty/tiers', {
+        method: 'POST',
         tenantSlug,
         getToken,
         body: { name: newTierName.trim(), pointsCost: newTierPts, discountCents: newTierCents },
       })
       await loadConfig()
-      setNewTierName("")
+      setNewTierName('')
       setNewTierPts(0)
       setNewTierCents(0)
     } catch (error) {
-      setConfigError(error instanceof Error ? error.message : "Failed to create reward tier")
+      setConfigError(error instanceof Error ? error.message : 'Failed to create reward tier')
     } finally {
       setAddingTier(false)
     }
@@ -2730,13 +2726,13 @@ function LoyaltyPage({ tenantSlug }: { tenantSlug: string }) {
     setConfigError(null)
     try {
       await adminFetchJson<void>(`/admin/loyalty/tiers/${tierId}`, {
-        method: "DELETE",
+        method: 'DELETE',
         tenantSlug,
         getToken,
       })
       await loadConfig()
     } catch (error) {
-      setConfigError(error instanceof Error ? error.message : "Failed to delete reward tier")
+      setConfigError(error instanceof Error ? error.message : 'Failed to delete reward tier')
     }
   }
 
@@ -2752,7 +2748,7 @@ function LoyaltyPage({ tenantSlug }: { tenantSlug: string }) {
     return (
       <div className="grid gap-4">
         <div className="rounded-[var(--radius)] border border-destructive/20 bg-destructive/10 px-4 py-4 text-sm text-foreground">
-          {configError ?? "Failed to load loyalty settings"}
+          {configError ?? 'Failed to load loyalty settings'}
         </div>
         <div>
           <Button type="button" variant="outline" onClick={() => void loadConfig()}>
@@ -2773,7 +2769,9 @@ function LoyaltyPage({ tenantSlug }: { tenantSlug: string }) {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-heading text-2xl font-bold text-foreground">Loyalty Program</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Configure how customers earn and redeem points</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Configure how customers earn and redeem points
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
@@ -2783,49 +2781,49 @@ function LoyaltyPage({ tenantSlug }: { tenantSlug: string }) {
               aria-pressed={config.active}
               disabled={togglingActive}
               className={cn(
-                "relative h-6 w-11 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-                config.active ? "bg-primary" : "bg-input",
-                togglingActive && "opacity-60",
+                'relative h-6 w-11 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
+                config.active ? 'bg-primary' : 'bg-input',
+                togglingActive && 'opacity-60'
               )}
             >
               <span
                 className={cn(
-                  "absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-all",
-                  config.active ? "right-1" : "left-1",
+                  'absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-all',
+                  config.active ? 'right-1' : 'left-1'
                 )}
               />
             </button>
             <span
               className={cn(
-                "text-sm font-medium transition-colors",
-                config.active ? "text-primary" : "text-muted-foreground",
+                'text-sm font-medium transition-colors',
+                config.active ? 'text-primary' : 'text-muted-foreground'
               )}
             >
-              {config.active ? "Active" : "Inactive"}
+              {config.active ? 'Active' : 'Inactive'}
             </span>
           </div>
           <Button
             type="button"
             onClick={handleSave}
             disabled={saving}
-            className={cn("min-w-[120px]", saved && "bg-green-600 hover:bg-green-600")}
+            className={cn('min-w-[120px]', saved && 'bg-green-600 hover:bg-green-600')}
           >
-            {saved ? "✓ Saved" : saving ? "Saving…" : "Save changes"}
+            {saved ? '✓ Saved' : saving ? 'Saving…' : 'Save changes'}
           </Button>
         </div>
       </div>
 
       {/* Tabs */}
       <div className="flex gap-2">
-        {(["rules", "analytics"] as const).map((t) => (
+        {(['rules', 'analytics'] as const).map((t) => (
           <Button
             key={t}
             type="button"
-            variant={tab === t ? "default" : "outline"}
+            variant={tab === t ? 'default' : 'outline'}
             className="rounded-full capitalize"
             onClick={() => setTab(t)}
           >
-            {t === "rules" ? "Program Rules" : "Analytics"}
+            {t === 'rules' ? 'Program Rules' : 'Analytics'}
           </Button>
         ))}
       </div>
@@ -2836,23 +2834,33 @@ function LoyaltyPage({ tenantSlug }: { tenantSlug: string }) {
         </div>
       ) : null}
 
-      {tab === "rules" && (
+      {tab === 'rules' && (
         <div className="grid gap-5">
           {/* Live preview card */}
           <div className="rounded-2xl bg-primary p-6 text-primary-foreground">
             <div className="grid grid-cols-3 gap-6">
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-primary-foreground/60">Earn on $50 order</p>
-                <p className="mt-1 font-heading text-3xl font-bold">{previewEarned.toLocaleString()} pts</p>
-                <p className="mt-1 text-xs text-primary-foreground/60">≈ ${previewValue} in savings</p>
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-primary-foreground/60">
+                  Earn on $50 order
+                </p>
+                <p className="mt-1 font-heading text-3xl font-bold">
+                  {previewEarned.toLocaleString()} pts
+                </p>
+                <p className="mt-1 text-xs text-primary-foreground/60">
+                  ≈ ${previewValue} in savings
+                </p>
               </div>
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-primary-foreground/60">Redemption rate</p>
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-primary-foreground/60">
+                  Redemption rate
+                </p>
                 <p className="mt-1 font-heading text-3xl font-bold">{config.redeemRate} pts</p>
                 <p className="mt-1 text-xs text-primary-foreground/60">= $1.00 off</p>
               </div>
               <div>
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-primary-foreground/60">Min to redeem</p>
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-primary-foreground/60">
+                  Min to redeem
+                </p>
                 <p className="mt-1 font-heading text-3xl font-bold">{config.minRedeem} pts</p>
                 <p className="mt-1 text-xs text-primary-foreground/60">= ${minDollarOff} off</p>
               </div>
@@ -2867,8 +2875,16 @@ function LoyaltyPage({ tenantSlug }: { tenantSlug: string }) {
                 hint="How many points a customer earns for every $1 on a completed order."
               >
                 <div className="grid gap-1.5">
-                  <LoyaltyNumInput value={config.earnRate} onChange={(v) => setConfig(c => c ? { ...c, earnRate: v } : c)} suffix="pts / $1" min={1} max={100} />
-                  <p className="text-xs text-muted-foreground">Customer earns {config.earnRate}× their spend in points</p>
+                  <LoyaltyNumInput
+                    value={config.earnRate}
+                    onChange={(v) => setConfig((c) => (c ? { ...c, earnRate: v } : c))}
+                    suffix="pts / $1"
+                    min={1}
+                    max={100}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Customer earns {config.earnRate}× their spend in points
+                  </p>
                 </div>
               </LoyaltyFieldRow>
               <LoyaltyFieldRow
@@ -2876,29 +2892,57 @@ function LoyaltyPage({ tenantSlug }: { tenantSlug: string }) {
                 hint="How many points equal $1 off. Lower = more generous for customers."
               >
                 <div className="grid gap-1.5">
-                  <LoyaltyNumInput value={config.redeemRate} onChange={(v) => setConfig(c => c ? { ...c, redeemRate: v } : c)} suffix="pts = $1" min={1} max={1000} />
-                  <p className="text-xs text-muted-foreground">Effective cash back: {((config.earnRate / config.redeemRate) * 100).toFixed(1)}%</p>
+                  <LoyaltyNumInput
+                    value={config.redeemRate}
+                    onChange={(v) => setConfig((c) => (c ? { ...c, redeemRate: v } : c))}
+                    suffix="pts = $1"
+                    min={1}
+                    max={1000}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Effective cash back: {((config.earnRate / config.redeemRate) * 100).toFixed(1)}%
+                  </p>
                 </div>
               </LoyaltyFieldRow>
               <LoyaltyFieldRow
                 label="Minimum points to redeem"
                 hint="Customers must reach this threshold before any rewards are available."
               >
-                <LoyaltyNumInput value={config.minRedeem} onChange={(v) => setConfig(c => c ? { ...c, minRedeem: v } : c)} suffix="pts minimum" min={0} max={10000} />
+                <LoyaltyNumInput
+                  value={config.minRedeem}
+                  onChange={(v) => setConfig((c) => (c ? { ...c, minRedeem: v } : c))}
+                  suffix="pts minimum"
+                  min={0}
+                  max={10000}
+                />
               </LoyaltyFieldRow>
               <LoyaltyFieldRow
                 label="Points expiry"
                 hint="Unused points expire after this many months of inactivity. 0 = no expiry."
               >
-                <LoyaltyNumInput value={config.expiryMonths} onChange={(v) => setConfig(c => c ? { ...c, expiryMonths: v } : c)} suffix="months" min={0} max={36} />
+                <LoyaltyNumInput
+                  value={config.expiryMonths}
+                  onChange={(v) => setConfig((c) => (c ? { ...c, expiryMonths: v } : c))}
+                  suffix="months"
+                  min={0}
+                  max={36}
+                />
               </LoyaltyFieldRow>
               <LoyaltyFieldRow
                 label="Welcome bonus"
                 hint="Points awarded automatically when a customer joins on their first order."
               >
                 <div className="grid gap-1.5">
-                  <LoyaltyNumInput value={config.welcomeBonus} onChange={(v) => setConfig(c => c ? { ...c, welcomeBonus: v } : c)} suffix="pts on join" min={0} max={5000} />
-                  <p className="text-xs text-muted-foreground">= ${(config.welcomeBonus / config.redeemRate).toFixed(2)} in welcome savings</p>
+                  <LoyaltyNumInput
+                    value={config.welcomeBonus}
+                    onChange={(v) => setConfig((c) => (c ? { ...c, welcomeBonus: v } : c))}
+                    suffix="pts on join"
+                    min={0}
+                    max={5000}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    = ${(config.welcomeBonus / config.redeemRate).toFixed(2)} in welcome savings
+                  </p>
                 </div>
               </LoyaltyFieldRow>
             </CardContent>
@@ -2910,7 +2954,9 @@ function LoyaltyPage({ tenantSlug }: { tenantSlug: string }) {
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-sm">Reward tiers</CardTitle>
-                  <CardDescription className="text-xs mt-1">The discount options customers can choose from when redeeming points</CardDescription>
+                  <CardDescription className="text-xs mt-1">
+                    The discount options customers can choose from when redeeming points
+                  </CardDescription>
                 </div>
               </div>
             </CardHeader>
@@ -2918,8 +2964,13 @@ function LoyaltyPage({ tenantSlug }: { tenantSlug: string }) {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border">
-                    {["Tier name", "Points cost", "Discount", ""].map((h) => (
-                      <th key={h} className="pb-2 text-left text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{h}</th>
+                    {['Tier name', 'Points cost', 'Discount', ''].map((h) => (
+                      <th
+                        key={h}
+                        className="pb-2 text-left text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
+                      >
+                        {h}
+                      </th>
                     ))}
                   </tr>
                 </thead>
@@ -2930,10 +2981,14 @@ function LoyaltyPage({ tenantSlug }: { tenantSlug: string }) {
                         <span className="text-sm text-foreground">{tier.name}</span>
                       </td>
                       <td className="py-2.5 pr-3">
-                        <span className="text-sm text-muted-foreground">{tier.pointsCost.toLocaleString()} pts</span>
+                        <span className="text-sm text-muted-foreground">
+                          {tier.pointsCost.toLocaleString()} pts
+                        </span>
                       </td>
                       <td className="py-2.5 pr-3">
-                        <span className="text-sm text-foreground">${(tier.discountCents / 100).toFixed(2)} off</span>
+                        <span className="text-sm text-foreground">
+                          ${(tier.discountCents / 100).toFixed(2)} off
+                        </span>
                       </td>
                       <td className="py-2.5 text-right">
                         <button
@@ -2952,7 +3007,9 @@ function LoyaltyPage({ tenantSlug }: { tenantSlug: string }) {
               {/* Add tier form */}
               <div className="mt-4 grid grid-cols-[1fr_120px_120px_auto] gap-2 items-end">
                 <div>
-                  <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Name</label>
+                  <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Name
+                  </label>
                   <input
                     value={newTierName}
                     onChange={(e) => setNewTierName(e.target.value)}
@@ -2961,20 +3018,24 @@ function LoyaltyPage({ tenantSlug }: { tenantSlug: string }) {
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Points cost</label>
+                  <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Points cost
+                  </label>
                   <input
                     type="number"
-                    value={newTierPts || ""}
+                    value={newTierPts || ''}
                     onChange={(e) => setNewTierPts(Number(e.target.value))}
                     placeholder="500"
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Discount (¢)</label>
+                  <label className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Discount (¢)
+                  </label>
                   <input
                     type="number"
-                    value={newTierCents || ""}
+                    value={newTierCents || ''}
                     onChange={(e) => setNewTierCents(Number(e.target.value))}
                     placeholder="500"
                     className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary/30"
@@ -2987,10 +3048,12 @@ function LoyaltyPage({ tenantSlug }: { tenantSlug: string }) {
                   disabled={addingTier || !newTierName.trim() || newTierPts < 1 || newTierCents < 1}
                   className="self-end"
                 >
-                  {addingTier ? "Adding…" : "+ Add"}
+                  {addingTier ? 'Adding…' : '+ Add'}
                 </Button>
               </div>
-              <p className="mt-3 text-[11px] text-muted-foreground">Changes apply to new redemptions only — existing issued rewards are not affected.</p>
+              <p className="mt-3 text-[11px] text-muted-foreground">
+                Changes apply to new redemptions only — existing issued rewards are not affected.
+              </p>
             </CardContent>
           </Card>
 
@@ -3002,30 +3065,51 @@ function LoyaltyPage({ tenantSlug }: { tenantSlug: string }) {
                   <Sparkles className="h-4 w-4 text-amber-500" />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-foreground">New member first-order discount</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">Applied automatically when a new phone number places their first order</p>
+                  <p className="text-sm font-semibold text-foreground">
+                    New member first-order discount
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Applied automatically when a new phone number places their first order
+                  </p>
                 </div>
                 <button
                   type="button"
-                  onClick={() => setConfig(c => c ? { ...c, newMemberDiscountEnabled: !c.newMemberDiscountEnabled } : c)}
+                  onClick={() =>
+                    setConfig((c) =>
+                      c ? { ...c, newMemberDiscountEnabled: !c.newMemberDiscountEnabled } : c
+                    )
+                  }
                   className={cn(
-                    "relative h-6 w-11 flex-shrink-0 rounded-full transition-colors",
-                    config.newMemberDiscountEnabled ? "bg-primary" : "bg-border"
+                    'relative h-6 w-11 flex-shrink-0 rounded-full transition-colors',
+                    config.newMemberDiscountEnabled ? 'bg-primary' : 'bg-border'
                   )}
                 >
-                  <span className={cn(
-                    "absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-all",
-                    config.newMemberDiscountEnabled ? "right-1" : "left-1"
-                  )} />
+                  <span
+                    className={cn(
+                      'absolute top-1 h-4 w-4 rounded-full bg-white shadow transition-all',
+                      config.newMemberDiscountEnabled ? 'right-1' : 'left-1'
+                    )}
+                  />
                 </button>
               </div>
               {config.newMemberDiscountEnabled && (
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Discount type</label>
+                    <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Discount type
+                    </label>
                     <select
                       value={config.newMemberDiscountType}
-                      onChange={(e) => setConfig(c => c ? { ...c, newMemberDiscountType: e.target.value as "PERCENTAGE" | "FIXED" } : c)}
+                      onChange={(e) =>
+                        setConfig((c) =>
+                          c
+                            ? {
+                                ...c,
+                                newMemberDiscountType: e.target.value as 'PERCENTAGE' | 'FIXED',
+                              }
+                            : c
+                        )
+                      }
                       className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground"
                     >
                       <option value="PERCENTAGE">Percentage off</option>
@@ -3034,20 +3118,23 @@ function LoyaltyPage({ tenantSlug }: { tenantSlug: string }) {
                   </div>
                   <div>
                     <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      Amount {config.newMemberDiscountType === "PERCENTAGE" ? "(%)" : "($)"}
+                      Amount {config.newMemberDiscountType === 'PERCENTAGE' ? '(%)' : '($)'}
                     </label>
                     <LoyaltyNumInput
                       value={config.newMemberDiscountValue}
-                      onChange={(v) => setConfig(c => c ? { ...c, newMemberDiscountValue: v } : c)}
-                      suffix={config.newMemberDiscountType === "PERCENTAGE" ? "%" : "$"}
+                      onChange={(v) =>
+                        setConfig((c) => (c ? { ...c, newMemberDiscountValue: v } : c))
+                      }
+                      suffix={config.newMemberDiscountType === 'PERCENTAGE' ? '%' : '$'}
                       min={0}
-                      max={config.newMemberDiscountType === "PERCENTAGE" ? 100 : 500}
+                      max={config.newMemberDiscountType === 'PERCENTAGE' ? 100 : 500}
                     />
                   </div>
                 </div>
               )}
               <p className="mt-3 rounded-lg border border-border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
-                Discount is applied to the payment total automatically at checkout. One use per phone number.
+                Discount is applied to the payment total automatically at checkout. One use per
+                phone number.
               </p>
             </CardContent>
           </Card>
@@ -3060,15 +3147,23 @@ function LoyaltyPage({ tenantSlug }: { tenantSlug: string }) {
               </div>
               <div className="flex-1">
                 <p className="text-sm font-semibold text-foreground">Stripe discount integration</p>
-                <p className="mt-0.5 text-xs text-muted-foreground">Discounts are applied by reducing the payment intent amount before charge. The discount amount and type are stored on the order for your records.</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Discounts are applied by reducing the payment intent amount before charge. The
+                  discount amount and type are stored on the order for your records.
+                </p>
               </div>
-              <Badge variant="outline" className="border-green-500/30 bg-green-500/10 text-green-700 flex-shrink-0">Connected</Badge>
+              <Badge
+                variant="outline"
+                className="border-green-500/30 bg-green-500/10 text-green-700 flex-shrink-0"
+              >
+                Connected
+              </Badge>
             </CardContent>
           </Card>
         </div>
       )}
 
-      {tab === "analytics" && (
+      {tab === 'analytics' && (
         <div className="grid gap-5">
           {analyticsError ? (
             <div className="rounded-[var(--radius)] border border-destructive/20 bg-destructive/10 px-4 py-4 text-sm text-foreground">
@@ -3085,19 +3180,38 @@ function LoyaltyPage({ tenantSlug }: { tenantSlug: string }) {
               {/* KPI row */}
               <div className="grid grid-cols-4 gap-4">
                 {[
-                  { label: "Enrolled members", value: analytics.enrolledCount.toLocaleString(), note: "all time" },
-                  { label: "Points issued", value: analytics.issued.toLocaleString(), note: "last 30 days" },
-                  { label: "Points redeemed", value: analytics.redeemed.toLocaleString(), note: "last 30 days" },
                   {
-                    label: "Redemption rate",
-                    value: analytics.issued > 0 ? `${((analytics.redeemed / analytics.issued) * 100).toFixed(1)}%` : "—",
-                    note: "redeemed / issued",
+                    label: 'Enrolled members',
+                    value: analytics.enrolledCount.toLocaleString(),
+                    note: 'all time',
+                  },
+                  {
+                    label: 'Points issued',
+                    value: analytics.issued.toLocaleString(),
+                    note: 'last 30 days',
+                  },
+                  {
+                    label: 'Points redeemed',
+                    value: analytics.redeemed.toLocaleString(),
+                    note: 'last 30 days',
+                  },
+                  {
+                    label: 'Redemption rate',
+                    value:
+                      analytics.issued > 0
+                        ? `${((analytics.redeemed / analytics.issued) * 100).toFixed(1)}%`
+                        : '—',
+                    note: 'redeemed / issued',
                   },
                 ].map((s) => (
                   <Card key={s.label}>
                     <CardContent className="px-5 py-4">
-                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{s.label}</p>
-                      <p className="mt-2 font-heading text-3xl font-bold text-foreground">{s.value}</p>
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        {s.label}
+                      </p>
+                      <p className="mt-2 font-heading text-3xl font-bold text-foreground">
+                        {s.value}
+                      </p>
                       <p className="mt-1 text-xs text-muted-foreground">{s.note}</p>
                     </CardContent>
                   </Card>
@@ -3117,21 +3231,27 @@ function LoyaltyPage({ tenantSlug }: { tenantSlug: string }) {
                       <div className="grid gap-3">
                         {analytics.topAccounts.map((acc, i) => (
                           <div key={acc.id} className="flex items-center gap-3">
-                            <span className="w-4 text-right text-xs font-bold text-muted-foreground">{i + 1}</span>
+                            <span className="w-4 text-right text-xs font-bold text-muted-foreground">
+                              {i + 1}
+                            </span>
                             <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary flex-shrink-0">
                               {(acc.customer.name ?? acc.customer.phone).charAt(0).toUpperCase()}
                             </div>
                             <div className="min-w-0 flex-1">
                               <p className="truncate text-sm font-medium text-foreground">
-                                {acc.customer.name ?? "Unknown"}{" "}
+                                {acc.customer.name ?? 'Unknown'}{' '}
                                 <span className="text-xs font-normal text-muted-foreground">
                                   •••{acc.customer.phone.slice(-4)}
                                 </span>
                               </p>
-                              <p className="text-xs text-muted-foreground">{acc.lifetimePts.toLocaleString()} lifetime pts</p>
+                              <p className="text-xs text-muted-foreground">
+                                {acc.lifetimePts.toLocaleString()} lifetime pts
+                              </p>
                             </div>
                             <div className="text-right flex-shrink-0">
-                              <p className="text-sm font-bold text-primary">{acc.points.toLocaleString()}</p>
+                              <p className="text-sm font-bold text-primary">
+                                {acc.points.toLocaleString()}
+                              </p>
                               <p className="text-[10px] text-muted-foreground">balance</p>
                             </div>
                           </div>
@@ -3150,29 +3270,41 @@ function LoyaltyPage({ tenantSlug }: { tenantSlug: string }) {
                     <div className="grid gap-3">
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Total members</span>
-                        <span className="font-medium text-foreground">{analytics.enrolledCount}</span>
+                        <span className="font-medium text-foreground">
+                          {analytics.enrolledCount}
+                        </span>
                       </div>
                       <Separator />
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Points issued (30d)</span>
-                        <span className="font-medium text-foreground">{analytics.issued.toLocaleString()}</span>
+                        <span className="font-medium text-foreground">
+                          {analytics.issued.toLocaleString()}
+                        </span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Points redeemed (30d)</span>
-                        <span className="font-medium text-foreground">{analytics.redeemed.toLocaleString()}</span>
+                        <span className="font-medium text-foreground">
+                          {analytics.redeemed.toLocaleString()}
+                        </span>
                       </div>
                       <Separator />
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Earn rate</span>
-                        <span className="font-medium text-foreground">{config.earnRate} pts / $1</span>
+                        <span className="font-medium text-foreground">
+                          {config.earnRate} pts / $1
+                        </span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Redemption rate</span>
-                        <span className="font-medium text-foreground">{config.redeemRate} pts = $1</span>
+                        <span className="font-medium text-foreground">
+                          {config.redeemRate} pts = $1
+                        </span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Welcome bonus</span>
-                        <span className="font-medium text-foreground">{config.welcomeBonus} pts</span>
+                        <span className="font-medium text-foreground">
+                          {config.welcomeBonus} pts
+                        </span>
                       </div>
                     </div>
                   </CardContent>
@@ -3184,7 +3316,10 @@ function LoyaltyPage({ tenantSlug }: { tenantSlug: string }) {
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm">Redemption log</CardTitle>
-                    <Badge variant="outline" className="border-[#635bff]/30 bg-[#635bff]/10 text-[#635bff] text-[10px]">
+                    <Badge
+                      variant="outline"
+                      className="border-[#635bff]/30 bg-[#635bff]/10 text-[#635bff] text-[10px]"
+                    >
                       Stripe discounts applied at checkout
                     </Badge>
                   </div>
@@ -3196,8 +3331,13 @@ function LoyaltyPage({ tenantSlug }: { tenantSlug: string }) {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b border-border">
-                          {["Customer", "Description", "Points used", "Date"].map((h) => (
-                            <th key={h} className="pb-2 text-left text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{h}</th>
+                          {['Customer', 'Description', 'Points used', 'Date'].map((h) => (
+                            <th
+                              key={h}
+                              className="pb-2 text-left text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
+                            >
+                              {h}
+                            </th>
                           ))}
                         </tr>
                       </thead>
@@ -3205,13 +3345,17 @@ function LoyaltyPage({ tenantSlug }: { tenantSlug: string }) {
                         {analytics.recentRedemptions.map((r) => (
                           <tr key={r.id} className="border-b border-border last:border-none">
                             <td className="py-2.5 pr-4 text-foreground font-medium">
-                              {r.account.customer.name ?? "—"}
+                              {r.account.customer.name ?? '—'}
                               <span className="ml-1 text-xs font-normal text-muted-foreground">
                                 •••{r.account.customer.phone.slice(-4)}
                               </span>
                             </td>
-                            <td className="py-2.5 pr-4 text-muted-foreground">{r.description ?? "Redemption"}</td>
-                            <td className="py-2.5 pr-4 text-muted-foreground">{Math.abs(r.delta).toLocaleString()}</td>
+                            <td className="py-2.5 pr-4 text-muted-foreground">
+                              {r.description ?? 'Redemption'}
+                            </td>
+                            <td className="py-2.5 pr-4 text-muted-foreground">
+                              {Math.abs(r.delta).toLocaleString()}
+                            </td>
                             <td className="py-2.5 text-muted-foreground">
                               {new Date(r.createdAt).toLocaleDateString()}
                             </td>
@@ -3269,7 +3413,10 @@ function InsightsDashboard({
 
   if (error && !data) {
     return (
-      <SectionCard title="Insights" subtitle="Track revenue, customer behavior, and product performance.">
+      <SectionCard
+        title="Insights"
+        subtitle="Track revenue, customer behavior, and product performance."
+      >
         <div className="grid gap-4">
           <div className="rounded-[var(--radius)] border border-destructive/20 bg-destructive/10 px-5 py-5 text-sm text-destructive">
             {error}
@@ -3294,11 +3441,11 @@ function InsightsDashboard({
       : 0
   const ordersChange = formatSignedPercentChange(
     data.summary.ordersThisMonth,
-    data.summary.ordersLastMonth,
+    data.summary.ordersLastMonth
   )
   const revenueChange = formatSignedPercentChange(
     data.summary.revenueThisMonth,
-    data.summary.revenueLastMonth,
+    data.summary.revenueLastMonth
   )
   const hasOrders =
     data.summary.ordersThisMonth > 0 ||
@@ -3308,11 +3455,17 @@ function InsightsDashboard({
 
   if (!hasOrders) {
     return (
-      <SectionCard title="Insights" subtitle="Track revenue, customer behavior, and product performance.">
+      <SectionCard
+        title="Insights"
+        subtitle="Track revenue, customer behavior, and product performance."
+      >
         <div className="grid gap-4 rounded-[var(--radius)] border border-border/70 bg-background px-6 py-10 text-center">
-          <div className="text-lg font-semibold text-foreground">Your insights will appear here once you start receiving orders</div>
+          <div className="text-lg font-semibold text-foreground">
+            Your insights will appear here once you start receiving orders
+          </div>
           <div className="text-sm text-muted-foreground">
-            As soon as customers place paid orders, EasyMenu will show trends, top sellers, and repeat customer data.
+            As soon as customers place paid orders, EasyMenu will show trends, top sellers, and
+            repeat customer data.
           </div>
           <div>
             <Button type="button" variant="outline" onClick={onRefresh}>
@@ -3326,7 +3479,10 @@ function InsightsDashboard({
 
   return (
     <div className="grid gap-6">
-      <SectionCard title="Insights" subtitle="Track revenue, customer behavior, and product performance.">
+      <SectionCard
+        title="Insights"
+        subtitle="Track revenue, customer behavior, and product performance."
+      >
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           <InsightsMetricCard
             label="Orders this month"
@@ -3396,7 +3552,7 @@ function InsightsDashboard({
               key: `${entry.categoryName}-${entry.itemName}`,
               title: entry.itemName,
               subtitle: `${entry.categoryName} • ${entry.daysOnMenu} days on menu`,
-              value: "Never ordered",
+              value: 'Never ordered',
             }))}
           />
         </SectionCard>
@@ -3406,7 +3562,7 @@ function InsightsDashboard({
         <SectionCard title="Peak hours" subtitle="When customers place the most orders.">
           <HorizontalBarChart
             data={data.peakHours.map((entry) => ({
-              label: `${entry.hour.toString().padStart(2, "0")}:00`,
+              label: `${entry.hour.toString().padStart(2, '0')}:00`,
               value: entry.orders,
             }))}
           />
@@ -3451,7 +3607,7 @@ function InsightsMetricCard({
   label: string
   value: string
   hint: string
-  change?: { label: string; tone: "positive" | "negative" | "neutral" }
+  change?: { label: string; tone: 'positive' | 'negative' | 'neutral' }
 }) {
   return (
     <div className="grid gap-2 rounded-[var(--radius)] border border-border/70 bg-background px-4 py-4">
@@ -3462,10 +3618,10 @@ function InsightsMetricCard({
         {change ? (
           <span
             className={cn(
-              "font-medium",
-              change.tone === "positive" && "text-emerald-600",
-              change.tone === "negative" && "text-destructive",
-              change.tone === "neutral" && "text-muted-foreground",
+              'font-medium',
+              change.tone === 'positive' && 'text-emerald-600',
+              change.tone === 'negative' && 'text-destructive',
+              change.tone === 'neutral' && 'text-muted-foreground'
             )}
           >
             {change.label}
@@ -3479,10 +3635,16 @@ function InsightsMetricCard({
 function InsightsLoadingSkeleton() {
   return (
     <div className="grid gap-6">
-      <SectionCard title="Insights" subtitle="Track revenue, customer behavior, and product performance.">
+      <SectionCard
+        title="Insights"
+        subtitle="Track revenue, customer behavior, and product performance."
+      >
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {Array.from({ length: 6 }).map((_, index) => (
-            <div key={index} className="grid gap-3 rounded-[var(--radius)] border border-border/70 bg-background px-4 py-4">
+            <div
+              key={index}
+              className="grid gap-3 rounded-[var(--radius)] border border-border/70 bg-background px-4 py-4"
+            >
               <div className="h-3 w-28 rounded-full bg-border/60" />
               <div className="h-8 w-24 rounded-full bg-border/80" />
               <div className="h-3 w-36 rounded-full bg-border/60" />
@@ -3497,7 +3659,10 @@ function InsightsLoadingSkeleton() {
         <SectionCard title="Top selling items" subtitle="Most ordered items by unit count.">
           <div className="h-64 rounded-[var(--radius)] border border-border/70 bg-background" />
         </SectionCard>
-        <SectionCard title="Items never ordered" subtitle="Useful for menu cleanup, promo focus, or photography decisions.">
+        <SectionCard
+          title="Items never ordered"
+          subtitle="Useful for menu cleanup, promo focus, or photography decisions."
+        >
           <div className="h-64 rounded-[var(--radius)] border border-border/70 bg-background" />
         </SectionCard>
       </div>
@@ -3532,9 +3697,11 @@ function VerticalBarChart({
           const barHeight = (value / maxValue) * chartHeight
           const x = index * barWidth + 6
           const y = paddingTop + (chartHeight - barHeight)
-          const label = String(entry[labelKey] ?? "")
+          const label = String(entry[labelKey] ?? '')
           const showLabel =
-            index === 0 || index === data.length - 1 || index % Math.max(1, Math.floor(data.length / 6)) === 0
+            index === 0 ||
+            index === data.length - 1 ||
+            index % Math.max(1, Math.floor(data.length / 6)) === 0
 
           return (
             <g key={label}>
@@ -3569,11 +3736,7 @@ function VerticalBarChart({
   )
 }
 
-function HorizontalBarChart({
-  data,
-}: {
-  data: Array<{ label: string; value: number }>
-}) {
+function HorizontalBarChart({ data }: { data: Array<{ label: string; value: number }> }) {
   const maxValue = Math.max(1, ...data.map((entry) => entry.value))
 
   return (
@@ -3603,11 +3766,11 @@ function HorizontalBarChart({
 function RankedInsightList({
   emptyMessage,
   rows,
-  tone = "default",
+  tone = 'default',
 }: {
   emptyMessage: string
   rows: Array<{ key: string; title: string; subtitle: string; value: string }>
-  tone?: "default" | "warning"
+  tone?: 'default' | 'warning'
 }) {
   if (rows.length === 0) {
     return <div className="text-sm text-muted-foreground">{emptyMessage}</div>
@@ -3619,10 +3782,10 @@ function RankedInsightList({
         <div
           key={row.key}
           className={cn(
-            "flex items-start justify-between gap-4 rounded-[var(--radius)] border px-4 py-4",
-            tone === "warning"
-              ? "border-amber-200 bg-amber-50/60"
-              : "border-border/70 bg-background",
+            'flex items-start justify-between gap-4 rounded-[var(--radius)] border px-4 py-4',
+            tone === 'warning'
+              ? 'border-amber-200 bg-amber-50/60'
+              : 'border-border/70 bg-background'
           )}
         >
           <div className="grid gap-1">
@@ -3673,7 +3836,10 @@ function OrderCompositionBreakdown({
           </span>
         </div>
         <div className="h-2 rounded-full bg-border/60">
-          <div className="h-2 rounded-full bg-foreground/80" style={{ width: `${multiPercent}%` }} />
+          <div
+            className="h-2 rounded-full bg-foreground/80"
+            style={{ width: `${multiPercent}%` }}
+          />
         </div>
       </div>
     </div>
@@ -3685,10 +3851,7 @@ function BrandingTab({
   theme,
   onThemeChange,
 }: {
-  onUploadImage: (
-    file: File,
-    onProgress?: (progressPercent: number) => void,
-  ) => Promise<string>
+  onUploadImage: (file: File, onProgress?: (progressPercent: number) => void) => Promise<string>
   theme: ThemeDraft
   onThemeChange: ThemeChangeHandler
 }) {
@@ -3702,10 +3865,7 @@ function BrandingTab({
     logoUrl: { error: null, isUploading: false, progressPercent: 0 },
   })
 
-  async function handleFileChange(
-    key: BrandingImageField,
-    file: File | null,
-  ) {
+  async function handleFileChange(key: BrandingImageField, file: File | null) {
     if (!file) {
       return
     }
@@ -3734,7 +3894,7 @@ function BrandingTab({
       setUploadState((current) => ({
         ...current,
         [key]: {
-          error: error instanceof Error ? error.message : "Failed to upload image",
+          error: error instanceof Error ? error.message : 'Failed to upload image',
           isUploading: false,
           progressPercent: 0,
         },
@@ -3756,8 +3916,8 @@ function BrandingTab({
               imageUrl={theme.logoUrl}
               imagePresentation="contain"
               disabled={uploadState.logoUrl.isUploading}
-              onRemove={() => onThemeChange("logoUrl", "")}
-              onFile={(file) => void handleFileChange("logoUrl", file)}
+              onRemove={() => onThemeChange('logoUrl', '')}
+              onFile={(file) => void handleFileChange('logoUrl', file)}
             />
             {uploadState.logoUrl.isUploading ? (
               <div className="text-sm text-muted-foreground">
@@ -3788,8 +3948,8 @@ function BrandingTab({
               imagePresentation="cover"
               disabled={uploadState.heroImageUrl.isUploading}
               overlayImage
-              onRemove={() => onThemeChange("heroImageUrl", "")}
-              onFile={(file) => void handleFileChange("heroImageUrl", file)}
+              onRemove={() => onThemeChange('heroImageUrl', '')}
+              onFile={(file) => void handleFileChange('heroImageUrl', file)}
             />
             {uploadState.heroImageUrl.isUploading ? (
               <div className="text-sm text-muted-foreground">
@@ -3811,7 +3971,7 @@ function BrandingTab({
           <ColorField
             label="Brand color"
             value={theme.primaryColor}
-            onChange={(value) => onThemeChange("primaryColor", value)}
+            onChange={(value) => onThemeChange('primaryColor', value)}
           />
         </FieldShell>
 
@@ -3819,7 +3979,7 @@ function BrandingTab({
           <ColorField
             label="Accent color"
             value={theme.accentColor}
-            onChange={(value) => onThemeChange("accentColor", value)}
+            onChange={(value) => onThemeChange('accentColor', value)}
           />
         </FieldShell>
 
@@ -3827,10 +3987,11 @@ function BrandingTab({
           <ColorField
             label="Background color"
             value={theme.backgroundColor}
-            onChange={(value) => onThemeChange("backgroundColor", value)}
+            onChange={(value) => onThemeChange('backgroundColor', value)}
           />
           <p className="mt-2 text-sm text-muted-foreground">
-            Any valid hex color is allowed. Dark backgrounds may reduce text contrast in some sections.
+            Any valid hex color is allowed. Dark backgrounds may reduce text contrast in some
+            sections.
           </p>
         </FieldShell>
 
@@ -3838,7 +3999,7 @@ function BrandingTab({
           <SelectField
             label="Heading font"
             value={theme.headingFont}
-            onChange={(value) => onThemeChange("headingFont", value)}
+            onChange={(value) => onThemeChange('headingFont', value)}
             options={FONT_OPTIONS as unknown as Array<{ label: string; value: string }>}
           />
         </FieldShell>
@@ -3847,7 +4008,7 @@ function BrandingTab({
           <SelectField
             label="Body/subheadline font"
             value={theme.bodyFont}
-            onChange={(value) => onThemeChange("bodyFont", value)}
+            onChange={(value) => onThemeChange('bodyFont', value)}
             options={FONT_OPTIONS as unknown as Array<{ label: string; value: string }>}
           />
         </FieldShell>
@@ -3859,7 +4020,7 @@ function BrandingTab({
           <textarea
             id="hero-headline"
             value={theme.heroHeadline}
-            onChange={(event) => onThemeChange("heroHeadline", event.target.value)}
+            onChange={(event) => onThemeChange('heroHeadline', event.target.value)}
             rows={2}
             className={textareaClassName}
           />
@@ -3872,7 +4033,7 @@ function BrandingTab({
           <textarea
             id="hero-subheadline"
             value={theme.heroSubheadline}
-            onChange={(event) => onThemeChange("heroSubheadline", event.target.value)}
+            onChange={(event) => onThemeChange('heroSubheadline', event.target.value)}
             rows={3}
             className={textareaClassName}
           />
@@ -3885,7 +4046,7 @@ function BrandingTab({
           <Input
             id="hero-badge"
             value={theme.heroBadgeText}
-            onChange={(event) => onThemeChange("heroBadgeText", event.target.value)}
+            onChange={(event) => onThemeChange('heroBadgeText', event.target.value)}
           />
         </FieldShell>
 
@@ -3896,7 +4057,7 @@ function BrandingTab({
           <Input
             id="promo-banner"
             value={theme.promoBannerText}
-            onChange={(event) => onThemeChange("promoBannerText", event.target.value)}
+            onChange={(event) => onThemeChange('promoBannerText', event.target.value)}
           />
         </FieldShell>
       </div>
@@ -3919,16 +4080,21 @@ function ThemeSaveBar({
   onSave: () => void
   saveMessage: string | null
 }) {
-  const isSaved = Boolean(saveMessage?.toLowerCase().includes("saved"))
+  const isSaved = Boolean(saveMessage?.toLowerCase().includes('saved'))
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-4 rounded-[var(--radius)] border border-border/70 bg-background/70 p-4">
       <div className="grid gap-1">
-        <div className={cn("text-sm font-medium", isDirty ? "text-foreground" : "text-muted-foreground")}>
-          {isDirty ? "Unsaved changes" : "Draft matches saved settings"}
+        <div
+          className={cn(
+            'text-sm font-medium',
+            isDirty ? 'text-foreground' : 'text-muted-foreground'
+          )}
+        >
+          {isDirty ? 'Unsaved changes' : 'Draft matches saved settings'}
         </div>
         {saveMessage ? (
-          <div className={cn("text-sm", isSaved ? "text-foreground" : "text-destructive")}>
+          <div className={cn('text-sm', isSaved ? 'text-foreground' : 'text-destructive')}>
             {saveMessage}
           </div>
         ) : null}
@@ -3940,10 +4106,10 @@ function ThemeSaveBar({
         disabled={isSaving || isLoading || isUploadPending || !isDirty}
       >
         {isSaving
-          ? "Saving…"
+          ? 'Saving…'
           : isUploadPending
-            ? "Upload in progress…"
-            : "Save storefront settings"}
+            ? 'Upload in progress…'
+            : 'Save storefront settings'}
       </Button>
     </div>
   )
@@ -3967,7 +4133,7 @@ function MenuTab({
 }: {
   onAddItem: (
     categoryId: string,
-    input: { name: string; description: string; priceCents: number },
+    input: { name: string; description: string; priceCents: number }
   ) => void | Promise<void>
   categories: MenuCategory[]
   menuActionMessage: string | null
@@ -3977,13 +4143,13 @@ function MenuTab({
   onCategoryScheduleChange: (
     categoryId: string,
     schedule: {
-      visibility: MenuCategory["visibility"]
+      visibility: MenuCategory['visibility']
       availableFrom: string | null
       availableUntil: string | null
       daysOfWeek: string[] | null
-    },
+    }
   ) => void | Promise<void>
-  onCategoryVisibilityChange: (categoryId: string, visibility: MenuCategory["visibility"]) => void
+  onCategoryVisibilityChange: (categoryId: string, visibility: MenuCategory['visibility']) => void
   onDeleteItem: (itemId: string) => void | Promise<void>
   onItemFeaturedChange: (itemId: string, isFeatured: boolean) => void
   onItemImageChange: (itemId: string, photoUrl: string | null) => void | Promise<void>
@@ -3991,15 +4157,17 @@ function MenuTab({
   onItemReorder: (categoryId: string, nextItemIds: string[]) => void
   onItemVisibilityChange: (
     itemId: string,
-    visibility: CategoryItemEntry["item"]["visibility"],
+    visibility: CategoryItemEntry['item']['visibility']
   ) => void
 }) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }))
   const categoryIds = categories.map((category) => category.id)
-  const [translateState, setTranslateState] = useState<"idle" | "loading" | "done" | "error">("idle")
+  const [translateState, setTranslateState] = useState<'idle' | 'loading' | 'done' | 'error'>(
+    'idle'
+  )
   const [translateCount, setTranslateCount] = useState(0)
   const [activeDragId, setActiveDragId] = useState<string | null>(null)
-  const [activeDragType, setActiveDragType] = useState<"category" | "item" | null>(null)
+  const [activeDragType, setActiveDragType] = useState<'category' | 'item' | null>(null)
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null)
   const [overDragId, setOverDragId] = useState<string | null>(null)
 
@@ -4017,7 +4185,7 @@ function MenuTab({
     const activeType = active.data.current?.type
     const overType = over.data.current?.type
 
-    if (activeType === "category" && overType === "category") {
+    if (activeType === 'category' && overType === 'category') {
       const oldIndex = categoryIds.indexOf(String(active.id))
       const newIndex = categoryIds.indexOf(String(over.id))
       if (oldIndex >= 0 && newIndex >= 0 && oldIndex !== newIndex) {
@@ -4026,9 +4194,9 @@ function MenuTab({
       return
     }
 
-    if (activeType === "item" && overType === "item") {
-      const activeCategory = String(active.data.current?.categoryId ?? "")
-      const overCategory = String(over.data.current?.categoryId ?? "")
+    if (activeType === 'item' && overType === 'item') {
+      const activeCategory = String(active.data.current?.categoryId ?? '')
+      const overCategory = String(over.data.current?.categoryId ?? '')
       if (!activeCategory || activeCategory !== overCategory) {
         return
       }
@@ -4052,40 +4220,40 @@ function MenuTab({
       <div className="flex items-center justify-between gap-4">
         <p
           className={cn(
-            "text-sm",
-            translateState === "error"
-              ? "text-destructive"
-              : menuActionMessage?.includes("Failed")
-                ? "text-destructive"
-                : "text-muted-foreground",
+            'text-sm',
+            translateState === 'error'
+              ? 'text-destructive'
+              : menuActionMessage?.includes('Failed')
+                ? 'text-destructive'
+                : 'text-muted-foreground'
           )}
         >
-          {translateState === "done"
-            ? `${translateCount} item${translateCount === 1 ? "" : "s"} translated to Chinese`
-            : translateState === "error"
-              ? "Translation failed — check that ANTHROPIC_API_KEY is set"
-              : (menuActionMessage ?? "These changes shape what customers see in the storefront.")}
+          {translateState === 'done'
+            ? `${translateCount} item${translateCount === 1 ? '' : 's'} translated to Chinese`
+            : translateState === 'error'
+              ? 'Translation failed — check that ANTHROPIC_API_KEY is set'
+              : (menuActionMessage ?? 'These changes shape what customers see in the storefront.')}
         </p>
         <Button
           variant="outline"
           size="sm"
           className="shrink-0"
-          disabled={translateState === "loading"}
+          disabled={translateState === 'loading'}
           onClick={() => {
-            setTranslateState("loading")
+            setTranslateState('loading')
             void onBatchTranslate()
               .then((result) => {
                 setTranslateCount(result.translated)
-                setTranslateState("done")
-                setTimeout(() => setTranslateState("idle"), 5000)
+                setTranslateState('done')
+                setTimeout(() => setTranslateState('idle'), 5000)
               })
               .catch(() => {
-                setTranslateState("error")
-                setTimeout(() => setTranslateState("idle"), 5000)
+                setTranslateState('error')
+                setTimeout(() => setTranslateState('idle'), 5000)
               })
           }}
         >
-          {translateState === "loading" ? "Translating..." : "Auto-translate to Chinese"}
+          {translateState === 'loading' ? 'Translating...' : 'Auto-translate to Chinese'}
         </Button>
       </div>
 
@@ -4094,11 +4262,13 @@ function MenuTab({
         collisionDetection={closestCorners}
         onDragStart={(event) => {
           setActiveDragId(String(event.active.id))
-          setActiveDragType((event.active.data.current?.type as "category" | "item" | undefined) ?? null)
+          setActiveDragType(
+            (event.active.data.current?.type as 'category' | 'item' | undefined) ?? null
+          )
           setActiveCategoryId(
-            typeof event.active.data.current?.categoryId === "string"
+            typeof event.active.data.current?.categoryId === 'string'
               ? event.active.data.current.categoryId
-              : null,
+              : null
           )
         }}
         onDragOver={(event) => {
@@ -4160,62 +4330,57 @@ function SortableCategoryCard({
 }: {
   activeCategoryId: string | null
   activeDragId: string | null
-  activeDragType: "category" | "item" | null
+  activeDragType: 'category' | 'item' | null
   category: MenuCategory
   categoryIds: string[]
   onAddItem: (
     categoryId: string,
-    input: { name: string; description: string; priceCents: number },
+    input: { name: string; description: string; priceCents: number }
   ) => void | Promise<void>
   onCategoryDelete: (categoryId: string) => void | Promise<void>
   onCategoryScheduleChange: (
     categoryId: string,
     schedule: {
-      visibility: MenuCategory["visibility"]
+      visibility: MenuCategory['visibility']
       availableFrom: string | null
       availableUntil: string | null
       daysOfWeek: string[] | null
-    },
+    }
   ) => void | Promise<void>
-  onCategoryVisibilityChange: (categoryId: string, visibility: MenuCategory["visibility"]) => void
+  onCategoryVisibilityChange: (categoryId: string, visibility: MenuCategory['visibility']) => void
   onDeleteItem: (itemId: string) => void | Promise<void>
   onItemFeaturedChange: (itemId: string, isFeatured: boolean) => void
   onItemImageChange: (itemId: string, photoUrl: string | null) => void | Promise<void>
   onItemLocalizedNameChange: (itemId: string, nameLocalized: string) => void | Promise<void>
   onItemVisibilityChange: (
     itemId: string,
-    visibility: CategoryItemEntry["item"]["visibility"],
+    visibility: CategoryItemEntry['item']['visibility']
   ) => void
   overDragId: string | null
 }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: category.id,
-    data: { type: "category", categoryId: category.id },
+    data: { type: 'category', categoryId: category.id },
   })
 
   const itemIds = category.categoryItems.map((entry) => entry.item.id)
-  const isHidden = category.visibility === "HIDDEN"
-  const isScheduled = category.visibility === "SCHEDULED"
+  const isHidden = category.visibility === 'HIDDEN'
+  const isScheduled = category.visibility === 'SCHEDULED'
   const isScheduledAvailableNow = isCategoryAvailableNow(category)
   const [scheduleEditorOpen, setScheduleEditorOpen] = useState(false)
   const [availableFrom, setAvailableFrom] = useState(scheduleTimeInputValue(category.availableFrom))
-  const [availableUntil, setAvailableUntil] = useState(scheduleTimeInputValue(category.availableUntil))
+  const [availableUntil, setAvailableUntil] = useState(
+    scheduleTimeInputValue(category.availableUntil)
+  )
   const [selectedDays, setSelectedDays] = useState<string[]>(category.daysOfWeek ?? [])
   const categoryIndex = categoryIds.indexOf(category.id)
   const activeCategoryIndex = activeDragId ? categoryIds.indexOf(activeDragId) : -1
   const showTopDropIndicator =
-    activeDragType === "category" &&
+    activeDragType === 'category' &&
     overDragId === category.id &&
     activeCategoryIndex > categoryIndex
   const showBottomDropIndicator =
-    activeDragType === "category" &&
+    activeDragType === 'category' &&
     overDragId === category.id &&
     activeCategoryIndex >= 0 &&
     activeCategoryIndex < categoryIndex
@@ -4228,13 +4393,13 @@ function SortableCategoryCard({
 
   function toggleScheduleDay(day: string) {
     setSelectedDays((current) =>
-      current.includes(day) ? current.filter((entry) => entry !== day) : [...current, day],
+      current.includes(day) ? current.filter((entry) => entry !== day) : [...current, day]
     )
   }
 
   async function handleSaveSchedule() {
     await onCategoryScheduleChange(category.id, {
-      visibility: "SCHEDULED",
+      visibility: 'SCHEDULED',
       availableFrom: scheduleTimeInputToIso(availableFrom),
       availableUntil: scheduleTimeInputToIso(availableUntil),
       daysOfWeek: selectedDays.length > 0 ? selectedDays : null,
@@ -4244,7 +4409,7 @@ function SortableCategoryCard({
 
   async function handleRemoveSchedule() {
     await onCategoryScheduleChange(category.id, {
-      visibility: "AVAILABLE",
+      visibility: 'AVAILABLE',
       availableFrom: null,
       availableUntil: null,
       daysOfWeek: null,
@@ -4259,16 +4424,16 @@ function SortableCategoryCard({
         transform: CSS.Transform.toString(transform),
         transition,
         opacity: isDragging ? 0.7 : 1,
-        position: "relative",
+        position: 'relative',
       }}
     >
       {showTopDropIndicator ? <DropIndicator position="top" /> : null}
       <motion.div layout>
         <Card
           className={cn(
-            "gap-4 border border-border/80 py-0 shadow-sm",
-            isHidden ? "bg-background/70" : "bg-card",
-            activeDragType === "category" && overDragId === category.id ? "ring-2 ring-ring/20" : "",
+            'gap-4 border border-border/80 py-0 shadow-sm',
+            isHidden ? 'bg-background/70' : 'bg-card',
+            activeDragType === 'category' && overDragId === category.id ? 'ring-2 ring-ring/20' : ''
           )}
         >
           <CardContent className="grid gap-4 px-4 py-4">
@@ -4280,14 +4445,24 @@ function SortableCategoryCard({
                   label={`Reorder category ${category.name}`}
                 />
                 <div className="min-w-0 space-y-1">
-                  <div className={cn("flex items-center gap-2 truncate font-medium text-foreground", isHidden ? "opacity-60" : "")}>
-                    {isScheduled ? <Clock3 className="h-4 w-4 shrink-0 text-muted-foreground" /> : null}
+                  <div
+                    className={cn(
+                      'flex items-center gap-2 truncate font-medium text-foreground',
+                      isHidden ? 'opacity-60' : ''
+                    )}
+                  >
+                    {isScheduled ? (
+                      <Clock3 className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    ) : null}
                     <span className="truncate">{category.name}</span>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
                     <span>{category.categoryItems.length} items</span>
                     {isScheduled ? (
-                      <Badge variant="outline" className="border-primary/20 bg-primary/5 text-foreground">
+                      <Badge
+                        variant="outline"
+                        className="border-primary/20 bg-primary/5 text-foreground"
+                      >
                         {formatCategorySchedule(category)}
                       </Badge>
                     ) : null}
@@ -4311,10 +4486,12 @@ function SortableCategoryCard({
                     onCategoryVisibilityChange(
                       category.id,
                       isHidden
-                        ? category.availableFrom || category.availableUntil || (category.daysOfWeek?.length ?? 0) > 0
-                          ? "SCHEDULED"
-                          : "AVAILABLE"
-                        : "HIDDEN",
+                        ? category.availableFrom ||
+                          category.availableUntil ||
+                          (category.daysOfWeek?.length ?? 0) > 0
+                          ? 'SCHEDULED'
+                          : 'AVAILABLE'
+                        : 'HIDDEN'
                     )
                   }
                 >
@@ -4327,12 +4504,14 @@ function SortableCategoryCard({
                   size="sm"
                   onClick={() => setScheduleEditorOpen((current) => !current)}
                   className={cn(
-                    "rounded-[calc(var(--radius)-8px)]",
-                    isScheduled ? "border-primary/20 bg-primary/5 text-foreground" : "text-muted-foreground",
+                    'rounded-[calc(var(--radius)-8px)]',
+                    isScheduled
+                      ? 'border-primary/20 bg-primary/5 text-foreground'
+                      : 'text-muted-foreground'
                   )}
                 >
                   <Clock3 className="h-4 w-4" />
-                  {isScheduled ? "Edit schedule" : "Schedule"}
+                  {isScheduled ? 'Edit schedule' : 'Schedule'}
                 </Button>
 
                 <Button
@@ -4342,7 +4521,7 @@ function SortableCategoryCard({
                   onClick={() => {
                     if (
                       window.confirm(
-                        `Delete the ${category.name} section? Items in that section will no longer appear there.`,
+                        `Delete the ${category.name} section? Items in that section will no longer appear there.`
                       )
                     ) {
                       void Promise.resolve(onCategoryDelete(category.id))
@@ -4369,7 +4548,9 @@ function SortableCategoryCard({
                     />
                   </FieldShell>
                   <FieldShell>
-                    <Label htmlFor={`category-${category.id}-available-until`}>Available until</Label>
+                    <Label htmlFor={`category-${category.id}-available-until`}>
+                      Available until
+                    </Label>
                     <Input
                       id={`category-${category.id}-available-until`}
                       type="time"
@@ -4391,10 +4572,10 @@ function SortableCategoryCard({
                           type="button"
                           onClick={() => toggleScheduleDay(day)}
                           className={cn(
-                            "rounded-full border px-3 py-1.5 text-sm font-medium transition-colors",
+                            'rounded-full border px-3 py-1.5 text-sm font-medium transition-colors',
                             active
-                              ? "border-[#1a1a1a] bg-[#1a1a1a] text-white shadow-sm"
-                              : "border-border/70 bg-transparent text-muted-foreground hover:border-border hover:text-foreground",
+                              ? 'border-[#1a1a1a] bg-[#1a1a1a] text-white shadow-sm'
+                              : 'border-border/70 bg-transparent text-muted-foreground hover:border-border hover:text-foreground'
                           )}
                         >
                           {scheduleDayLabels[day]}
@@ -4409,11 +4590,19 @@ function SortableCategoryCard({
                     Save schedule
                   </Button>
                   {isScheduled ? (
-                    <Button type="button" variant="outline" onClick={() => void handleRemoveSchedule()}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => void handleRemoveSchedule()}
+                    >
                       Remove schedule
                     </Button>
                   ) : null}
-                  <Button type="button" variant="ghost" onClick={() => setScheduleEditorOpen(false)}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setScheduleEditorOpen(false)}
+                  >
                     Cancel
                   </Button>
                 </div>
@@ -4469,7 +4658,7 @@ function SortableItemRow({
 }: {
   activeCategoryId: string | null
   activeDragId: string | null
-  activeDragType: "category" | "item" | null
+  activeDragType: 'category' | 'item' | null
   categoryId: string
   entry: CategoryItemEntry
   itemIds: string[]
@@ -4477,47 +4666,35 @@ function SortableItemRow({
   onFeaturedChange: (itemId: string, isFeatured: boolean) => void
   onImageChange: (itemId: string, photoUrl: string | null) => void | Promise<void>
   onLocalizedNameChange: (itemId: string, nameLocalized: string) => void | Promise<void>
-  onVisibilityChange: (
-    itemId: string,
-    visibility: CategoryItemEntry["item"]["visibility"],
-  ) => void
+  onVisibilityChange: (itemId: string, visibility: CategoryItemEntry['item']['visibility']) => void
   overDragId: string | null
 }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: entry.item.id,
-    data: { type: "item", categoryId, itemId: entry.item.id },
+    data: { type: 'item', categoryId, itemId: entry.item.id },
   })
 
-  const isHidden = entry.item.visibility === "HIDDEN"
-  const isSoldOut = entry.item.visibility === "SOLD_OUT"
+  const isHidden = entry.item.visibility === 'HIDDEN'
+  const isSoldOut = entry.item.visibility === 'SOLD_OUT'
   const itemIndex = itemIds.indexOf(entry.item.id)
   const activeItemIndex = activeDragId ? itemIds.indexOf(activeDragId) : -1
-  const isSameCategoryDrag = activeDragType === "item" && activeCategoryId === categoryId
+  const isSameCategoryDrag = activeDragType === 'item' && activeCategoryId === categoryId
   const showTopDropIndicator =
-    isSameCategoryDrag &&
-    overDragId === entry.item.id &&
-    activeItemIndex > itemIndex
+    isSameCategoryDrag && overDragId === entry.item.id && activeItemIndex > itemIndex
   const showBottomDropIndicator =
     isSameCategoryDrag &&
     overDragId === entry.item.id &&
     activeItemIndex >= 0 &&
     activeItemIndex < itemIndex
-  const [localizedNameDraft, setLocalizedNameDraft] = useState(entry.item.nameLocalized ?? "")
+  const [localizedNameDraft, setLocalizedNameDraft] = useState(entry.item.nameLocalized ?? '')
   const [isSavingLocalizedName, setIsSavingLocalizedName] = useState(false)
 
   useEffect(() => {
-    setLocalizedNameDraft(entry.item.nameLocalized ?? "")
+    setLocalizedNameDraft(entry.item.nameLocalized ?? '')
   }, [entry.item.nameLocalized])
 
   const saveLocalizedName = async () => {
-    if ((entry.item.nameLocalized ?? "") === localizedNameDraft) {
+    if ((entry.item.nameLocalized ?? '') === localizedNameDraft) {
       return
     }
 
@@ -4536,16 +4713,16 @@ function SortableItemRow({
         transform: CSS.Transform.toString(transform),
         transition,
         opacity: isDragging ? 0.6 : isHidden ? 0.6 : 1,
-        position: "relative",
+        position: 'relative',
       }}
     >
       {showTopDropIndicator ? <DropIndicator position="top" inset /> : null}
       <motion.div layout>
         <div
           className={cn(
-            "grid gap-3 rounded-[var(--radius)] border border-border/70 bg-background px-3 py-3",
-            isSoldOut ? "bg-accent/10" : "",
-            isSameCategoryDrag && overDragId === entry.item.id ? "ring-2 ring-ring/20" : "",
+            'grid gap-3 rounded-[var(--radius)] border border-border/70 bg-background px-3 py-3',
+            isSoldOut ? 'bg-accent/10' : '',
+            isSameCategoryDrag && overDragId === entry.item.id ? 'ring-2 ring-ring/20' : ''
           )}
         >
           <div className="grid gap-3 sm:grid-cols-[auto_48px_minmax(0,1fr)] sm:items-start">
@@ -4594,10 +4771,12 @@ function SortableItemRow({
                 type="button"
                 variant="outline"
                 size="sm"
-                disabled={isSavingLocalizedName || localizedNameDraft === (entry.item.nameLocalized ?? "")}
+                disabled={
+                  isSavingLocalizedName || localizedNameDraft === (entry.item.nameLocalized ?? '')
+                }
                 onClick={() => void saveLocalizedName()}
               >
-                {isSavingLocalizedName ? "Saving…" : "Save"}
+                {isSavingLocalizedName ? 'Saving…' : 'Save'}
               </Button>
             </div>
           </div>
@@ -4606,22 +4785,21 @@ function SortableItemRow({
             <IconToggleButton
               active={!isHidden}
               label={isHidden ? `Show ${entry.item.name}` : `Hide ${entry.item.name}`}
-              onClick={() =>
-                onVisibilityChange(
-                  entry.item.id,
-                  isHidden ? "AVAILABLE" : "HIDDEN",
-                )
-              }
+              onClick={() => onVisibilityChange(entry.item.id, isHidden ? 'AVAILABLE' : 'HIDDEN')}
             >
               {isHidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </IconToggleButton>
 
             <IconToggleButton
               active={entry.item.isFeatured}
-              label={entry.item.isFeatured ? `Unfeature ${entry.item.name}` : `Feature ${entry.item.name}`}
+              label={
+                entry.item.isFeatured
+                  ? `Unfeature ${entry.item.name}`
+                  : `Feature ${entry.item.name}`
+              }
               onClick={() => onFeaturedChange(entry.item.id, !entry.item.isFeatured)}
             >
-              <Star className={cn("h-4 w-4", entry.item.isFeatured ? "fill-current" : "")} />
+              <Star className={cn('h-4 w-4', entry.item.isFeatured ? 'fill-current' : '')} />
             </IconToggleButton>
 
             <Button
@@ -4629,14 +4807,11 @@ function SortableItemRow({
               variant="outline"
               size="sm"
               onClick={() =>
-                onVisibilityChange(
-                  entry.item.id,
-                  isSoldOut ? "AVAILABLE" : "SOLD_OUT",
-                )
+                onVisibilityChange(entry.item.id, isSoldOut ? 'AVAILABLE' : 'SOLD_OUT')
               }
               className={cn(
-                "rounded-[calc(var(--radius)-8px)]",
-                isSoldOut ? "border-accent bg-accent/15 text-foreground" : "text-muted-foreground",
+                'rounded-[calc(var(--radius)-8px)]',
+                isSoldOut ? 'border-accent bg-accent/15 text-foreground' : 'text-muted-foreground'
               )}
             >
               Sold out
@@ -4671,13 +4846,13 @@ function AddItemInlineForm({
   categoryId: string
   onSubmit: (
     categoryId: string,
-    input: { name: string; description: string; priceCents: number },
+    input: { name: string; description: string; priceCents: number }
   ) => void | Promise<void>
 }) {
   const [open, setOpen] = useState(false)
-  const [name, setName] = useState("")
-  const [price, setPrice] = useState("")
-  const [description, setDescription] = useState("")
+  const [name, setName] = useState('')
+  const [price, setPrice] = useState('')
+  const [description, setDescription] = useState('')
 
   async function handleSubmit() {
     const trimmedName = name.trim()
@@ -4693,9 +4868,9 @@ function AddItemInlineForm({
       priceCents: Math.round(parsedPrice * 100),
     })
 
-    setName("")
-    setPrice("")
-    setDescription("")
+    setName('')
+    setPrice('')
+    setDescription('')
     setOpen(false)
   }
 
@@ -4746,7 +4921,7 @@ function DropIndicator({
   position,
 }: {
   inset?: boolean
-  position: "top" | "bottom"
+  position: 'top' | 'bottom'
 }) {
   return (
     <div
@@ -4766,9 +4941,9 @@ function DragHandleButton({
   label,
   listeners,
 }: {
-  attributes: ReturnType<typeof useSortable>["attributes"]
+  attributes: ReturnType<typeof useSortable>['attributes']
   label: string
-  listeners: ReturnType<typeof useSortable>["listeners"]
+  listeners: ReturnType<typeof useSortable>['listeners']
 }) {
   return (
     <Button
@@ -4804,8 +4979,8 @@ function IconToggleButton({
       variant="outline"
       size="icon-sm"
       className={cn(
-        "rounded-[calc(var(--radius)-8px)]",
-        active ? "border-primary/30 bg-primary/10 text-foreground" : "text-muted-foreground",
+        'rounded-[calc(var(--radius)-8px)]',
+        active ? 'border-primary/30 bg-primary/10 text-foreground' : 'text-muted-foreground'
       )}
     >
       {children}
@@ -4826,18 +5001,8 @@ function GripIcon() {
   )
 }
 
-function FieldShell({
-  children,
-  className,
-}: {
-  children: React.ReactNode
-  className?: string
-}) {
-  return (
-    <div className={cn("grid gap-2", className)}>
-      {children}
-    </div>
-  )
+function FieldShell({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <div className={cn('grid gap-2', className)}>{children}</div>
 }
 
 function ImageDropZone({
@@ -4845,7 +5010,7 @@ function ImageDropZone({
   copy,
   disabled = false,
   id,
-  imagePresentation = "cover",
+  imagePresentation = 'cover',
   imageUrl,
   onRemove,
   overlayImage = false,
@@ -4855,7 +5020,7 @@ function ImageDropZone({
   copy: string
   disabled?: boolean
   id: string
-  imagePresentation?: "contain" | "cover"
+  imagePresentation?: 'contain' | 'cover'
   imageUrl?: string
   onRemove?: () => void
   overlayImage?: boolean
@@ -4878,17 +5043,17 @@ function ImageDropZone({
     <label
       htmlFor={id}
       className={cn(
-        "relative flex cursor-pointer items-center justify-center overflow-hidden rounded-[var(--radius)] border text-center text-sm text-muted-foreground transition-colors",
+        'relative flex cursor-pointer items-center justify-center overflow-hidden rounded-[var(--radius)] border text-center text-sm text-muted-foreground transition-colors',
         imageUrl
           ? compact
-            ? "h-12 w-12 border-border bg-background"
-            : "min-h-28 border-border bg-card"
-          : "border-dashed border-border bg-background/80 hover:bg-background",
-        compact ? "px-3 py-2" : "px-4 py-6",
-        !imageUrl && compact ? "min-h-12" : "",
-        !imageUrl && !compact ? "min-h-28" : "",
-        isDragging ? "border-primary bg-primary/10 text-foreground" : "",
-        disabled ? "cursor-not-allowed opacity-70" : "",
+            ? 'h-12 w-12 border-border bg-background'
+            : 'min-h-28 border-border bg-card'
+          : 'border-dashed border-border bg-background/80 hover:bg-background',
+        compact ? 'px-3 py-2' : 'px-4 py-6',
+        !imageUrl && compact ? 'min-h-12' : '',
+        !imageUrl && !compact ? 'min-h-28' : '',
+        isDragging ? 'border-primary bg-primary/10 text-foreground' : '',
+        disabled ? 'cursor-not-allowed opacity-70' : ''
       )}
       onDragOver={(event) => {
         if (disabled) {
@@ -4922,8 +5087,10 @@ function ImageDropZone({
         <>
           <div
             className={cn(
-              "absolute inset-0",
-              imagePresentation === "contain" ? "bg-contain bg-center bg-no-repeat" : "bg-cover bg-center",
+              'absolute inset-0',
+              imagePresentation === 'contain'
+                ? 'bg-contain bg-center bg-no-repeat'
+                : 'bg-cover bg-center'
             )}
             style={{
               backgroundImage: overlayImage
@@ -5000,7 +5167,11 @@ function SelectField({
   return (
     <FieldShell>
       <Label className={fieldLabelClassName}>{label}</Label>
-      <select value={value} onChange={(event) => onChange(event.target.value)} className={selectClassName}>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className={selectClassName}
+      >
         {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
@@ -5011,8 +5182,8 @@ function SelectField({
   )
 }
 
-const fieldLabelClassName = "text-sm font-medium text-muted-foreground"
+const fieldLabelClassName = 'text-sm font-medium text-muted-foreground'
 const textareaClassName =
-  "min-h-24 w-full rounded-[var(--radius)] border border-input bg-background px-3 py-3 text-sm text-foreground shadow-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30"
+  'min-h-24 w-full rounded-[var(--radius)] border border-input bg-background px-3 py-3 text-sm text-foreground shadow-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30'
 const selectClassName =
-  "h-10 w-full rounded-[var(--radius)] border border-input bg-background px-3 text-sm text-foreground shadow-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30"
+  'h-10 w-full rounded-[var(--radius)] border border-input bg-background px-3 text-sm text-foreground shadow-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30'

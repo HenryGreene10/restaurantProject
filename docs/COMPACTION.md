@@ -1,8 +1,22 @@
 # Project Compaction / Handoff
 
-Last updated: 2026-04-09
+Last updated: 2026-04-29
 
-## What Changed Since Last Compaction
+---
+
+## What Changed Since Last Compaction (2026-04-09 → 2026-04-29)
+
+- Landing page redesigned with forest green palette and real product screenshots.
+- Logo image rendering fixed in storefront header and admin preview.
+- Kitchen kiosk link corrected to use tenant subdomain.
+- Signup page now served at `/signup` so landing page CTA buttons work.
+- Full codebase audit completed (2026-04-29). Findings documented and V2 sprint plan created.
+  - See: `docs/plans/V2_SPRINT_PLAN.md` for prioritized hardening and feature work.
+
+---
+
+## What Changed Since Compaction Before That (before 2026-04-09)
+
 - Stripe Connect Phase 1 is implemented:
   - admin Stripe status endpoint
   - admin onboarding-link endpoint
@@ -46,6 +60,7 @@ Last updated: 2026-04-09
 - Twilio verification work remains in progress for the fuller customer auth / verification experience.
 
 ## Product Direction
+
 - Multi-tenant white-label restaurant ordering platform for independent restaurants.
 - Core value: restaurants own branding, customer relationship, and margin.
 - Current commercial model is flat monthly SaaS pricing, not order commission.
@@ -53,6 +68,7 @@ Last updated: 2026-04-09
 - Kitchen UI remains intentionally standardized relative to storefront customization.
 
 ## Binding Architecture Constraints
+
 - Multi-tenancy is mandatory from the first backend code. Every tenant-scoped query is structurally scoped by `restaurantId` at the data-access layer, not the route layer.
 - Stripe Connect starts in Standard mode.
 - Customer auth infrastructure is phone + OTP via Twilio Verify, but OTP no longer blocks the basic pickup checkout flow.
@@ -63,6 +79,7 @@ Last updated: 2026-04-09
 - `as any` near tenant scope logic is considered a code review red flag.
 
 ## Locked Stack
+
 - Runtime: Node.js + TypeScript
 - Backend: Express
 - Database: PostgreSQL + Prisma
@@ -83,6 +100,7 @@ Last updated: 2026-04-09
   - Storefront: Vercel
 
 ## Deployment Topology
+
 - API is deployed on Render.
 - API build path is:
   - `prisma generate`
@@ -94,12 +112,14 @@ Last updated: 2026-04-09
 - Tenant routing is intended around `*.easymenu.website` plus future custom domains.
 
 ## Important Non-Functional Requirements
+
 - Order placement to kitchen screen appearance: under 2 seconds
 - Kitchen screen must handle WiFi drops gracefully with optimistic UI and auto-reconnect
 - Order status SMS must fire within 30 seconds of status change
 - Restaurant admin dashboard must be fully operable on mobile, not just desktop
 
 ## Current Database / Backend Status
+
 - Prisma schema is locked and migrated against the real database.
 - Seed data is live and reseeded to avoid notification spam:
   - `joes-pizza`
@@ -109,6 +129,7 @@ Last updated: 2026-04-09
 - Notification retries cap at 3 failures, then `PERMANENTLY_FAILED`.
 
 ## Multi-Tenant Foundation
+
 - `packages/data-access` is the tenant-safe data access boundary.
 - Public foundation includes:
   - branded `TenantScope`
@@ -120,6 +141,7 @@ Last updated: 2026-04-09
 ## Verified Backend Features
 
 ### Auth
+
 - `POST /auth/customer/request-otp`
 - `POST /auth/customer/verify-otp`
 - `POST /auth/customer/refresh`
@@ -128,6 +150,7 @@ Last updated: 2026-04-09
 - Admin routes are protected with Clerk bearer-token verification.
 
 ### Public Menu
+
 - `GET /menu`
 - `GET /v1/menu`
 - `GET /menu/featured`
@@ -135,6 +158,7 @@ Last updated: 2026-04-09
 - Tenant resolution works via `x-tenant-slug` and host-based resolution.
 
 ### Orders
+
 - `POST /v1/orders`
 - `GET /v1/orders/:orderId`
 - `GET /v1/orders/:orderId/status`
@@ -153,11 +177,13 @@ Last updated: 2026-04-09
   - `READY -> COMPLETED | CANCELLED`
 
 ### Notifications
+
 - `CONFIRMED`, `READY`, and `CANCELLED` enqueue order-status SMS notifications through `NotificationJob` rows.
 - Worker lives in `apps/workers`.
 - Worker sends via `TWILIO_MESSAGING_SERVICE_SID`.
 
 ### Admin Menu APIs
+
 - Category CRUD
 - Item CRUD
 - Variant CRUD
@@ -168,6 +194,7 @@ Last updated: 2026-04-09
 - Brand config GET/PATCH
 
 ### Payments
+
 - Stripe Connect Standard onboarding status endpoint is live.
 - Stripe onboarding-link creation endpoint is live.
 - Stripe webhook endpoint is live.
@@ -184,10 +211,13 @@ Last updated: 2026-04-09
 ## Frontend Status
 
 ### `apps/web`
+
 Purpose:
+
 - Customer storefront / PWA direction
 
 Current state:
+
 - Real customer storefront exists now, not just a theme playground
 - Reads live tenant menu + brand config from `/api/menu`
 - Injects CSS variables at `document.documentElement`
@@ -231,15 +261,19 @@ Current state:
   - empty categories and placeholder promo blocks are hidden
 
 Limitations:
+
 - full cross-device QA is still pending across the full checkout flow
 - receipt printing flow is not implemented
 - loyalty / rewards UI is not implemented
 
 ### `apps/admin`
+
 Purpose:
+
 - Restaurant control surface for storefront customization
 
 Current state:
+
 - Real admin customization panel exists
 - Uses live tenant menu data
 - Saves persisted brand config through the API
@@ -289,10 +323,13 @@ Current state:
 - Admin tenant authorization now resolves through backend `AdminUser.clerkUserId` linkage rather than trusting `x-tenant-slug`.
 
 ### `apps/kiosk`
+
 Purpose:
+
 - Kitchen / fulfillment surface
 
 Current state:
+
 - Real runnable kitchen dashboard exists in `apps/kiosk`
 - Clerk sign-in is required for kitchen access
 - Tenant resolution comes from Clerk `publicMetadata.tenantSlug`
@@ -307,41 +344,52 @@ Current state:
 - New-order sound alerts, status-tinted cards, elapsed-time display, and highlighted special instructions are implemented
 
 ## What Is Not Done Yet
-- Full mobile QA across:
-  - storefront browsing
-  - cart drawer
-  - Stripe checkout flow
-  - admin dashboard controls
-  - kitchen tablet workflow
-- Receipt printing flow:
-  - kitchen/admin printable ticket format
-  - printer integration path and operational QA
-- Loyalty / rewards UI and related customer-facing promotion surfaces
-- Remove the temporary Clerk email auto-link bridge after existing admins are fully migrated
-- Complete production hardening for payments:
-  - real connected-account webhook verification
-  - end-to-end QA on live domains
-  - refund / failure-path validation
-- Twilio verification completion and rollout for the fuller customer verification flow
-- Drag-and-drop composition controls beyond current category/item ordering
-- Promo section stacking / richer page-builder behavior
-- AI assistant broader natural-language coverage for theme updates and reorder actions
+
+### Security & Stability Gaps (address before adding more restaurants)
+
+- No rate limiting on `/auth/customer/request-otp` or `/v1/checkouts/create-payment-intent` — public endpoints vulnerable to abuse
+- AI assistant error handler serializes full `error.stack` to client response — exposes internals in production
+- Stripe `payment_intent.payment_failed` not handled in webhook — failed payments are silent
+- Stripe `charge.refunded` not handled — refunds require manual intervention
+- Clerk email auto-link bridge not yet removed — temporary bypass of real auth path still active
+- Order FSM transitions not validated at route boundary — invalid transitions can pass through to the service layer
+
+### Testing & Observability Gaps
+
+- Zero integration tests for API routes (only notification worker has test coverage)
+- No structured logging — Morgan dev mode only; production debugging is guesswork
+- Health check does not validate DB connectivity
+
+### Code Quality Gaps
+
+- `apps/admin/src/pages/App.tsx` is 1000+ LOC (menu, orders, brand, loyalty, AI all in one file)
+- Prisma client distribution is fragile (documented in KNOWN_WARNINGS.md); raw SQL workarounds accumulating
+- Magic numbers scattered inline (TTLs, retry counts, batch sizes)
+- No CI/CD pipeline — no automated checks on PR or deploy
+
+### Feature Gaps
+
+- Full mobile QA not yet run across storefront / admin / kiosk
+- Loyalty / rewards customer UI not built (backend + admin config complete; customer surface missing)
+- Receipt printing flow not end-to-end tested
+- RBAC not enforced (`AdminUser.role` exists but is never checked)
+- Customer data deletion / GDPR export endpoints not implemented
+- Print job queue is a single DB column (`Restaurant.pendingPrintJob`) — races under concurrent polls
 
 ## Current Recommended Next Step
-Finish launch-hardening for the first real restaurant deployment.
 
-Recommended next implementation:
-1. Run mobile QA across storefront, admin, and kiosk.
-2. Build receipt printing.
-3. Build loyalty / rewards UI.
-4. Finish production hardening:
-  - Render/Vercel smoke tests
-  - live webhook verification
-  - worker deployment
-  - env and domain QA
-5. Remove the temporary existing-admin auto-link bridge after backfill.
+See **`docs/plans/V2_SPRINT_PLAN.md`** for the full prioritized plan.
+
+Short version — do these in order:
+
+1. Sprint 0: ESLint + Prettier + GitHub Actions CI (unblocks everything else)
+2. Sprint 1: Rate limiting, error sanitization, Stripe failure handling, FSM validation
+3. Sprint 2: Integration tests for OTP, checkout, orders; structured logging
+4. Sprint 3: Extract admin App.tsx, fix Prisma client distribution
+5. Sprint 4: Mobile QA, loyalty UI, receipt printing, RBAC
 
 ## Test / Validation Status
+
 - Targeted typecheck is passing for:
   - `apps/admin`
   - `apps/web`

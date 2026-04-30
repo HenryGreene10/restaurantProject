@@ -1,24 +1,24 @@
-import { ArrowLeft, Gift, History } from "lucide-react"
-import { useState } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { ArrowLeft, Gift, History } from 'lucide-react'
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 
-import { Button } from "../components/Button"
-import { fetchCustomerLoyaltyAccount, type CustomerLoyaltyAccount, type LoyaltyTier } from "../lib/loyalty"
-import { useTheme } from "../theme/ThemeProvider"
-import type { CustomerSessionController } from "./useCustomerSession"
+import { Button } from '../components/Button'
+import { fetchCustomerLoyaltyAccount, type CustomerLoyaltyAccount } from '../lib/loyalty'
+import { useTheme } from '../theme/ThemeProvider'
+import type { CustomerSessionController } from './useCustomerSession'
 
 function formatPrice(priceCents: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
   }).format(priceCents / 100)
 }
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
   }).format(new Date(value))
 }
 
@@ -30,7 +30,7 @@ function ProgressBar({ value, max }: { value: number; max: number }) {
         className="h-full rounded-full transition-all duration-500"
         style={{
           width: `${pct}%`,
-          background: "rgb(var(--color-brand-primary))",
+          background: 'rgb(var(--color-brand-primary))',
         }}
       />
     </div>
@@ -47,7 +47,7 @@ function WalletContent({
   onBackToMenu: () => void
 }) {
   const { theme } = useTheme()
-  const [tab, setTab] = useState<"rewards" | "history">("rewards")
+  const [tab, setTab] = useState<'rewards' | 'history'>('rewards')
 
   const nextTier = account.allTiers
     .sort((a, b) => a.pointsCost - b.pointsCost)
@@ -73,7 +73,7 @@ function WalletContent({
           </div>
           <div
             className="mt-2 text-6xl font-bold"
-            style={{ color: "rgb(var(--color-brand-primary))", fontFamily: "var(--font-heading)" }}
+            style={{ color: 'rgb(var(--color-brand-primary))', fontFamily: 'var(--font-heading)' }}
           >
             {account.balance.toLocaleString()}
           </div>
@@ -83,7 +83,7 @@ function WalletContent({
             <div className="mt-6 space-y-2">
               <div className="flex items-center justify-between text-xs text-brand-muted">
                 <span>
-                  {(nextTier.pointsCost - account.balance).toLocaleString()} pts to{" "}
+                  {(nextTier.pointsCost - account.balance).toLocaleString()} pts to{' '}
                   <span className="font-medium text-brand-text">{nextTier.name}</span>
                 </span>
                 <span className="font-medium text-brand-text">
@@ -104,11 +104,14 @@ function WalletContent({
             type="button"
             className="flex flex-1 items-center justify-center gap-2 rounded-[calc(var(--radius)-2px)] py-2.5 text-sm font-medium transition-colors"
             style={
-              tab === "rewards"
-                ? { background: "rgb(var(--color-brand-primary))", color: "rgb(var(--color-brand-primary-foreground))" }
-                : { color: "var(--color-brand-muted)" }
+              tab === 'rewards'
+                ? {
+                    background: 'rgb(var(--color-brand-primary))',
+                    color: 'rgb(var(--color-brand-primary-foreground))',
+                  }
+                : { color: 'var(--color-brand-muted)' }
             }
-            onClick={() => setTab("rewards")}
+            onClick={() => setTab('rewards')}
           >
             <Gift className="h-4 w-4" />
             Rewards
@@ -117,18 +120,21 @@ function WalletContent({
             type="button"
             className="flex flex-1 items-center justify-center gap-2 rounded-[calc(var(--radius)-2px)] py-2.5 text-sm font-medium transition-colors"
             style={
-              tab === "history"
-                ? { background: "rgb(var(--color-brand-primary))", color: "rgb(var(--color-brand-primary-foreground))" }
-                : { color: "var(--color-brand-muted)" }
+              tab === 'history'
+                ? {
+                    background: 'rgb(var(--color-brand-primary))',
+                    color: 'rgb(var(--color-brand-primary-foreground))',
+                  }
+                : { color: 'var(--color-brand-muted)' }
             }
-            onClick={() => setTab("history")}
+            onClick={() => setTab('history')}
           >
             <History className="h-4 w-4" />
             History
           </button>
         </div>
 
-        {tab === "rewards" ? (
+        {tab === 'rewards' ? (
           <div className="space-y-3">
             {account.allTiers.length === 0 ? (
               <div className="rounded-[32px] border border-brand-border/70 bg-brand-surface px-6 py-8 text-center text-sm text-brand-muted shadow-brand">
@@ -139,33 +145,37 @@ function WalletContent({
                 .sort((a, b) => a.pointsCost - b.pointsCost)
                 .map((tier) => {
                   const unlocked = account.balance >= tier.pointsCost
-                  const progress = Math.min(100, Math.round((account.balance / tier.pointsCost) * 100))
+                  const progress = Math.min(
+                    100,
+                    Math.round((account.balance / tier.pointsCost) * 100)
+                  )
                   return (
                     <div
                       key={tier.id}
                       className="rounded-[var(--radius-brand)] border p-4 transition-all"
                       style={{
                         background: unlocked
-                          ? "rgb(var(--color-brand-primary) / 0.08)"
-                          : "rgb(var(--color-brand-surface))",
+                          ? 'rgb(var(--color-brand-primary) / 0.08)'
+                          : 'rgb(var(--color-brand-surface))',
                         borderColor: unlocked
-                          ? "rgb(var(--color-brand-primary) / 0.3)"
-                          : "rgb(var(--color-brand-border))",
+                          ? 'rgb(var(--color-brand-primary) / 0.3)'
+                          : 'rgb(var(--color-brand-border))',
                       }}
                     >
                       <div className="mb-2 flex items-center justify-between">
                         <div>
                           <p className="text-sm font-semibold text-brand-text">{tier.name}</p>
                           <p className="text-xs text-brand-muted">
-                            {tier.pointsCost.toLocaleString()} pts · saves {formatPrice(tier.discountCents)}
+                            {tier.pointsCost.toLocaleString()} pts · saves{' '}
+                            {formatPrice(tier.discountCents)}
                           </p>
                         </div>
                         {unlocked ? (
                           <span
                             className="rounded-full px-2.5 py-1 text-xs font-bold"
                             style={{
-                              background: "rgb(var(--color-brand-primary))",
-                              color: "rgb(var(--color-brand-primary-foreground))",
+                              background: 'rgb(var(--color-brand-primary))',
+                              color: 'rgb(var(--color-brand-primary-foreground))',
                             }}
                           >
                             Unlocked ✓
@@ -181,18 +191,19 @@ function WalletContent({
                         <div>
                           <div
                             className="h-1.5 w-full overflow-hidden rounded-full"
-                            style={{ background: "rgb(var(--color-brand-border))" }}
+                            style={{ background: 'rgb(var(--color-brand-border))' }}
                           >
                             <div
                               className="h-full rounded-full transition-all duration-500"
                               style={{
                                 width: `${progress}%`,
-                                background: "rgb(var(--color-brand-primary))",
+                                background: 'rgb(var(--color-brand-primary))',
                               }}
                             />
                           </div>
                           <p className="mt-1.5 text-xs text-brand-muted">
-                            {account.balance.toLocaleString()} / {tier.pointsCost.toLocaleString()} pts
+                            {account.balance.toLocaleString()} / {tier.pointsCost.toLocaleString()}{' '}
+                            pts
                           </p>
                         </div>
                       ) : (
@@ -200,8 +211,8 @@ function WalletContent({
                           type="button"
                           className="mt-3 w-full rounded-[var(--radius-brand)] py-2 text-sm font-semibold transition-all"
                           style={{
-                            background: "rgb(var(--color-brand-primary))",
-                            color: "rgb(var(--color-brand-primary-foreground))",
+                            background: 'rgb(var(--color-brand-primary))',
+                            color: 'rgb(var(--color-brand-primary-foreground))',
                           }}
                           onClick={onBackToMenu}
                         >
@@ -227,15 +238,19 @@ function WalletContent({
                 >
                   <div>
                     <div className="font-medium text-brand-text">
-                      {event.description ?? event.type.replace(/_/g, " ")}
+                      {event.description ?? event.type.replace(/_/g, ' ')}
                     </div>
-                    <div className="mt-1 text-xs text-brand-muted">{formatDate(event.createdAt)}</div>
+                    <div className="mt-1 text-xs text-brand-muted">
+                      {formatDate(event.createdAt)}
+                    </div>
                   </div>
                   <div
                     className="text-base font-semibold"
-                    style={{ color: event.delta >= 0 ? "rgb(var(--color-brand-primary))" : "inherit" }}
+                    style={{
+                      color: event.delta >= 0 ? 'rgb(var(--color-brand-primary))' : 'inherit',
+                    }}
                   >
-                    {event.delta >= 0 ? "+" : ""}
+                    {event.delta >= 0 ? '+' : ''}
                     {event.delta.toLocaleString()} pts
                   </div>
                 </div>
@@ -258,7 +273,7 @@ export function RewardsWalletPage({
   onBackToMenu: () => void
 }) {
   const accountQuery = useQuery({
-    queryKey: ["customer-loyalty-wallet", tenantSlug, customerSession.customerId],
+    queryKey: ['customer-loyalty-wallet', tenantSlug, customerSession.customerId],
     queryFn: () =>
       fetchCustomerLoyaltyAccount({
         tenantSlug,
@@ -283,7 +298,10 @@ export function RewardsWalletPage({
             </button>
           </div>
           <div className="rounded-[32px] border border-brand-border/70 bg-brand-surface px-6 py-12 text-center shadow-brand">
-            <div className="text-lg font-semibold text-brand-text" style={{ fontFamily: "var(--font-heading)" }}>
+            <div
+              className="text-lg font-semibold text-brand-text"
+              style={{ fontFamily: 'var(--font-heading)' }}
+            >
               Sign in to view your rewards
             </div>
             <p className="mt-2 text-sm text-brand-muted">
@@ -331,7 +349,9 @@ export function RewardsWalletPage({
               Unable to load rewards
             </div>
             <div className="mt-2 text-sm text-red-800">
-              {accountQuery.error instanceof Error ? accountQuery.error.message : "Could not load your rewards account."}
+              {accountQuery.error instanceof Error
+                ? accountQuery.error.message
+                : 'Could not load your rewards account.'}
             </div>
             <div className="mt-4">
               <Button type="button" onClick={() => void accountQuery.refetch()}>

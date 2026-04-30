@@ -1,13 +1,12 @@
-import { AnimatePresence, motion } from "framer-motion"
-import { Check, Minus, Plus, X } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
-import { createPortal } from "react-dom"
+import { AnimatePresence, motion } from 'framer-motion'
+import { Check, Minus, Plus, X } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 
-import { Button } from "@/components/ui/button"
-import { Label } from "@/components/ui/label"
-import type { MenuItem } from "../lib/menu"
-import type { CartItem } from "./cartStore"
-import { useTheme } from "../theme/ThemeProvider"
+import { Label } from '@/components/ui/label'
+import type { MenuItem } from '../lib/menu'
+import type { CartItem } from './cartStore'
+import { useTheme } from '../theme/ThemeProvider'
 
 type SelectionMap = Record<string, string[]>
 
@@ -35,9 +34,9 @@ type DrawerProps = {
 }
 
 function formatPrice(priceCents: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
   }).format(priceCents / 100)
 }
 
@@ -47,13 +46,13 @@ function defaultVariant(item: MenuItem | null) {
 }
 
 function hexToRgba(hex: string, alpha: number) {
-  const normalized = hex.replace("#", "").trim()
+  const normalized = hex.replace('#', '').trim()
   const expanded =
     normalized.length === 3
       ? normalized
-          .split("")
+          .split('')
           .map((char) => `${char}${char}`)
-          .join("")
+          .join('')
       : normalized
 
   const value = Number.parseInt(expanded, 16)
@@ -75,7 +74,7 @@ export function ItemCustomizationDrawer({
   const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null)
   const [selectedOptions, setSelectedOptions] = useState<SelectionMap>({})
   const [quantity, setQuantity] = useState(1)
-  const [notes, setNotes] = useState("")
+  const [notes, setNotes] = useState('')
 
   useEffect(() => {
     if (!item || !open) return
@@ -94,14 +93,14 @@ export function ItemCustomizationDrawer({
     setSelectedVariantId(editingItem?.variantId ?? defaultVariant(item)?.id ?? null)
     setSelectedOptions(nextSelections)
     setQuantity(editingItem?.quantity ?? 1)
-    setNotes(editingItem?.notes ?? "")
+    setNotes(editingItem?.notes ?? '')
   }, [editingItem, item, open])
 
   useEffect(() => {
-    if (!open || typeof document === "undefined") return
+    if (!open || typeof document === 'undefined') return
 
     const previousOverflow = document.body.style.overflow
-    document.body.style.overflow = "hidden"
+    document.body.style.overflow = 'hidden'
 
     return () => {
       document.body.style.overflow = previousOverflow
@@ -110,9 +109,8 @@ export function ItemCustomizationDrawer({
 
   const selectedVariant = useMemo(
     () =>
-      item?.variants.find((variant) => variant.id === selectedVariantId) ??
-      defaultVariant(item),
-    [item, selectedVariantId],
+      item?.variants.find((variant) => variant.id === selectedVariantId) ?? defaultVariant(item),
+    [item, selectedVariantId]
   )
 
   const selectedModifierPayload = useMemo(() => {
@@ -140,9 +138,7 @@ export function ItemCustomizationDrawer({
       const currentCount = selectedOptions[itemGroup.group.id]?.length ?? 0
 
       if (itemGroup.isRequired && currentCount < itemGroup.minSelections) {
-        return [
-          `Select at least ${itemGroup.minSelections} option(s) for ${itemGroup.group.name}.`,
-        ]
+        return [`Select at least ${itemGroup.minSelections} option(s) for ${itemGroup.group.name}.`]
       }
 
       return []
@@ -157,7 +153,7 @@ export function ItemCustomizationDrawer({
     )
   }, [item, selectedModifierPayload, selectedVariant])
 
-  const canSubmit = !!item && validationErrors.length === 0 && item.visibility !== "SOLD_OUT"
+  const canSubmit = !!item && validationErrors.length === 0 && item.visibility !== 'SOLD_OUT'
   const heroImageBackground = item?.photoUrl
     ? `url(${item.photoUrl}) center/cover`
     : `linear-gradient(135deg, ${hexToRgba(theme.palette.primary, 0.18)}, ${hexToRgba(theme.palette.accent, 0.14)})`
@@ -219,10 +215,10 @@ export function ItemCustomizationDrawer({
               backgroundColor: theme.palette.surface,
               boxShadow: `0 0 40px ${hexToRgba(theme.palette.text, 0.14)}`,
             }}
-            initial={{ x: "100%", opacity: 0 }}
+            initial={{ x: '100%', opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
-            exit={{ x: "100%", opacity: 0 }}
-            transition={{ type: "spring", stiffness: 280, damping: 28 }}
+            exit={{ x: '100%', opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 280, damping: 28 }}
             onClick={(event) => event.stopPropagation()}
           >
             <div className="relative h-72 shrink-0 overflow-hidden">
@@ -255,7 +251,7 @@ export function ItemCustomizationDrawer({
                   <div>
                     <h2
                       className="text-4xl font-bold leading-tight text-foreground"
-                      style={{ fontFamily: "var(--font-heading)" }}
+                      style={{ fontFamily: 'var(--font-heading)' }}
                     >
                       {item.name}
                     </h2>
@@ -270,7 +266,7 @@ export function ItemCustomizationDrawer({
                     <div className="flex flex-wrap items-center gap-3 text-sm font-semibold">
                       {item.tags.slice(0, 2).map((tag, index) => (
                         <div key={tag} className="flex items-center gap-3">
-                          <span style={{ color: index === 0 ? theme.palette.primary : "#16A34A" }}>
+                          <span style={{ color: index === 0 ? theme.palette.primary : '#16A34A' }}>
                             {tag.toUpperCase()}
                           </span>
                           {index < Math.min(item.tags.length, 2) - 1 ? (
@@ -298,7 +294,9 @@ export function ItemCustomizationDrawer({
                             selected={selected}
                             multi={false}
                             label={variant.name}
-                            detail={variant.isDefault ? "Included" : formatPrice(variant.priceCents)}
+                            detail={
+                              variant.isDefault ? 'Included' : formatPrice(variant.priceCents)
+                            }
                             onClick={() => setSelectedVariantId(variant.id)}
                           />
                         )
@@ -311,7 +309,7 @@ export function ItemCustomizationDrawer({
                   <DrawerSection
                     key={itemGroup.id}
                     title={itemGroup.group.name}
-                    hint={itemGroup.isRequired ? "Required" : "Optional"}
+                    hint={itemGroup.isRequired ? 'Required' : 'Optional'}
                     themeBorder={theme.palette.border}
                     themeMuted={theme.palette.muted}
                   >
@@ -324,20 +322,20 @@ export function ItemCustomizationDrawer({
                           <SelectableRow
                             key={option.id}
                             selected={selected}
-                            multi={itemGroup.group.selection !== "SINGLE"}
+                            multi={itemGroup.group.selection !== 'SINGLE'}
                             label={option.name}
                             detail={
                               option.priceDeltaCents > 0
                                 ? `+ ${formatPrice(option.priceDeltaCents)}`
-                                : "Included"
+                                : 'Included'
                             }
                             onClick={() =>
-                              itemGroup.group.selection === "SINGLE"
+                              itemGroup.group.selection === 'SINGLE'
                                 ? selectSingle(itemGroup.group.id, option.id)
                                 : toggleMultiSelect(
                                     itemGroup.group.id,
                                     option.id,
-                                    itemGroup.maxSelections,
+                                    itemGroup.maxSelections
                                   )
                             }
                           />
@@ -348,7 +346,10 @@ export function ItemCustomizationDrawer({
                 ))}
 
                 <section className="grid gap-3">
-                  <div className="flex items-center justify-between border-b pb-3" style={{ borderColor: hexToRgba(theme.palette.border, 0.7) }}>
+                  <div
+                    className="flex items-center justify-between border-b pb-3"
+                    style={{ borderColor: hexToRgba(theme.palette.border, 0.7) }}
+                  >
                     <h3 className="text-lg font-medium text-foreground">Notes</h3>
                   </div>
                   <Label htmlFor="item-notes" className="text-sm text-muted-foreground">
@@ -383,9 +384,9 @@ export function ItemCustomizationDrawer({
                   <div
                     className="rounded-[16px] border px-4 py-3 text-sm"
                     style={{
-                      borderColor: hexToRgba("#B91C1C", 0.25),
-                      backgroundColor: hexToRgba("#B91C1C", 0.08),
-                      color: "#8F1D1D",
+                      borderColor: hexToRgba('#B91C1C', 0.25),
+                      backgroundColor: hexToRgba('#B91C1C', 0.08),
+                      color: '#8F1D1D',
                     }}
                   >
                     {validationErrors.map((error) => (
@@ -431,7 +432,7 @@ export function ItemCustomizationDrawer({
                     disabled={!canSubmit}
                     onClick={handleAdd}
                   >
-                    {editingItem ? "Update Cart" : "Add to Cart"}{" "}
+                    {editingItem ? 'Update Cart' : 'Add to Cart'}{' '}
                     <span className="mx-2 opacity-60">•</span>
                     {formatPrice(unitPriceCents * quantity)}
                   </button>
@@ -444,7 +445,7 @@ export function ItemCustomizationDrawer({
     </AnimatePresence>
   )
 
-  if (typeof document === "undefined") {
+  if (typeof document === 'undefined') {
     return null
   }
 
@@ -504,10 +505,12 @@ function SelectableRow({
       type="button"
       className="flex items-center justify-between gap-4 rounded-[18px] border px-5 py-5 text-left transition-colors"
       style={{
-        borderColor: selected ? "rgb(var(--color-brand-primary) / 0.32)" : "rgb(var(--color-brand-border) / 0.8)",
+        borderColor: selected
+          ? 'rgb(var(--color-brand-primary) / 0.32)'
+          : 'rgb(var(--color-brand-border) / 0.8)',
         backgroundColor: selected
-          ? "rgb(var(--color-brand-primary) / 0.06)"
-          : "rgb(var(--color-brand-surface) / 0.92)",
+          ? 'rgb(var(--color-brand-primary) / 0.06)'
+          : 'rgb(var(--color-brand-surface) / 0.92)',
       }}
       onClick={onClick}
     >
@@ -515,16 +518,12 @@ function SelectableRow({
         <div
           className="flex h-7 w-7 shrink-0 items-center justify-center border"
           style={{
-            borderRadius: multi ? "10px" : "9999px",
+            borderRadius: multi ? '10px' : '9999px',
             borderColor: selected
-              ? "rgb(var(--color-brand-primary))"
-              : "rgb(var(--color-brand-border) / 0.9)",
-            backgroundColor: selected
-              ? "rgb(var(--color-brand-primary))"
-              : "transparent",
-            color: selected
-              ? "rgb(var(--color-brand-primary-foreground))"
-              : "transparent",
+              ? 'rgb(var(--color-brand-primary))'
+              : 'rgb(var(--color-brand-border) / 0.9)',
+            backgroundColor: selected ? 'rgb(var(--color-brand-primary))' : 'transparent',
+            color: selected ? 'rgb(var(--color-brand-primary-foreground))' : 'transparent',
           }}
         >
           <Check className="h-4 w-4" />
@@ -534,7 +533,10 @@ function SelectableRow({
       <span
         className="shrink-0 text-lg"
         style={{
-          color: detail === "Included" ? "rgb(var(--color-brand-muted))" : "rgb(var(--color-brand-primary))",
+          color:
+            detail === 'Included'
+              ? 'rgb(var(--color-brand-muted))'
+              : 'rgb(var(--color-brand-primary))',
         }}
       >
         {detail}

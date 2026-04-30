@@ -10,17 +10,37 @@
   "scripts": {
     "dev": "npm -w apps/api run dev",
     "build": "npm -ws run build --if-present",
-    "lint": "echo add linter later",
-    "format": "echo add formatter later",
+    "lint": "eslint apps/*/src packages/*/src",
+    "lint:fix": "eslint apps/*/src packages/*/src --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "typecheck": "npm -ws run typecheck --if-present",
-    "db:reset-seed": "npm -w packages/db run db:reset-seed"
+    "db:reset-seed": "npm -w packages/db run db:reset-seed",
+    "prepare": "husky"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --no-warn-ignored",
+      "prettier --write"
+    ],
+    "*.{js,mjs,json,css,md}": [
+      "prettier --write"
+    ]
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.4",
     "@types/bcryptjs": "^2.4.6",
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.1",
     "@types/jsonwebtoken": "^9.0.7",
-    "@types/morgan": "^1.9.9"
+    "@types/morgan": "^1.9.9",
+    "eslint": "^9.39.4",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
+    "prettier": "^3.8.3",
+    "typescript-eslint": "^8.59.1"
   },
   "engines": {
     "node": ">=18.0.0"

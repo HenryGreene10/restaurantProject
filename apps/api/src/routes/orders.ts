@@ -1,27 +1,12 @@
 import type { Router } from 'express'
-import type { CustomerAccessTokenPayload } from '@repo/auth'
 import type { TenantRequest } from '../middleware/tenant.js'
 import { createTenantDataAccess, createTenantScope } from '@repo/data-access'
 import { transitionOrderStatus } from '../services/order-status.js'
-import {
-  normalizeCustomerPhone,
-  readBearerToken,
-  verifyCustomer,
-} from '../lib/customer-order.js'
+import { normalizeCustomerPhone, readBearerToken, verifyCustomer } from '../lib/customer-order.js'
 
-type OrderStatus =
-  | 'PENDING'
-  | 'CONFIRMED'
-  | 'PREPARING'
-  | 'READY'
-  | 'COMPLETED'
-  | 'CANCELLED'
+type OrderStatus = 'PENDING' | 'CONFIRMED' | 'PREPARING' | 'READY' | 'COMPLETED' | 'CANCELLED'
 
-const SMS_NOTIFICATION_STATUSES = new Set<OrderStatus>([
-  'CONFIRMED',
-  'READY',
-  'CANCELLED',
-])
+const SMS_NOTIFICATION_STATUSES = new Set<OrderStatus>(['CONFIRMED', 'READY', 'CANCELLED'])
 
 function parseOrderStatus(value: unknown): OrderStatus | undefined {
   if (
@@ -43,7 +28,11 @@ function routeParam(req: TenantRequest, key: string): string {
   return Array.isArray(value) ? value[0] : value
 }
 
-function serializeCustomerOrder(order: NonNullable<Awaited<ReturnType<ReturnType<typeof createTenantDataAccess>['orders']['findById']>>>) {
+function serializeCustomerOrder(
+  order: NonNullable<
+    Awaited<ReturnType<ReturnType<typeof createTenantDataAccess>['orders']['findById']>>
+  >
+) {
   return {
     id: order.id,
     orderNumber: order.orderNumber,
@@ -73,7 +62,7 @@ function serializeCustomerOrder(order: NonNullable<Awaited<ReturnType<ReturnType
         groupName: modifier.groupName,
         optionName: modifier.optionName,
         priceDeltaCents: modifier.priceDeltaCents,
-        portion: modifier.portion
+        portion: modifier.portion,
       })),
     })),
     statusEvents: order.statusEvents.map((event) => ({
@@ -87,7 +76,9 @@ function serializeCustomerOrder(order: NonNullable<Awaited<ReturnType<ReturnType
 }
 
 function serializePublicOrderStatus(
-  order: NonNullable<Awaited<ReturnType<ReturnType<typeof createTenantDataAccess>['orders']['findById']>>>,
+  order: NonNullable<
+    Awaited<ReturnType<ReturnType<typeof createTenantDataAccess>['orders']['findById']>>
+  >
 ) {
   return {
     id: order.id,
@@ -116,7 +107,7 @@ function serializePublicOrderStatus(
         groupName: modifier.groupName,
         optionName: modifier.optionName,
         priceDeltaCents: modifier.priceDeltaCents,
-        portion: modifier.portion
+        portion: modifier.portion,
       })),
     })),
     statusEvents: order.statusEvents.map((event) => ({
@@ -133,39 +124,43 @@ export function registerOrderRoutes(r: Router) {
   r.post('/v1/orders', async (req: TenantRequest, res) => {
     try {
       if (!req.tenant) return res.status(500).json({ error: 'No tenant in request' })
-      const { items, type, pickupTime, deliveryAddress, notes, customerId, customerName, customerPhone } = req.body ?? {}
-      if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ error: 'No items' })
+      const {
+        items,
+        type,
+        pickupTime,
+        deliveryAddress,
+        notes,
+        customerId,
+        customerName,
+        customerPhone,
+      } = req.body ?? {}
+      if (!Array.isArray(items) || items.length === 0)
+        return res.status(400).json({ error: 'No items' })
       const customerAuth = readBearerToken(req) ? verifyCustomer(req) : null
       const normalizedCustomerPhone =
         customerAuth?.phone ??
-        (typeof customerPhone === 'string'
-          ? normalizeCustomerPhone(customerPhone)
-          : null)
+        (typeof customerPhone === 'string' ? normalizeCustomerPhone(customerPhone) : null)
 
       if (!normalizedCustomerPhone) {
         return res.status(400).json({ error: 'Invalid customer phone number' })
       }
 
-      const tenantDataAccess = createTenantDataAccess(
-        createTenantScope(req.tenant.id)
-      )
+      const tenantDataAccess = createTenantDataAccess(createTenantScope(req.tenant.id))
       const result = await tenantDataAccess.orders.createOrder({
         customerId:
-          customerAuth?.customerId ??
-          (typeof customerId === 'string' ? customerId : undefined),
+          customerAuth?.customerId ?? (typeof customerId === 'string' ? customerId : undefined),
         customerNameSnapshot: typeof customerName === 'string' ? customerName : null,
         customerPhoneSnapshot: normalizedCustomerPhone,
         fulfillmentType: type === 'DELIVERY' ? 'DELIVERY' : 'PICKUP',
         notes,
         pickupTime: pickupTime ? new Date(pickupTime) : null,
         deliveryAddressSnapshot: deliveryAddress ?? null,
-        items
+        items,
       })
 
       res.status(201).json(result)
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Failed to create order'
+      const message = error instanceof Error ? error.message : 'Failed to create order'
       res.status(400).json({ error: message })
     }
   })
@@ -175,9 +170,7 @@ export function registerOrderRoutes(r: Router) {
       if (!req.tenant) return res.status(500).json({ error: 'No tenant in request' })
 
       const customer = verifyCustomer(req)
-      const tenantDataAccess = createTenantDataAccess(
-        createTenantScope(req.tenant.id)
-      )
+      const tenantDataAccess = createTenantDataAccess(createTenantScope(req.tenant.id))
       const order = await tenantDataAccess.orders.findById(routeParam(req, 'orderId'))
 
       if (!order) {
@@ -190,8 +183,7 @@ export function registerOrderRoutes(r: Router) {
 
       return res.json(serializeCustomerOrder(order))
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Failed to load order'
+      const message = error instanceof Error ? error.message : 'Failed to load order'
       const status =
         message === 'Missing customer access token' ||
         message === 'Customer access token tenant mismatch' ||
@@ -207,9 +199,7 @@ export function registerOrderRoutes(r: Router) {
     try {
       if (!req.tenant) return res.status(500).json({ error: 'No tenant in request' })
 
-      const tenantDataAccess = createTenantDataAccess(
-        createTenantScope(req.tenant.id)
-      )
+      const tenantDataAccess = createTenantDataAccess(createTenantScope(req.tenant.id))
       const order = await tenantDataAccess.orders.findById(routeParam(req, 'orderId'))
 
       if (!order) {
@@ -218,8 +208,7 @@ export function registerOrderRoutes(r: Router) {
 
       return res.json(serializePublicOrderStatus(order))
     } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Failed to load order status'
+      const message = error instanceof Error ? error.message : 'Failed to load order status'
       return res.status(400).json({ error: message })
     }
   })
@@ -232,9 +221,7 @@ export function registerOrderRoutes(r: Router) {
       return res.status(400).json({ error: 'Invalid order status' })
     }
 
-    const tenantDataAccess = createTenantDataAccess(
-      createTenantScope(req.tenant.id)
-    )
+    const tenantDataAccess = createTenantDataAccess(createTenantScope(req.tenant.id))
 
     const transition = await transitionOrderStatus(tenantDataAccess, {
       orderId: routeParam(req, 'orderId'),
@@ -262,9 +249,7 @@ export function registerOrderRoutes(r: Router) {
         )
       } catch (error) {
         const message =
-          error instanceof Error
-            ? error.message
-            : 'Failed to enqueue order status SMS notification'
+          error instanceof Error ? error.message : 'Failed to enqueue order status SMS notification'
         console.error(message)
       }
     }

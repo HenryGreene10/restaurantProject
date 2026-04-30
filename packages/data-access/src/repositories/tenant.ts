@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto"
+import { randomUUID } from 'node:crypto'
 import {
   CatalogVisibility,
   Customer,
@@ -7,14 +7,10 @@ import {
   NotificationJobType,
   OrderStatus,
   Prisma,
-} from "@repo/db"
-import type { BrandConfig } from "@repo/brand-config"
-import { withTenantConnection } from "../prisma.js"
-import {
-  bindTenantScope,
-  type TenantScope,
-  type WithoutRestaurantId,
-} from "../scope.js"
+} from '@repo/db'
+import type { BrandConfig } from '@repo/brand-config'
+import { withTenantConnection } from '../prisma.js'
+import { bindTenantScope, type TenantScope, type WithoutRestaurantId } from '../scope.js'
 
 type UpsertCustomerByPhoneInput = {
   phone: string
@@ -36,7 +32,7 @@ type CreateOrderItemInput = {
     optionId?: string | null
     optionName: string
     priceDeltaCents?: number
-    portion?: "WHOLE" | "LEFT" | "RIGHT"
+    portion?: 'WHOLE' | 'LEFT' | 'RIGHT'
   }>
 }
 
@@ -52,12 +48,12 @@ type CreateOrderInput = {
 }
 
 type CheckoutSessionStatus =
-  | "PENDING"
-  | "REQUIRES_ACTION"
-  | "PAYMENT_FAILED"
-  | "PAYMENT_SUCCEEDED"
-  | "ORDER_CREATED"
-  | "EXPIRED"
+  | 'PENDING'
+  | 'REQUIRES_ACTION'
+  | 'PAYMENT_FAILED'
+  | 'PAYMENT_SUCCEEDED'
+  | 'ORDER_CREATED'
+  | 'EXPIRED'
 
 type NormalizedOrderModifierSnapshot = {
   groupId: string | null
@@ -65,7 +61,7 @@ type NormalizedOrderModifierSnapshot = {
   optionId: string | null
   optionName: string
   priceDeltaCents: number
-  portion: "WHOLE" | "LEFT" | "RIGHT"
+  portion: 'WHOLE' | 'LEFT' | 'RIGHT'
 }
 
 type NormalizedOrderItemSnapshot = {
@@ -131,7 +127,7 @@ type MenuCategoryCreateInput = {
   daysOfWeek?: Prisma.InputJsonValue | Prisma.NullableJsonNullValueInput | null
 }
 
-type MenuCategoryUpdateInput = Partial<Omit<MenuCategoryCreateInput, "menuId">>
+type MenuCategoryUpdateInput = Partial<Omit<MenuCategoryCreateInput, 'menuId'>>
 
 type MenuItemCreateInput = {
   name: string
@@ -156,7 +152,7 @@ type MenuVariantCreateInput = {
   isDefault?: boolean
 }
 
-type MenuVariantUpdateInput = Partial<Omit<MenuVariantCreateInput, "itemId">> & {
+type MenuVariantUpdateInput = Partial<Omit<MenuVariantCreateInput, 'itemId'>> & {
   itemId?: string
 }
 
@@ -174,7 +170,7 @@ type ModifierOptionCreateInput = {
   position?: number
 }
 
-type ModifierOptionUpdateInput = Partial<Omit<ModifierOptionCreateInput, "groupId">> & {
+type ModifierOptionUpdateInput = Partial<Omit<ModifierOptionCreateInput, 'groupId'>> & {
   groupId?: string
 }
 
@@ -187,7 +183,9 @@ type ItemModifierGroupCreateInput = {
   allowOptionQuantity?: boolean
 }
 
-type ItemModifierGroupUpdateInput = Partial<Omit<ItemModifierGroupCreateInput, "itemId" | "groupId">> & {
+type ItemModifierGroupUpdateInput = Partial<
+  Omit<ItemModifierGroupCreateInput, 'itemId' | 'groupId'>
+> & {
   itemId?: string
   groupId?: string
 }
@@ -223,7 +221,7 @@ function formatTenantSlugAsName(slug: string) {
 
       return titleCaseWord(part)
     })
-    .join(" ")
+    .join(' ')
 }
 
 function resolveRestaurantDisplayName(input: {
@@ -239,16 +237,13 @@ function resolveRestaurantDisplayName(input: {
     return formatTenantSlugAsName(input.restaurantSlug.trim())
   }
 
-  return input.restaurantName?.trim() || "Restaurant"
+  return input.restaurantName?.trim() || 'Restaurant'
 }
 
-async function ensureDefaultMenu(
-  prisma: Prisma.TransactionClient,
-  restaurantId: string,
-) {
+async function ensureDefaultMenu(prisma: Prisma.TransactionClient, restaurantId: string) {
   const existingMenu = await prisma.menu.findFirst({
     where: { restaurantId, isDefault: true },
-    orderBy: { createdAt: "asc" },
+    orderBy: { createdAt: 'asc' },
   })
 
   if (existingMenu) {
@@ -258,7 +253,7 @@ async function ensureDefaultMenu(
   return prisma.menu.create({
     data: {
       restaurantId,
-      name: "Main Menu",
+      name: 'Main Menu',
       isDefault: true,
     },
   })
@@ -266,7 +261,7 @@ async function ensureDefaultMenu(
 
 async function requireTenantRecord<T>(
   loader: () => Promise<T | null>,
-  entityName: string,
+  entityName: string
 ): Promise<T> {
   const record = await loader()
   if (!record) {
@@ -276,10 +271,7 @@ async function requireTenantRecord<T>(
   return record
 }
 
-async function nextOrderNumber(
-  prisma: Prisma.TransactionClient,
-  restaurantId: string,
-) {
+async function nextOrderNumber(prisma: Prisma.TransactionClient, restaurantId: string) {
   const sequence = await prisma.restaurantOrderSequence.upsert({
     where: { restaurantId },
     update: {
@@ -304,7 +296,7 @@ async function resolveOrderCustomer(
     customerId?: string | null
     customerPhoneSnapshot?: string | null
     customerNameSnapshot?: string | null
-  },
+  }
 ) {
   let customer: Customer | null = null
 
@@ -314,7 +306,7 @@ async function resolveOrderCustomer(
     })
 
     if (!customer) {
-      throw badRequest("Customer not found for tenant")
+      throw badRequest('Customer not found for tenant')
     }
   } else if (input.customerPhoneSnapshot) {
     customer =
@@ -329,10 +321,10 @@ async function resolveOrderCustomer(
       }))
 
     if (!customer) {
-      throw badRequest("Customer lookup or creation failed")
+      throw badRequest('Customer lookup or creation failed')
     }
   } else {
-    throw badRequest("Customer phone is required to create an order")
+    throw badRequest('Customer phone is required to create an order')
   }
 
   return customer
@@ -342,12 +334,12 @@ async function normalizeOrderItems(
   prisma: Prisma.TransactionClient,
   scope: TenantScope,
   scoped: ReturnType<typeof bindTenantScope>,
-  items: CreateOrderItemInput[],
+  items: CreateOrderItemInput[]
 ) {
   const normalizedItems = await Promise.all(
     items.map(async (item) => {
       if (!item.itemId) {
-        throw badRequest("Order items must include a valid itemId")
+        throw badRequest('Order items must include a valid itemId')
       }
 
       const menuItem = await prisma.menuItem.findFirst({
@@ -372,12 +364,12 @@ async function normalizeOrderItems(
 
       const quantity = item.quantity ?? 1
       if (!Number.isInteger(quantity) || quantity <= 0) {
-        throw badRequest("Order item quantity must be a positive integer")
+        throw badRequest('Order item quantity must be a positive integer')
       }
 
       const selectedVariant = item.variantId
         ? menuItem.variants.find((variant) => variant.id === item.variantId)
-        : menuItem.variants.find((variant) => variant.isDefault) ?? null
+        : (menuItem.variants.find((variant) => variant.isDefault) ?? null)
 
       if (item.variantId && !selectedVariant) {
         throw badRequest(`Variant ${item.variantId} not found for item ${menuItem.id}`)
@@ -386,16 +378,16 @@ async function normalizeOrderItems(
       const normalizedModifiers = (item.modifiers ?? []).map((modifier) => {
         if (modifier.optionId) {
           const matchingGroup = menuItem.itemModifierGroups.find(
-            (entry) => !modifier.groupId || entry.groupId === modifier.groupId,
+            (entry) => !modifier.groupId || entry.groupId === modifier.groupId
           )
 
           const option = matchingGroup?.group.options.find(
-            (entry) => entry.id === modifier.optionId,
+            (entry) => entry.id === modifier.optionId
           )
 
           if (!matchingGroup || !option) {
             throw badRequest(
-              `Modifier option ${modifier.optionId} not found for item ${menuItem.id}`,
+              `Modifier option ${modifier.optionId} not found for item ${menuItem.id}`
             )
           }
 
@@ -405,7 +397,7 @@ async function normalizeOrderItems(
             optionId: option.id,
             optionName: option.name,
             priceDeltaCents: option.priceDeltaCents,
-            portion: modifier.portion ?? "WHOLE",
+            portion: modifier.portion ?? 'WHOLE',
           } satisfies NormalizedOrderModifierSnapshot
         }
 
@@ -415,7 +407,7 @@ async function normalizeOrderItems(
           optionId: modifier.optionId ?? null,
           optionName: modifier.optionName,
           priceDeltaCents: modifier.priceDeltaCents ?? 0,
-          portion: modifier.portion ?? "WHOLE",
+          portion: modifier.portion ?? 'WHOLE',
         } satisfies NormalizedOrderModifierSnapshot
       })
 
@@ -423,7 +415,7 @@ async function normalizeOrderItems(
         selectedVariant?.priceCents ?? item.unitPriceCents ?? menuItem.basePriceCents
       const modifierUnitTotal = normalizedModifiers.reduce(
         (sum, modifier) => sum + modifier.priceDeltaCents,
-        0,
+        0
       )
 
       return {
@@ -438,7 +430,7 @@ async function normalizeOrderItems(
         notes: item.notes ?? null,
         modifiers: normalizedModifiers,
       } satisfies NormalizedOrderItemSnapshot
-    }),
+    })
   )
 
   const subtotalCents = normalizedItems.reduce((sum, item) => sum + item.linePriceCents, 0)
@@ -456,12 +448,12 @@ async function normalizeOrderItems(
 function parseCheckoutCartSnapshot(value: Prisma.JsonValue): CheckoutCartSnapshot {
   if (
     !value ||
-    typeof value !== "object" ||
+    typeof value !== 'object' ||
     Array.isArray(value) ||
-    !("items" in value) ||
+    !('items' in value) ||
     !Array.isArray(value.items)
   ) {
-    throw badRequest("Checkout cart snapshot is invalid")
+    throw badRequest('Checkout cart snapshot is invalid')
   }
 
   return value as CheckoutCartSnapshot
@@ -484,9 +476,9 @@ async function persistOrderFromSnapshot(
     taxCents: number
     discountCents?: number
     totalCents: number
-    paymentStatus?: "PENDING" | "REQUIRES_ACTION" | "PAID" | "FAILED" | "REFUNDED"
+    paymentStatus?: 'PENDING' | 'REQUIRES_ACTION' | 'PAID' | 'FAILED' | 'REFUNDED'
     stripePaymentIntentId?: string | null
-  },
+  }
 ) {
   const customer = await resolveOrderCustomer(prisma, scope, scoped, {
     customerId: input.customerId,
@@ -496,18 +488,16 @@ async function persistOrderFromSnapshot(
 
   const orderNumber = await nextOrderNumber(prisma, scope.restaurantId)
   const deliveryAddressSnapshot =
-    input.deliveryAddressSnapshot === null
-      ? Prisma.JsonNull
-      : input.deliveryAddressSnapshot
+    input.deliveryAddressSnapshot === null ? Prisma.JsonNull : input.deliveryAddressSnapshot
 
   return prisma.order.create({
     data: {
       ...scoped.scopeCreate({
         customerId: customer.id,
         orderNumber,
-        status: "PENDING",
-        paymentStatus: input.paymentStatus ?? "PENDING",
-        fulfillmentType: input.fulfillmentType ?? "PICKUP",
+        status: 'PENDING',
+        paymentStatus: input.paymentStatus ?? 'PENDING',
+        fulfillmentType: input.fulfillmentType ?? 'PICKUP',
         subtotalCents: input.subtotalCents,
         taxCents: input.taxCents,
         discountCents: input.discountCents ?? 0,
@@ -545,8 +535,8 @@ async function persistOrderFromSnapshot(
         create: {
           restaurantId: scope.restaurantId,
           fromStatus: null,
-          toStatus: "PENDING",
-          source: "customer",
+          toStatus: 'PENDING',
+          source: 'customer',
         },
       },
     },
@@ -584,7 +574,7 @@ export function createTenantDataAccess(scope: TenantScope) {
         })
 
         const previousConfig =
-          existing?.config && typeof existing.config === "object" && !Array.isArray(existing.config)
+          existing?.config && typeof existing.config === 'object' && !Array.isArray(existing.config)
             ? (existing.config as Record<string, unknown>)
             : {}
 
@@ -617,23 +607,23 @@ export function createTenantDataAccess(scope: TenantScope) {
             where: scoped.scopeWhere({
               menuId: menuRecord.id,
             }),
-            orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+            orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
             include: {
               categoryItems: {
-                orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+                orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
                 include: {
                   item: {
                     include: {
                       variants: {
-                        orderBy: [{ isDefault: "desc" }, { priceCents: "asc" }],
+                        orderBy: [{ isDefault: 'desc' }, { priceCents: 'asc' }],
                       },
                       itemModifierGroups: {
-                        orderBy: { createdAt: "asc" },
+                        orderBy: { createdAt: 'asc' },
                         include: {
                           group: {
                             include: {
                               options: {
-                                orderBy: [{ position: "asc" }, { name: "asc" }],
+                                orderBy: [{ position: 'asc' }, { name: 'asc' }],
                               },
                             },
                           },
@@ -667,10 +657,10 @@ export function createTenantDataAccess(scope: TenantScope) {
           where: scoped.scopeWhere({
             isFeatured: true,
           }),
-          orderBy: [{ updatedAt: "desc" }, { createdAt: "desc" }],
+          orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
           include: {
             variants: {
-              orderBy: [{ isDefault: "desc" }, { priceCents: "asc" }],
+              orderBy: [{ isDefault: 'desc' }, { priceCents: 'asc' }],
             },
             categoryItems: {
               include: {
@@ -690,10 +680,10 @@ export function createTenantDataAccess(scope: TenantScope) {
           where: scoped.scopeWhere({
             menuId: targetMenuId,
           }),
-          orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+          orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
           include: {
             categoryItems: {
-              orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+              orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
               include: {
                 item: {
                   include: {
@@ -716,7 +706,7 @@ export function createTenantDataAccess(scope: TenantScope) {
             menuId,
             name: data.name,
             sortOrder: data.sortOrder ?? 0,
-            visibility: data.visibility ?? "AVAILABLE",
+            visibility: data.visibility ?? 'AVAILABLE',
             availableFrom: data.availableFrom ?? null,
             availableUntil: data.availableUntil ?? null,
             daysOfWeek: data.daysOfWeek ?? Prisma.DbNull,
@@ -725,10 +715,7 @@ export function createTenantDataAccess(scope: TenantScope) {
       })
     },
 
-    async updateCategory(
-      categoryId: string,
-      data: WithoutRestaurantId<MenuCategoryUpdateInput>,
-    ) {
+    async updateCategory(categoryId: string, data: WithoutRestaurantId<MenuCategoryUpdateInput>) {
       return withTenantConnection(scope.restaurantId, async (prisma) => {
         const { daysOfWeek, ...rest } = data
         const result = await prisma.menuCategory.updateMany({
@@ -782,14 +769,14 @@ export function createTenantDataAccess(scope: TenantScope) {
             prisma.menuCategory.findFirst({
               where: scoped.scopeWhere({ id: data.categoryId }),
             }),
-          "MenuCategory",
+          'MenuCategory'
         )
 
         const existingLinks = await prisma.menuCategoryItem.findMany({
           where: scoped.scopeWhere({
             categoryId: data.categoryId,
           }),
-          orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+          orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
         })
 
         const existingItemIds = new Set(existingLinks.map((link) => link.itemId))
@@ -811,20 +798,20 @@ export function createTenantDataAccess(scope: TenantScope) {
               data: {
                 sortOrder: index,
               },
-            }),
-          ),
+            })
+          )
         )
 
         return prisma.menuCategory.findFirst({
           where: scoped.scopeWhere({ id: data.categoryId }),
           include: {
             categoryItems: {
-              orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+              orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
               include: {
                 item: {
                   include: {
                     variants: {
-                      orderBy: [{ isDefault: "desc" }, { priceCents: "asc" }],
+                      orderBy: [{ isDefault: 'desc' }, { priceCents: 'asc' }],
                     },
                   },
                 },
@@ -839,7 +826,7 @@ export function createTenantDataAccess(scope: TenantScope) {
       return withTenantConnection(scope.restaurantId, async (prisma) => {
         return prisma.menuItem.findMany({
           where: scoped.scopeWhere({}),
-          orderBy: [{ createdAt: "asc" }],
+          orderBy: [{ createdAt: 'asc' }],
           include: {
             categoryItems: {
               include: {
@@ -847,14 +834,14 @@ export function createTenantDataAccess(scope: TenantScope) {
               },
             },
             variants: {
-              orderBy: [{ isDefault: "desc" }, { priceCents: "asc" }],
+              orderBy: [{ isDefault: 'desc' }, { priceCents: 'asc' }],
             },
             itemModifierGroups: {
               include: {
                 group: {
                   include: {
                     options: {
-                      orderBy: [{ position: "asc" }, { name: "asc" }],
+                      orderBy: [{ position: 'asc' }, { name: 'asc' }],
                     },
                   },
                 },
@@ -878,7 +865,7 @@ export function createTenantDataAccess(scope: TenantScope) {
             prepTimeMinutes: data.prepTimeMinutes ?? 0,
             specialInstructionsEnabled: data.specialInstructionsEnabled ?? false,
             isFeatured: data.isFeatured ?? false,
-            visibility: data.visibility ?? "AVAILABLE",
+            visibility: data.visibility ?? 'AVAILABLE',
           }),
         })
 
@@ -890,7 +877,7 @@ export function createTenantDataAccess(scope: TenantScope) {
                   prisma.menuCategory.findFirst({
                     where: scoped.scopeWhere({ id: categoryId }),
                   }),
-                "MenuCategory",
+                'MenuCategory'
               )
 
               await prisma.menuCategoryItem.create({
@@ -900,7 +887,7 @@ export function createTenantDataAccess(scope: TenantScope) {
                   sortOrder: index,
                 }),
               })
-            }),
+            })
           )
         }
 
@@ -942,7 +929,7 @@ export function createTenantDataAccess(scope: TenantScope) {
                 prisma.menuCategory.findFirst({
                   where: scoped.scopeWhere({ id: categoryId }),
                 }),
-              "MenuCategory",
+              'MenuCategory'
             )
 
             await prisma.menuCategoryItem.create({
@@ -995,7 +982,7 @@ export function createTenantDataAccess(scope: TenantScope) {
       return withTenantConnection(scope.restaurantId, async (prisma) => {
         return prisma.menuItemVariant.findMany({
           where: scoped.scopeWhere(itemId ? { itemId } : {}),
-          orderBy: [{ itemId: "asc" }, { isDefault: "desc" }, { priceCents: "asc" }],
+          orderBy: [{ itemId: 'asc' }, { isDefault: 'desc' }, { priceCents: 'asc' }],
         })
       })
     },
@@ -1007,7 +994,7 @@ export function createTenantDataAccess(scope: TenantScope) {
             prisma.menuItem.findFirst({
               where: scoped.scopeWhere({ id: data.itemId }),
             }),
-          "MenuItem",
+          'MenuItem'
         )
 
         if (data.isDefault) {
@@ -1028,10 +1015,7 @@ export function createTenantDataAccess(scope: TenantScope) {
       })
     },
 
-    async updateVariant(
-      variantId: string,
-      data: WithoutRestaurantId<MenuVariantUpdateInput>,
-    ) {
+    async updateVariant(variantId: string, data: WithoutRestaurantId<MenuVariantUpdateInput>) {
       return withTenantConnection(scope.restaurantId, async (prisma) => {
         const existing = await prisma.menuItemVariant.findFirst({
           where: scoped.scopeWhere({ id: variantId }),
@@ -1049,7 +1033,7 @@ export function createTenantDataAccess(scope: TenantScope) {
               prisma.menuItem.findFirst({
                 where: scoped.scopeWhere({ id: data.itemId }),
               }),
-            "MenuItem",
+            'MenuItem'
           )
         }
 
@@ -1093,10 +1077,10 @@ export function createTenantDataAccess(scope: TenantScope) {
       return withTenantConnection(scope.restaurantId, async (prisma) => {
         return prisma.modifierGroup.findMany({
           where: scoped.scopeWhere({}),
-          orderBy: [{ createdAt: "asc" }],
+          orderBy: [{ createdAt: 'asc' }],
           include: {
             options: {
-              orderBy: [{ position: "asc" }, { name: "asc" }],
+              orderBy: [{ position: 'asc' }, { name: 'asc' }],
             },
             itemModifierGroups: true,
           },
@@ -1114,7 +1098,7 @@ export function createTenantDataAccess(scope: TenantScope) {
 
     async updateModifierGroup(
       modifierGroupId: string,
-      data: WithoutRestaurantId<ModifierGroupUpdateInput>,
+      data: WithoutRestaurantId<ModifierGroupUpdateInput>
     ) {
       return withTenantConnection(scope.restaurantId, async (prisma) => {
         const result = await prisma.modifierGroup.updateMany({
@@ -1157,7 +1141,7 @@ export function createTenantDataAccess(scope: TenantScope) {
             prisma.modifierGroup.findFirst({
               where: scoped.scopeWhere({ id: data.groupId }),
             }),
-          "ModifierGroup",
+          'ModifierGroup'
         )
 
         return prisma.modifierOption.create({
@@ -1173,7 +1157,7 @@ export function createTenantDataAccess(scope: TenantScope) {
 
     async updateModifierOption(
       modifierOptionId: string,
-      data: WithoutRestaurantId<ModifierOptionUpdateInput>,
+      data: WithoutRestaurantId<ModifierOptionUpdateInput>
     ) {
       return withTenantConnection(scope.restaurantId, async (prisma) => {
         const existing = await prisma.modifierOption.findFirst({
@@ -1190,7 +1174,7 @@ export function createTenantDataAccess(scope: TenantScope) {
               prisma.modifierGroup.findFirst({
                 where: scoped.scopeWhere({ id: data.groupId }),
               }),
-            "ModifierGroup",
+            'ModifierGroup'
           )
         }
 
@@ -1227,12 +1211,12 @@ export function createTenantDataAccess(scope: TenantScope) {
       return withTenantConnection(scope.restaurantId, async (prisma) => {
         return prisma.menuItemModifierGroup.findMany({
           where: scoped.scopeWhere({ itemId }),
-          orderBy: [{ createdAt: "asc" }],
+          orderBy: [{ createdAt: 'asc' }],
           include: {
             group: {
               include: {
                 options: {
-                  orderBy: [{ position: "asc" }, { name: "asc" }],
+                  orderBy: [{ position: 'asc' }, { name: 'asc' }],
                 },
               },
             },
@@ -1249,14 +1233,14 @@ export function createTenantDataAccess(scope: TenantScope) {
               prisma.menuItem.findFirst({
                 where: scoped.scopeWhere({ id: data.itemId }),
               }),
-            "MenuItem",
+            'MenuItem'
           ),
           requireTenantRecord(
             () =>
               prisma.modifierGroup.findFirst({
                 where: scoped.scopeWhere({ id: data.groupId }),
               }),
-            "ModifierGroup",
+            'ModifierGroup'
           ),
         ])
 
@@ -1275,7 +1259,7 @@ export function createTenantDataAccess(scope: TenantScope) {
 
     async updateItemModifierGroup(
       itemModifierGroupId: string,
-      data: WithoutRestaurantId<ItemModifierGroupUpdateInput>,
+      data: WithoutRestaurantId<ItemModifierGroupUpdateInput>
     ) {
       return withTenantConnection(scope.restaurantId, async (prisma) => {
         const existing = await prisma.menuItemModifierGroup.findFirst({
@@ -1292,7 +1276,7 @@ export function createTenantDataAccess(scope: TenantScope) {
               prisma.menuItem.findFirst({
                 where: scoped.scopeWhere({ id: data.itemId }),
               }),
-            "MenuItem",
+            'MenuItem'
           )
         }
 
@@ -1302,7 +1286,7 @@ export function createTenantDataAccess(scope: TenantScope) {
               prisma.modifierGroup.findFirst({
                 where: scoped.scopeWhere({ id: data.groupId }),
               }),
-            "ModifierGroup",
+            'ModifierGroup'
           )
         }
 
@@ -1317,7 +1301,7 @@ export function createTenantDataAccess(scope: TenantScope) {
             group: {
               include: {
                 options: {
-                  orderBy: [{ position: "asc" }, { name: "asc" }],
+                  orderBy: [{ position: 'asc' }, { name: 'asc' }],
                 },
               },
             },
@@ -1392,7 +1376,7 @@ export function createTenantDataAccess(scope: TenantScope) {
                   id: existingCustomer.id,
                 }),
               }),
-            "Customer",
+            'Customer'
           )
         }
 
@@ -1409,7 +1393,7 @@ export function createTenantDataAccess(scope: TenantScope) {
 
   async function findCheckoutSessionById(
     prisma: Prisma.TransactionClient,
-    checkoutSessionId: string,
+    checkoutSessionId: string
   ) {
     const rows = await prisma.$queryRaw<CheckoutSessionRow[]>(Prisma.sql`
       SELECT *
@@ -1424,7 +1408,7 @@ export function createTenantDataAccess(scope: TenantScope) {
 
   async function findCheckoutSessionByPaymentIntentId(
     prisma: Prisma.TransactionClient,
-    paymentIntentId: string,
+    paymentIntentId: string
   ) {
     const rows = await prisma.$queryRaw<CheckoutSessionRow[]>(Prisma.sql`
       SELECT *
@@ -1480,7 +1464,7 @@ export function createTenantDataAccess(scope: TenantScope) {
             ${customer.id},
             ${input.customerNameSnapshot ?? customer.name ?? null},
             ${input.customerPhoneSnapshot ?? customer.phone ?? null},
-            ${Prisma.sql`${input.fulfillmentType ?? "PICKUP"}::"FulfillmentType"`},
+            ${Prisma.sql`${input.fulfillmentType ?? 'PICKUP'}::"FulfillmentType"`},
             ${input.notes ?? null},
             ${input.pickupTime ?? null},
             ${deliveryAddressSnapshotValue},
@@ -1490,7 +1474,7 @@ export function createTenantDataAccess(scope: TenantScope) {
             ${input.discountCents ?? 0},
             ${Math.max(0, normalized.totalCents - (input.discountCents ?? 0))},
             ${input.stripeAccountId},
-            ${Prisma.sql`${"PENDING" satisfies CheckoutSessionStatus}::"CheckoutSessionStatus"`},
+            ${Prisma.sql`${'PENDING' satisfies CheckoutSessionStatus}::"CheckoutSessionStatus"`},
             NOW(),
             NOW()
           )
@@ -1532,7 +1516,7 @@ export function createTenantDataAccess(scope: TenantScope) {
       return withTenantConnection(scope.restaurantId, async (prisma) => {
         const rows = await prisma.$queryRaw<CheckoutSessionRow[]>(Prisma.sql`
           UPDATE "CheckoutSession"
-          SET "status" = ${Prisma.sql`${"REQUIRES_ACTION" satisfies CheckoutSessionStatus}::"CheckoutSessionStatus"`},
+          SET "status" = ${Prisma.sql`${'REQUIRES_ACTION' satisfies CheckoutSessionStatus}::"CheckoutSessionStatus"`},
               "updatedAt" = NOW()
           WHERE "restaurantId" = ${scope.restaurantId}
             AND "id" = ${checkoutSessionId}
@@ -1547,7 +1531,7 @@ export function createTenantDataAccess(scope: TenantScope) {
       return withTenantConnection(scope.restaurantId, async (prisma) => {
         const rows = await prisma.$queryRaw<CheckoutSessionRow[]>(Prisma.sql`
           UPDATE "CheckoutSession"
-          SET "status" = ${Prisma.sql`${"PAYMENT_FAILED" satisfies CheckoutSessionStatus}::"CheckoutSessionStatus"`},
+          SET "status" = ${Prisma.sql`${'PAYMENT_FAILED' satisfies CheckoutSessionStatus}::"CheckoutSessionStatus"`},
               "updatedAt" = NOW()
           WHERE "restaurantId" = ${scope.restaurantId}
             AND "stripePaymentIntentId" = ${paymentIntentId}
@@ -1562,7 +1546,7 @@ export function createTenantDataAccess(scope: TenantScope) {
       return withTenantConnection(scope.restaurantId, async (prisma) => {
         const rows = await prisma.$queryRaw<CheckoutSessionRow[]>(Prisma.sql`
           UPDATE "CheckoutSession"
-          SET "status" = ${Prisma.sql`${"PAYMENT_SUCCEEDED" satisfies CheckoutSessionStatus}::"CheckoutSessionStatus"`},
+          SET "status" = ${Prisma.sql`${'PAYMENT_SUCCEEDED' satisfies CheckoutSessionStatus}::"CheckoutSessionStatus"`},
               "updatedAt" = NOW()
           WHERE "restaurantId" = ${scope.restaurantId}
             AND "stripePaymentIntentId" = ${paymentIntentId}
@@ -1578,7 +1562,7 @@ export function createTenantDataAccess(scope: TenantScope) {
         const checkoutSession = await findCheckoutSessionById(prisma, checkoutSessionId)
 
         if (!checkoutSession) {
-          return { kind: "not_found" as const }
+          return { kind: 'not_found' as const }
         }
 
         if (checkoutSession.createdOrderId) {
@@ -1591,18 +1575,20 @@ export function createTenantDataAccess(scope: TenantScope) {
                 },
               },
               statusEvents: {
-                orderBy: [{ createdAt: "asc" }],
+                orderBy: [{ createdAt: 'asc' }],
               },
             },
           })
 
           return {
-            kind: "already_created" as const,
+            kind: 'already_created' as const,
             order: existingOrder,
           }
         }
 
-        const cartSnapshot = parseCheckoutCartSnapshot(checkoutSession.cartSnapshot as Prisma.JsonValue)
+        const cartSnapshot = parseCheckoutCartSnapshot(
+          checkoutSession.cartSnapshot as Prisma.JsonValue
+        )
         const createdOrder = await persistOrderFromSnapshot(prisma, scope, scoped, {
           customerId: checkoutSession.customerId,
           customerNameSnapshot: checkoutSession.customerNameSnapshot,
@@ -1619,21 +1605,21 @@ export function createTenantDataAccess(scope: TenantScope) {
           taxCents: checkoutSession.taxCents,
           discountCents: checkoutSession.discountCents,
           totalCents: checkoutSession.totalCents,
-          paymentStatus: "PAID",
+          paymentStatus: 'PAID',
           stripePaymentIntentId: checkoutSession.stripePaymentIntentId,
         })
 
         await prisma.$executeRaw(Prisma.sql`
           UPDATE "CheckoutSession"
           SET "createdOrderId" = ${createdOrder.id},
-              "status" = ${Prisma.sql`${"ORDER_CREATED" satisfies CheckoutSessionStatus}::"CheckoutSessionStatus"`},
+              "status" = ${Prisma.sql`${'ORDER_CREATED' satisfies CheckoutSessionStatus}::"CheckoutSessionStatus"`},
               "updatedAt" = NOW()
           WHERE "restaurantId" = ${scope.restaurantId}
             AND "id" = ${checkoutSession.id}
         `)
 
         return {
-          kind: "created" as const,
+          kind: 'created' as const,
           order: createdOrder,
         }
       })
@@ -1654,7 +1640,7 @@ export function createTenantDataAccess(scope: TenantScope) {
               },
             },
             statusEvents: {
-              orderBy: [{ createdAt: "asc" }],
+              orderBy: [{ createdAt: 'asc' }],
             },
           },
         })
@@ -1677,7 +1663,7 @@ export function createTenantDataAccess(scope: TenantScope) {
           subtotalCents: normalized.subtotalCents,
           taxCents: normalized.taxCents,
           totalCents: normalized.totalCents,
-          paymentStatus: "PENDING",
+          paymentStatus: 'PENDING',
         })
       })
     },
@@ -1687,7 +1673,7 @@ export function createTenantDataAccess(scope: TenantScope) {
         return prisma.order.findMany({
           where: scoped.scopeWhere({
             status: {
-              in: ["PENDING", "CONFIRMED", "PREPARING", "READY"] satisfies OrderStatus[],
+              in: ['PENDING', 'CONFIRMED', 'PREPARING', 'READY'] satisfies OrderStatus[],
             },
           }),
           include: {
@@ -1697,16 +1683,12 @@ export function createTenantDataAccess(scope: TenantScope) {
               },
             },
           },
-          orderBy: [{ createdAt: "desc" }],
+          orderBy: [{ createdAt: 'desc' }],
         })
       })
     },
 
-    async updateStatus(
-      orderId: string,
-      nextStatus: OrderStatus,
-      actorAdminId?: string | null,
-    ) {
+    async updateStatus(orderId: string, nextStatus: OrderStatus, actorAdminId?: string | null) {
       return withTenantConnection(scope.restaurantId, async (prisma) => {
         const existing = await prisma.order.findFirst({
           where: scoped.scopeWhere({ id: orderId }),
@@ -1733,7 +1715,7 @@ export function createTenantDataAccess(scope: TenantScope) {
             fromStatus: existing.status,
             toStatus: nextStatus,
             actorAdminId: actorAdminId ?? null,
-            source: "admin",
+            source: 'admin',
           }),
         })
 
@@ -1742,17 +1724,14 @@ export function createTenantDataAccess(scope: TenantScope) {
           include: {
             items: true,
             statusEvents: {
-              orderBy: [{ createdAt: "asc" }],
+              orderBy: [{ createdAt: 'asc' }],
             },
           },
         })
       })
     },
 
-    async enqueueStatusNotification(
-      orderId: string,
-      nextStatus: OrderStatus,
-    ) {
+    async enqueueStatusNotification(orderId: string, nextStatus: OrderStatus) {
       return withTenantConnection(scope.restaurantId, async (prisma) => {
         const existing = await prisma.order.findFirst({
           where: scoped.scopeWhere({ id: orderId }),
@@ -1766,8 +1745,7 @@ export function createTenantDataAccess(scope: TenantScope) {
           return null
         }
 
-        const customerPhone =
-          existing.customerPhoneSnapshot ?? existing.customer?.phone ?? null
+        const customerPhone = existing.customerPhoneSnapshot ?? existing.customer?.phone ?? null
         if (!customerPhone) {
           return null
         }
@@ -1780,14 +1758,13 @@ export function createTenantDataAccess(scope: TenantScope) {
 
         const rawConfig =
           brandConfig?.config &&
-          typeof brandConfig.config === "object" &&
+          typeof brandConfig.config === 'object' &&
           !Array.isArray(brandConfig.config)
             ? (brandConfig.config as Record<string, unknown>)
             : {}
 
         const restaurantName = resolveRestaurantDisplayName({
-          appTitle:
-            typeof rawConfig.appTitle === "string" ? rawConfig.appTitle : null,
+          appTitle: typeof rawConfig.appTitle === 'string' ? rawConfig.appTitle : null,
           restaurantSlug: existing.restaurant.slug,
           restaurantName: existing.restaurant.name,
         })
@@ -1796,8 +1773,8 @@ export function createTenantDataAccess(scope: TenantScope) {
           data: scoped.scopeCreate({
             orderId,
             customerId: existing.customerId ?? null,
-            type: "ORDER_STATUS" satisfies NotificationJobType,
-            status: "PENDING",
+            type: 'ORDER_STATUS' satisfies NotificationJobType,
+            status: 'PENDING',
             payload: {
               orderId,
               orderNumber: existing.orderNumber,
@@ -1824,8 +1801,7 @@ export function createTenantDataAccess(scope: TenantScope) {
           return null
         }
 
-        const customerPhone =
-          existing.customerPhoneSnapshot ?? existing.customer?.phone ?? null
+        const customerPhone = existing.customerPhoneSnapshot ?? existing.customer?.phone ?? null
         if (!customerPhone) {
           return null
         }
@@ -1836,14 +1812,13 @@ export function createTenantDataAccess(scope: TenantScope) {
 
         const rawConfig =
           brandConfig?.config &&
-          typeof brandConfig.config === "object" &&
+          typeof brandConfig.config === 'object' &&
           !Array.isArray(brandConfig.config)
             ? (brandConfig.config as Record<string, unknown>)
             : {}
 
         const restaurantName = resolveRestaurantDisplayName({
-          appTitle:
-            typeof rawConfig.appTitle === "string" ? rawConfig.appTitle : null,
+          appTitle: typeof rawConfig.appTitle === 'string' ? rawConfig.appTitle : null,
           restaurantSlug: existing.restaurant.slug,
           restaurantName: existing.restaurant.name,
         })
@@ -1852,14 +1827,14 @@ export function createTenantDataAccess(scope: TenantScope) {
           data: scoped.scopeCreate({
             orderId,
             customerId: existing.customerId ?? null,
-            type: "ORDER_STATUS" satisfies NotificationJobType,
-            status: "PENDING",
+            type: 'ORDER_STATUS' satisfies NotificationJobType,
+            status: 'PENDING',
             payload: {
               orderId,
               orderNumber: existing.orderNumber,
               customerPhone,
               restaurantName,
-              newStatus: "DELIVERY_ETA",
+              newStatus: 'DELIVERY_ETA',
               etaMinutes,
             },
           }),
@@ -1879,12 +1854,12 @@ export function createTenantDataAccess(scope: TenantScope) {
         })
 
         if (!restaurant) {
-          throw notFound("Restaurant")
+          throw notFound('Restaurant')
         }
 
         const rawConfig =
           restaurant.brandConfig?.config &&
-          typeof restaurant.brandConfig.config === "object" &&
+          typeof restaurant.brandConfig.config === 'object' &&
           !Array.isArray(restaurant.brandConfig.config)
             ? (restaurant.brandConfig.config as Record<string, unknown>)
             : {}
@@ -1894,8 +1869,7 @@ export function createTenantDataAccess(scope: TenantScope) {
           slug: restaurant.slug,
           name: restaurant.name,
           displayName: resolveRestaurantDisplayName({
-            appTitle:
-              typeof rawConfig.appTitle === "string" ? rawConfig.appTitle : null,
+            appTitle: typeof rawConfig.appTitle === 'string' ? rawConfig.appTitle : null,
             restaurantSlug: restaurant.slug,
             restaurantName: restaurant.name,
           }),
@@ -1917,10 +1891,7 @@ export function createTenantDataAccess(scope: TenantScope) {
       })
     },
 
-    async updateStripeCapabilities(input: {
-      chargesEnabled: boolean
-      payoutsEnabled: boolean
-    }) {
+    async updateStripeCapabilities(input: { chargesEnabled: boolean; payoutsEnabled: boolean }) {
       return withTenantConnection(scope.restaurantId, async (prisma) => {
         return prisma.restaurant.update({
           where: { id: scope.restaurantId },
@@ -1945,17 +1916,14 @@ export function createTenantDataAccess(scope: TenantScope) {
         })
 
         if (!restaurant) {
-          throw notFound("Restaurant")
+          throw notFound('Restaurant')
         }
 
         return restaurant
       })
     },
 
-    async updateSettings(input: {
-      cloudPrntEnabled: boolean
-      cloudPrntMacAddress: string | null
-    }) {
+    async updateSettings(input: { cloudPrntEnabled: boolean; cloudPrntMacAddress: string | null }) {
       return withTenantConnection(scope.restaurantId, async (prisma) => {
         return prisma.restaurant.update({
           where: { id: scope.restaurantId },
@@ -2031,7 +1999,9 @@ export function createTenantDataAccess(scope: TenantScope) {
 
     async getConfig(): Promise<LoyaltyProgramConfig> {
       return withTenantConnection(scope.restaurantId, async (prisma) => {
-        const rows = await prisma.$queryRaw<Array<{ config: Prisma.JsonValue; active: boolean }>>(Prisma.sql`
+        const rows = await prisma.$queryRaw<
+          Array<{ config: Prisma.JsonValue; active: boolean }>
+        >(Prisma.sql`
           SELECT "config", "active"
           FROM "LoyaltyProgram"
           WHERE "restaurantId" = ${scope.restaurantId}
@@ -2047,7 +2017,7 @@ export function createTenantDataAccess(scope: TenantScope) {
 
     async updateConfig(patch: Partial<Omit<LoyaltyProgramConfig, 'tiers' | 'active'>>) {
       return withTenantConnection(scope.restaurantId, async (prisma) => {
-        let program = await prisma.loyaltyProgram.findFirst({
+        const program = await prisma.loyaltyProgram.findFirst({
           where: { restaurantId: scope.restaurantId, type: 'POINTS' },
         })
         const existing = (program?.config ?? DEFAULT_LOYALTY_CONFIG) as Record<string, unknown>
@@ -2094,26 +2064,47 @@ export function createTenantDataAccess(scope: TenantScope) {
       })
     },
 
-    async upsertTier(tier: { id?: string; name: string; pointsCost: number; discountCents: number; sortOrder?: number }) {
+    async upsertTier(tier: {
+      id?: string
+      name: string
+      pointsCost: number
+      discountCents: number
+      sortOrder?: number
+    }) {
       return withTenantConnection(scope.restaurantId, async (prisma) => {
         const program = await prisma.loyaltyProgram.findFirst({
           where: { restaurantId: scope.restaurantId, type: 'POINTS' },
         })
-        const cfg = ((program?.config ?? DEFAULT_LOYALTY_CONFIG) as Record<string, unknown>)
-        const tiers: LoyaltyProgramConfig['tiers'] = Array.isArray(cfg.tiers) ? (cfg.tiers as LoyaltyProgramConfig['tiers']) : DEFAULT_LOYALTY_CONFIG.tiers
+        const cfg = (program?.config ?? DEFAULT_LOYALTY_CONFIG) as Record<string, unknown>
+        const tiers: LoyaltyProgramConfig['tiers'] = Array.isArray(cfg.tiers)
+          ? (cfg.tiers as LoyaltyProgramConfig['tiers'])
+          : DEFAULT_LOYALTY_CONFIG.tiers
         const newId = tier.id ?? randomUUID()
-        const existing = tiers.findIndex(t => t.id === newId)
-        const entry = { id: newId, name: tier.name, pointsCost: tier.pointsCost, discountCents: tier.discountCents, sortOrder: tier.sortOrder ?? tiers.length }
-        const newTiers = existing >= 0
-          ? tiers.map(t => t.id === newId ? entry : t)
-          : [...tiers, entry]
+        const existing = tiers.findIndex((t) => t.id === newId)
+        const entry = {
+          id: newId,
+          name: tier.name,
+          pointsCost: tier.pointsCost,
+          discountCents: tier.discountCents,
+          sortOrder: tier.sortOrder ?? tiers.length,
+        }
+        const newTiers =
+          existing >= 0 ? tiers.map((t) => (t.id === newId ? entry : t)) : [...tiers, entry]
         const updated = { ...cfg, tiers: newTiers }
         if (!program) {
           await prisma.loyaltyProgram.create({
-            data: { restaurantId: scope.restaurantId, name: 'Points', type: 'POINTS', config: updated as Prisma.InputJsonValue },
+            data: {
+              restaurantId: scope.restaurantId,
+              name: 'Points',
+              type: 'POINTS',
+              config: updated as Prisma.InputJsonValue,
+            },
           })
         } else {
-          await prisma.loyaltyProgram.update({ where: { id: program.id }, data: { config: updated as Prisma.InputJsonValue } })
+          await prisma.loyaltyProgram.update({
+            where: { id: program.id },
+            data: { config: updated as Prisma.InputJsonValue },
+          })
         }
         return entry
       })
@@ -2126,9 +2117,14 @@ export function createTenantDataAccess(scope: TenantScope) {
         })
         if (!program) return
         const cfg = program.config as Record<string, unknown>
-        const tiers: LoyaltyProgramConfig['tiers'] = Array.isArray(cfg.tiers) ? (cfg.tiers as LoyaltyProgramConfig['tiers']) : []
-        const updated = { ...cfg, tiers: tiers.filter(t => t.id !== tierId) }
-        await prisma.loyaltyProgram.update({ where: { id: program.id }, data: { config: updated as Prisma.InputJsonValue } })
+        const tiers: LoyaltyProgramConfig['tiers'] = Array.isArray(cfg.tiers)
+          ? (cfg.tiers as LoyaltyProgramConfig['tiers'])
+          : []
+        const updated = { ...cfg, tiers: tiers.filter((t) => t.id !== tierId) }
+        await prisma.loyaltyProgram.update({
+          where: { id: program.id },
+          data: { config: updated as Prisma.InputJsonValue },
+        })
       })
     },
 
@@ -2152,7 +2148,14 @@ export function createTenantDataAccess(scope: TenantScope) {
         })
         if (existing) return existing
         return prisma.loyaltyAccount.create({
-          data: { restaurantId: scope.restaurantId, programId: program.id, customerId, points: 0, lifetimePts: 0, isNew: true },
+          data: {
+            restaurantId: scope.restaurantId,
+            programId: program.id,
+            customerId,
+            points: 0,
+            lifetimePts: 0,
+            isNew: true,
+          },
         })
       })
     },
@@ -2174,7 +2177,13 @@ export function createTenantDataAccess(scope: TenantScope) {
       })
     },
 
-    async awardPoints(accountId: string, delta: number, type: string, orderId?: string | null, description?: string | null) {
+    async awardPoints(
+      accountId: string,
+      delta: number,
+      type: string,
+      orderId?: string | null,
+      description?: string | null
+    ) {
       return withTenantConnection(scope.restaurantId, async (prisma) => {
         const account = await prisma.loyaltyAccount.findUnique({ where: { id: accountId } })
         if (!account) throw new Error('Loyalty account not found')
@@ -2204,7 +2213,7 @@ export function createTenantDataAccess(scope: TenantScope) {
         const account = await prisma.loyaltyAccount.findUnique({ where: { id: accountId } })
         if (!account) throw new Error('Loyalty account not found')
         const cfg = await loyalty.getConfig()
-        const tier = cfg.tiers.find(t => t.id === tierId)
+        const tier = cfg.tiers.find((t) => t.id === tierId)
         if (!tier) throw new Error('Reward tier not found')
         if (account.points < tier.pointsCost) throw new Error('Insufficient points')
         await prisma.loyaltyAccount.update({
@@ -2272,12 +2281,16 @@ export function createTenantDataAccess(scope: TenantScope) {
             where: { restaurantId: scope.restaurantId, type: 'REDEEM' },
             orderBy: { createdAt: 'desc' },
             take: 20,
-            include: { account: { include: { customer: { select: { name: true, phone: true } } } } },
+            include: {
+              account: { include: { customer: { select: { name: true, phone: true } } } },
+            },
           }),
         ])
 
-        const issued = recentEvents.filter(e => e.delta > 0).reduce((s, e) => s + e.delta, 0)
-        const redeemed = Math.abs(recentEvents.filter(e => e.delta < 0).reduce((s, e) => s + e.delta, 0))
+        const issued = recentEvents.filter((e) => e.delta > 0).reduce((s, e) => s + e.delta, 0)
+        const redeemed = Math.abs(
+          recentEvents.filter((e) => e.delta < 0).reduce((s, e) => s + e.delta, 0)
+        )
 
         return {
           enrolledCount,
