@@ -126,10 +126,10 @@ Skipping Sprint 0–2 to get to Sprint 4 features is the fastest path to a produ
 
 ## Sprint Log
 
-| Sprint | Started    | Completed  | Notes                                                                                                                                                                           |
-| ------ | ---------- | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0      | 2026-04-29 | 2026-04-29 | ESLint 9 + Prettier + lint-staged + husky + CI. 0 errors, 16 warnings (set-state-in-effect/exhaustive-deps — Sprint 3). Fixed 1 real bug: conditional useMemo in admin App.tsx. |
-| 1      | —          | —          |                                                                                                                                                                                 |
-| 2      | —          | —          |                                                                                                                                                                                 |
-| 3      | —          | —          |                                                                                                                                                                                 |
-| 4      | —          | —          |                                                                                                                                                                                 |
+| Sprint | Started    | Completed  | Notes                                                                                                                                                                                                                   |
+| ------ | ---------- | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0      | 2026-04-29 | 2026-04-29 | ESLint 9 + Prettier + lint-staged + husky + CI. 0 errors, 16 warnings (set-state-in-effect/exhaustive-deps — Sprint 3). Fixed 1 real bug: conditional useMemo in admin App.tsx.                                         |
+| 1      | 2026-04-30 | 2026-04-30 | Rate limiting: OTP (IP+phone, 5/15min), checkout (IP, 20/min). charge.refunded webhook + data-access method. 1.3/1.4/1.7 already correctly implemented. 1.6 (Clerk bridge) blocked on manual admin backfill — deferred. |
+| 2      | —          | —          |                                                                                                                                                                                                                         |
+| 3      | —          | —          |                                                                                                                                                                                                                         |
+| 4      | —          | —          |                                                                                                                                                                                                                         |

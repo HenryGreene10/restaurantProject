@@ -1542,6 +1542,28 @@ export function createTenantDataAccess(scope: TenantScope) {
       })
     },
 
+    async markOrderRefundedByPaymentIntentId(paymentIntentId: string) {
+      return withTenantConnection(scope.restaurantId, async (prisma) => {
+        type OrderIdRow = { id: string }
+        const rows = await prisma.$queryRaw<OrderIdRow[]>(Prisma.sql`
+          UPDATE "Order"
+          SET "paymentStatus" = 'REFUNDED'::"PaymentStatus",
+              "updatedAt" = NOW()
+          WHERE "restaurantId" = ${scope.restaurantId}
+            AND "id" = (
+              SELECT "createdOrderId"
+              FROM "CheckoutSession"
+              WHERE "restaurantId" = ${scope.restaurantId}
+                AND "stripePaymentIntentId" = ${paymentIntentId}
+                AND "createdOrderId" IS NOT NULL
+              LIMIT 1
+            )
+          RETURNING "id"
+        `)
+        return rows[0] ?? null
+      })
+    },
+
     async markPaymentSucceededByIntent(paymentIntentId: string) {
       return withTenantConnection(scope.restaurantId, async (prisma) => {
         const rows = await prisma.$queryRaw<CheckoutSessionRow[]>(Prisma.sql`

@@ -5,17 +5,14 @@ import {
   createTenantDataAccess,
   createTenantScope,
 } from '@repo/data-access'
-import {
-  retrieveDirectChargePaymentIntent,
-  verifyStripeWebhookEvent,
-} from '@repo/payments'
+import { retrieveDirectChargePaymentIntent, verifyStripeWebhookEvent } from '@repo/payments'
 import { env } from '../config/env.js'
 import { buildCloudPrntReceiptJob } from '../lib/cloudprnt.js'
 
 async function awardLoyaltyPoints(
   tenantDataAccess: ReturnType<typeof createTenantDataAccess>,
   order: { id: string; customerId: string | null; totalCents: number },
-  checkoutSession: { customerPhoneSnapshot: string | null; discountCents: number },
+  checkoutSession: { customerPhoneSnapshot: string | null; discountCents: number }
 ) {
   if (!order.customerId) return
   try {
@@ -29,12 +26,24 @@ async function awardLoyaltyPoints(
     const amountPaidDollars = order.totalCents / 100
     const earned = Math.floor(amountPaidDollars * cfg.earnRate)
     if (earned > 0) {
-      await tenantDataAccess.loyalty.awardPoints(account.id, earned, 'EARN', order.id, `Earned on order`)
+      await tenantDataAccess.loyalty.awardPoints(
+        account.id,
+        earned,
+        'EARN',
+        order.id,
+        `Earned on order`
+      )
     }
 
     // Award welcome bonus on first order
     if (isFirstOrder && cfg.welcomeBonus > 0) {
-      await tenantDataAccess.loyalty.awardPoints(account.id, cfg.welcomeBonus, 'WELCOME_BONUS', order.id, 'Welcome bonus')
+      await tenantDataAccess.loyalty.awardPoints(
+        account.id,
+        cfg.welcomeBonus,
+        'WELCOME_BONUS',
+        order.id,
+        'Welcome bonus'
+      )
     }
 
     // Mark account as no longer new after first order
@@ -54,7 +63,7 @@ async function awardLoyaltyPoints(
 
 async function enqueuePrintJob(
   order: Parameters<typeof buildCloudPrntReceiptJob>[0],
-  restaurantId: string,
+  restaurantId: string
 ) {
   const platformDataAccess = createPlatformDataAccess()
   const restaurant = await platformDataAccess.getRestaurantById(restaurantId)
@@ -120,8 +129,9 @@ export function registerStripeWebhookRoute(app: Express) {
           const paymentIntent = event.data.object
           const tenantDataAccess = createTenantDataAccess(createTenantScope(tenant.id))
 
-          const checkoutSession =
-            await tenantDataAccess.checkouts.findByPaymentIntentId(paymentIntent.id)
+          const checkoutSession = await tenantDataAccess.checkouts.findByPaymentIntentId(
+            paymentIntent.id
+          )
 
           if (!checkoutSession) {
             return res.status(200).json({ received: true })
@@ -144,8 +154,9 @@ export function registerStripeWebhookRoute(app: Express) {
           }
 
           await tenantDataAccess.checkouts.markPaymentSucceededByIntent(paymentIntent.id)
-          const orderResult =
-            await tenantDataAccess.checkouts.createOrderFromCheckoutSession(checkoutSession.id)
+          const orderResult = await tenantDataAccess.checkouts.createOrderFromCheckoutSession(
+            checkoutSession.id
+          )
 
           if (orderResult.kind === 'created') {
             await enqueuePrintJob(orderResult.order, tenant.id)
@@ -171,11 +182,32 @@ export function registerStripeWebhookRoute(app: Express) {
           await tenantDataAccess.checkouts.markPaymentFailedByIntent(paymentIntent.id)
         }
 
+        if (event.type === 'charge.refunded') {
+          const stripeAccountId = event.account
+          if (!stripeAccountId) {
+            return res.status(400).json({ error: 'Missing connected Stripe account' })
+          }
+
+          const charge = event.data.object
+          const paymentIntentId =
+            typeof charge.payment_intent === 'string' ? charge.payment_intent : null
+
+          if (paymentIntentId) {
+            const platformDataAccess = createPlatformDataAccess()
+            const tenant = await platformDataAccess.findTenantByStripeAccountId(stripeAccountId)
+
+            if (tenant) {
+              const tenantDataAccess = createTenantDataAccess(createTenantScope(tenant.id))
+              await tenantDataAccess.checkouts.markOrderRefundedByPaymentIntentId(paymentIntentId)
+            }
+          }
+        }
+
         return res.status(200).json({ received: true })
       } catch (error) {
         console.error('Stripe webhook handling failed', error)
         return res.status(400).json({ error: 'Invalid Stripe webhook' })
       }
-    },
+    }
   )
 }
