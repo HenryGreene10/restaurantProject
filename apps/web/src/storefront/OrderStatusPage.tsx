@@ -484,6 +484,14 @@ export function OrderStatusPage({
                           {formatPrice(orderQuery.data.taxCents)}
                         </span>
                       </div>
+                      {orderQuery.data.tipCents > 0 ? (
+                        <div className="flex items-center justify-between">
+                          <span>Tip</span>
+                          <span className="font-semibold text-brand-text">
+                            {formatPrice(orderQuery.data.tipCents)}
+                          </span>
+                        </div>
+                      ) : null}
                       {appliedDiscountCents > 0 ? (
                         <div className="flex items-center justify-between">
                           <span style={{ color: 'rgb(var(--color-brand-primary))' }}>

@@ -367,6 +367,7 @@ model CheckoutSession {
   cartSnapshot            Json
   subtotalCents           Int
   taxCents                Int
+  tipCents                Int                   @default(0)
   discountCents           Int                   @default(0)
   totalCents              Int
   stripeAccountId         String
@@ -393,6 +394,7 @@ model Order {
   fulfillmentType        FulfillmentType  @default(PICKUP)
   subtotalCents          Int
   taxCents               Int              @default(0)
+  tipCents               Int              @default(0)
   discountCents          Int              @default(0)
   totalCents             Int
   promoCode              String?

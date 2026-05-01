@@ -54,6 +54,7 @@ export function registerCheckoutRoutes(r: Router) {
           type,
           pickupTime,
           deliveryAddress,
+          tipCents,
           notes,
           customerId,
           customerName,
@@ -75,6 +76,15 @@ export function registerCheckoutRoutes(r: Router) {
 
         const tenantDataAccess = checkoutDataAccessFor(req)
         const stripeConnection = await tenantDataAccess.payments.getStripeConnection()
+        if (
+          type === 'DELIVERY' &&
+          tipCents !== undefined &&
+          (!Number.isInteger(tipCents) || tipCents < 0)
+        ) {
+          return res.status(400).json({ error: 'Tip must be a non-negative whole number of cents' })
+        }
+
+        const normalizedTipCents = type === 'DELIVERY' ? tipCents ?? 0 : 0
 
         if (
           !stripeConnection.stripeAccountId ||
@@ -108,6 +118,7 @@ export function registerCheckoutRoutes(r: Router) {
           notes,
           pickupTime: pickupTime ? new Date(pickupTime) : null,
           deliveryAddressSnapshot: deliveryAddress ?? null,
+          tipCents: normalizedTipCents,
           items,
           stripeAccountId: stripeConnection.stripeAccountId,
           discountCents,
@@ -138,6 +149,7 @@ export function registerCheckoutRoutes(r: Router) {
           checkoutSessionId: checkoutSession.id,
           clientSecret: paymentIntent.client_secret,
           stripeAccountId: stripeConnection.stripeAccountId,
+          tipCents: checkoutSession.tipCents,
           discountCents: checkoutSession?.discountCents ?? 0,
           isNewMember: discountCents > 0,
         })

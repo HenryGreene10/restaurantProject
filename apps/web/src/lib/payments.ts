@@ -18,6 +18,7 @@ export type CheckoutPaymentIntentSession = {
   checkoutSessionId: string
   clientSecret: string
   stripeAccountId: string
+  tipCents: number
   discountCents: number
   isNewMember: boolean
 }
@@ -44,6 +45,7 @@ export async function createCheckoutPaymentIntent(input: {
   orderNotes: string | null
   fulfillmentType: "PICKUP" | "DELIVERY"
   deliveryAddress: string | null
+  tipCents?: number
   items: CartItem[]
 }) {
   const response = await fetch(`${API_BASE_URL}/v1/checkouts/create-payment-intent`, {
@@ -55,6 +57,7 @@ export async function createCheckoutPaymentIntent(input: {
       customerPhone: input.customerPhone,
       notes: input.orderNotes,
       deliveryAddress: input.deliveryAddress ?? undefined,
+      tipCents: input.tipCents ?? 0,
       items: input.items.map((item) => ({
         itemId: item.itemId,
         variantId: item.variantId,

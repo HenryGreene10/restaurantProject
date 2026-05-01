@@ -18,6 +18,7 @@ export type CustomerOrder = {
   fulfillmentType: string
   subtotalCents: number
   taxCents: number
+  tipCents: number
   discountCents: number
   totalCents: number
   notes: string | null

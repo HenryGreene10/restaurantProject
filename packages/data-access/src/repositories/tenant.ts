@@ -44,6 +44,7 @@ type CreateOrderInput = {
   notes?: string | null
   pickupTime?: Date | null
   deliveryAddressSnapshot?: Prisma.InputJsonValue | null
+  tipCents?: number
   items: CreateOrderItemInput[]
 }
 
@@ -89,6 +90,7 @@ type CreateCheckoutSessionInput = {
   notes?: string | null
   pickupTime?: Date | null
   deliveryAddressSnapshot?: Prisma.InputJsonValue | null
+  tipCents?: number
   items: CreateOrderItemInput[]
   stripeAccountId: string
   discountCents?: number
@@ -107,6 +109,7 @@ type CheckoutSessionRow = {
   cartSnapshot: Prisma.JsonValue
   subtotalCents: number
   taxCents: number
+  tipCents: number
   discountCents: number
   totalCents: number
   stripeAccountId: string
@@ -202,6 +205,18 @@ function notFound(entityName: string): Error {
 
 function badRequest(message: string): Error {
   return new Error(message)
+}
+
+function normalizeTipCents(value: number | null | undefined) {
+  if (value == null) {
+    return 0
+  }
+
+  if (!Number.isInteger(value) || value < 0) {
+    throw badRequest('Tip must be a non-negative whole number of cents')
+  }
+
+  return value
 }
 
 function titleCaseWord(word: string) {
@@ -474,6 +489,7 @@ async function persistOrderFromSnapshot(
     items: NormalizedOrderItemSnapshot[]
     subtotalCents: number
     taxCents: number
+    tipCents?: number
     discountCents?: number
     totalCents: number
     paymentStatus?: 'PENDING' | 'REQUIRES_ACTION' | 'PAID' | 'FAILED' | 'REFUNDED'
@@ -489,6 +505,7 @@ async function persistOrderFromSnapshot(
   const orderNumber = await nextOrderNumber(prisma, scope.restaurantId)
   const deliveryAddressSnapshot =
     input.deliveryAddressSnapshot === null ? Prisma.JsonNull : input.deliveryAddressSnapshot
+  const tipCents = normalizeTipCents(input.tipCents)
 
   return prisma.order.create({
     data: {
@@ -500,6 +517,7 @@ async function persistOrderFromSnapshot(
         fulfillmentType: input.fulfillmentType ?? 'PICKUP',
         subtotalCents: input.subtotalCents,
         taxCents: input.taxCents,
+        tipCents,
         discountCents: input.discountCents ?? 0,
         totalCents: input.totalCents,
         notes: input.notes ?? null,
@@ -1446,6 +1464,7 @@ export function createTenantDataAccess(scope: TenantScope) {
         })
 
         const normalized = await normalizeOrderItems(prisma, scope, scoped, input.items)
+        const tipCents = normalizeTipCents(input.tipCents)
         const deliveryAddressSnapshotValue =
           input.deliveryAddressSnapshot === null
             ? Prisma.sql`NULL`
@@ -1467,6 +1486,7 @@ export function createTenantDataAccess(scope: TenantScope) {
             "cartSnapshot",
             "subtotalCents",
             "taxCents",
+            "tipCents",
             "discountCents",
             "totalCents",
             "stripeAccountId",
@@ -1486,8 +1506,9 @@ export function createTenantDataAccess(scope: TenantScope) {
             ${cartSnapshotValue},
             ${normalized.subtotalCents},
             ${normalized.taxCents},
+            ${tipCents},
             ${input.discountCents ?? 0},
-            ${Math.max(0, normalized.totalCents - (input.discountCents ?? 0))},
+            ${Math.max(0, normalized.totalCents + tipCents - (input.discountCents ?? 0))},
             ${input.stripeAccountId},
             ${Prisma.sql`${'PENDING' satisfies CheckoutSessionStatus}::"CheckoutSessionStatus"`},
             NOW(),
@@ -1640,6 +1661,7 @@ export function createTenantDataAccess(scope: TenantScope) {
           items: cartSnapshot.items,
           subtotalCents: checkoutSession.subtotalCents,
           taxCents: checkoutSession.taxCents,
+          tipCents: checkoutSession.tipCents,
           discountCents: checkoutSession.discountCents,
           totalCents: checkoutSession.totalCents,
           paymentStatus: 'PAID',
@@ -1699,7 +1721,8 @@ export function createTenantDataAccess(scope: TenantScope) {
           items: normalized.items,
           subtotalCents: normalized.subtotalCents,
           taxCents: normalized.taxCents,
-          totalCents: normalized.totalCents,
+          tipCents: normalizeTipCents(input.tipCents),
+          totalCents: normalized.totalCents + normalizeTipCents(input.tipCents),
           paymentStatus: 'PENDING',
         })
       })

@@ -75,6 +75,28 @@ const NEW_MEMBER_BULLETS = [
   'Auto-enrolled in rewards',
   '200 welcome bonus points after verification',
 ]
+const DELIVERY_TIP_PRESETS = [15, 18, 20] as const
+
+function formatTipPercentageLabel(value: number) {
+  return `${value}%`
+}
+
+function tipFromPercentage(subtotalCents: number, percentage: number) {
+  return Math.round(subtotalCents * (percentage / 100))
+}
+
+function parseCustomTipDollars(value: string) {
+  const trimmed = value.trim()
+  if (!trimmed) {
+    return 0
+  }
+
+  if (!/^\d+(\.\d{0,2})?$/.test(trimmed)) {
+    return null
+  }
+
+  return Math.round(Number(trimmed) * 100)
+}
 
 type CartSummaryProps = {
   items: CartItem[]
@@ -110,6 +132,7 @@ type CartSummaryProps = {
     orderNotes: string | null
     fulfillmentType: 'PICKUP' | 'DELIVERY'
     deliveryAddress: string | null
+    tipCents: number
   }) => Promise<CheckoutPaymentIntentSession>
   onPaymentConfirmed: (paymentSession: CheckoutPaymentIntentSession) => Promise<void>
   onViewRewardsWallet?: () => void
@@ -162,6 +185,10 @@ export function CartSummary({
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false)
   const [fulfillmentType, setFulfillmentType] = useState<'PICKUP' | 'DELIVERY'>('PICKUP')
   const [deliveryAddress, setDeliveryAddress] = useState('')
+  const [selectedTipPercent, setSelectedTipPercent] = useState<
+    (typeof DELIVERY_TIP_PRESETS)[number] | 'custom' | null
+  >(null)
+  const [customTipDollars, setCustomTipDollars] = useState('')
   // loyalty redemption state
   const [selectedTierId, setSelectedTierId] = useState<string | null>(null)
   const [appliedRedemptionCents, setAppliedRedemptionCents] = useState(0)
@@ -179,6 +206,19 @@ export function CartSummary({
   const showNameError = (nameTouched || submitAttempted) && !!nameError
   const showPhoneError = (phoneTouched || submitAttempted) && !!phoneError
   const showAddressError = (addressTouched || submitAttempted) && !!addressError
+  const parsedCustomTipCents = parseCustomTipDollars(customTipDollars)
+  const tipInputError =
+    selectedTipPercent === 'custom' && parsedCustomTipCents == null
+      ? 'Enter a valid tip amount'
+      : null
+  const tipCents =
+    fulfillmentType !== 'DELIVERY'
+      ? 0
+      : selectedTipPercent === 'custom'
+        ? parsedCustomTipCents ?? 0
+        : selectedTipPercent
+          ? tipFromPercentage(subtotal, selectedTipPercent)
+          : 0
   const hasDraftDetails =
     trimmedName.length > 0 &&
     trimmedPhone.length > 0 &&
@@ -215,7 +255,7 @@ export function CartSummary({
   // preview discount from selected tier (updates immediately on radio selection)
   const selectedTier = redeemableTiers.find((t) => t.id === selectedTierId) ?? null
   const previewDiscountCents = appliedRedemptionCents || (selectedTier?.discountCents ?? 0)
-  const totalEstimate = subtotal + taxEstimate - previewDiscountCents
+  const totalEstimate = subtotal + taxEstimate + tipCents - previewDiscountCents
 
   useEffect(() => {
     if (!open || typeof document === 'undefined') return
@@ -244,6 +284,7 @@ export function CartSummary({
         orderNotes: orderNotes.trim() ? orderNotes.trim() : null,
         fulfillmentType,
         deliveryAddress: fulfillmentType === 'DELIVERY' ? trimmedAddress : null,
+        tipCents,
       })
       setPaymentSession(nextPaymentSession)
       setOtpPhone(null)
@@ -278,6 +319,11 @@ export function CartSummary({
 
   async function handleCheckoutSubmit() {
     setSubmitAttempted(true)
+
+    if (tipInputError) {
+      setFormError(tipInputError)
+      return
+    }
 
     if (!canSubmit) {
       setFormError('Enter your details before continuing to payment.')
@@ -389,6 +435,8 @@ export function CartSummary({
     setSubmitAttempted(false)
     setFulfillmentType('PICKUP')
     setDeliveryAddress('')
+    setSelectedTipPercent(null)
+    setCustomTipDollars('')
     setSelectedTierId(null)
     setAppliedRedemptionCents(0)
     setIsRedeeming(false)
@@ -691,9 +739,11 @@ export function CartSummary({
                           <button
                             type="button"
                             onClick={() => setFulfillmentType('PICKUP')}
+                            disabled={Boolean(paymentSession)}
                             style={{ cursor: 'pointer' }}
                             className={cn(
                               'rounded-[var(--radius)] border px-4 py-4 text-left transition-colors',
+                              Boolean(paymentSession) && 'cursor-not-allowed opacity-60',
                               fulfillmentType === 'PICKUP'
                                 ? 'border-primary/20 bg-primary/10'
                                 : 'border-border bg-background hover:bg-muted/40'
@@ -707,9 +757,11 @@ export function CartSummary({
                           <button
                             type="button"
                             onClick={() => setFulfillmentType('DELIVERY')}
+                            disabled={Boolean(paymentSession)}
                             style={{ cursor: 'pointer' }}
                             className={cn(
                               'rounded-[var(--radius)] border px-4 py-4 text-left transition-colors',
+                              Boolean(paymentSession) && 'cursor-not-allowed opacity-60',
                               fulfillmentType === 'DELIVERY'
                                 ? 'border-primary/20 bg-primary/10'
                                 : 'border-border bg-background hover:bg-muted/40'
@@ -723,19 +775,90 @@ export function CartSummary({
                         </div>
 
                         {fulfillmentType === 'DELIVERY' ? (
-                          <div className="grid gap-2">
-                            <Label htmlFor="checkout-address">Delivery address</Label>
-                            <Input
-                              id="checkout-address"
-                              value={deliveryAddress}
-                              onChange={(event) => setDeliveryAddress(event.target.value)}
-                              onBlur={() => setAddressTouched(true)}
-                              disabled={Boolean(paymentSession)}
-                              placeholder="123 Main St, Apt 4B"
-                            />
-                            {showAddressError ? (
-                              <div className="text-sm text-red-600">{addressError}</div>
-                            ) : null}
+                          <div className="grid gap-4">
+                            <div className="grid gap-2">
+                              <Label htmlFor="checkout-address">Delivery address</Label>
+                              <Input
+                                id="checkout-address"
+                                value={deliveryAddress}
+                                onChange={(event) => setDeliveryAddress(event.target.value)}
+                                onBlur={() => setAddressTouched(true)}
+                                disabled={Boolean(paymentSession)}
+                                placeholder="123 Main St, Apt 4B"
+                              />
+                              {showAddressError ? (
+                                <div className="text-sm text-red-600">{addressError}</div>
+                              ) : null}
+                            </div>
+                            <div className="grid gap-3">
+                              <div className="flex items-center justify-between gap-3">
+                                <div>
+                                  <Label>Driver tip</Label>
+                                  <div className="text-xs text-muted-foreground">
+                                    Optional, added to the delivery total
+                                  </div>
+                                </div>
+                                <div className="text-sm font-semibold text-foreground">
+                                  {tipCents > 0 ? formatPrice(tipCents) : 'No tip'}
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                                {DELIVERY_TIP_PRESETS.map((percentage) => {
+                                  const isSelected = selectedTipPercent === percentage
+
+                                  return (
+                                    <button
+                                      key={percentage}
+                                      type="button"
+                                      disabled={Boolean(paymentSession)}
+                                      onClick={() => {
+                                        setSelectedTipPercent(percentage)
+                                        setCustomTipDollars('')
+                                      }}
+                                      className={cn(
+                                        'rounded-[var(--radius)] border px-3 py-3 text-sm font-semibold transition-colors',
+                                        Boolean(paymentSession) && 'cursor-not-allowed opacity-60',
+                                        isSelected
+                                          ? 'border-primary/20 bg-primary/10 text-foreground'
+                                          : 'border-border bg-background text-muted-foreground hover:bg-muted/40'
+                                      )}
+                                    >
+                                      {formatTipPercentageLabel(percentage)}
+                                    </button>
+                                  )
+                                })}
+                                <button
+                                  type="button"
+                                  disabled={Boolean(paymentSession)}
+                                  onClick={() => setSelectedTipPercent('custom')}
+                                  className={cn(
+                                    'rounded-[var(--radius)] border px-3 py-3 text-sm font-semibold transition-colors',
+                                    Boolean(paymentSession) && 'cursor-not-allowed opacity-60',
+                                    selectedTipPercent === 'custom'
+                                      ? 'border-primary/20 bg-primary/10 text-foreground'
+                                      : 'border-border bg-background text-muted-foreground hover:bg-muted/40'
+                                  )}
+                                >
+                                  Custom
+                                </button>
+                              </div>
+                              {selectedTipPercent === 'custom' ? (
+                                <div className="grid gap-2">
+                                  <Label htmlFor="checkout-tip">Custom tip</Label>
+                                  <Input
+                                    id="checkout-tip"
+                                    inputMode="decimal"
+                                    value={customTipDollars}
+                                    onChange={(event) => setCustomTipDollars(event.target.value)}
+                                    disabled={Boolean(paymentSession)}
+                                    placeholder="0.00"
+                                  />
+                                  {tipInputError ? (
+                                    <div className="text-sm text-red-600">{tipInputError}</div>
+                                  ) : null}
+                                </div>
+                              ) : null}
+                            </div>
                           </div>
                         ) : null}
                       </CardContent>
@@ -1006,6 +1129,14 @@ export function CartSummary({
                       </span>
                     </div>
                   ) : null}
+                  {checkoutMode && fulfillmentType === 'DELIVERY' && tipCents > 0 ? (
+                    <div className="flex items-center justify-between text-sm text-muted-foreground">
+                      <span>Tip</span>
+                      <span className="font-semibold text-foreground">
+                        {formatPrice(tipCents)}
+                      </span>
+                    </div>
+                  ) : null}
                   {previewDiscountCents > 0 ? (
                     <div className="flex items-center justify-between text-sm">
                       <span style={{ color: brandColors?.primary ?? 'var(--primary)' }}>
@@ -1066,6 +1197,7 @@ export function CartSummary({
                             className="min-h-11 w-full justify-center"
                             disabled={
                               !hasDraftDetails ||
+                              Boolean(tipInputError) ||
                               submitting ||
                               isPreparingPayment ||
                               isSendingOtp ||
@@ -1097,7 +1229,7 @@ export function CartSummary({
                                 void handleCheckoutSubmit()
                               }}
                             >
-                              Skip — pay {formatPrice(subtotal + taxEstimate)}
+                              Skip — pay {formatPrice(subtotal + taxEstimate + tipCents)}
                             </button>
                           ) : null}
                         </>
@@ -1112,6 +1244,8 @@ export function CartSummary({
                           if (!hadPaymentSession) {
                             setFulfillmentType('PICKUP')
                             setDeliveryAddress('')
+                            setSelectedTipPercent(null)
+                            setCustomTipDollars('')
                             setAddressTouched(false)
                             setSubmitAttempted(false)
                           }

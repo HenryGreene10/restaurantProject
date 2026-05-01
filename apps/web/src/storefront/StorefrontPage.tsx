@@ -344,6 +344,7 @@ export function StorefrontPage({
     orderNotes: string | null
     fulfillmentType: 'PICKUP' | 'DELIVERY'
     deliveryAddress: string | null
+    tipCents: number
   }): Promise<CheckoutPaymentIntentSession> {
     return createCheckoutPaymentIntent({
       tenantSlug,
@@ -353,6 +354,7 @@ export function StorefrontPage({
       orderNotes: payload.orderNotes,
       fulfillmentType: payload.fulfillmentType,
       deliveryAddress: payload.deliveryAddress,
+      tipCents: payload.tipCents,
       items: cartItems,
     })
   }
