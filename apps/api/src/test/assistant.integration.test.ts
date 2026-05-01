@@ -1,8 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import request from 'supertest'
 
+const mockVerifyToken = vi.fn()
 const mockFindTenantByHost = vi.fn()
 const mockFindTenantBySlug = vi.fn()
+const mockFindAdminAccessByClerkUserId = vi.fn()
+const mockClaimLegacyAdminAccessByEmail = vi.fn()
 const mockGetPublicMenu = vi.fn()
 const mockListFeaturedItems = vi.fn()
 const mockListCategories = vi.fn()
@@ -14,11 +17,21 @@ const mockSetItemVisibility = vi.fn()
 const mockUpdateItem = vi.fn()
 const mockSetCategoryVisibility = vi.fn()
 
+vi.mock('@clerk/backend', () => ({
+  verifyToken: mockVerifyToken,
+}))
+
+// @repo/ai-assistant is NOT mocked here — the real handler runs.
+// groq-sdk is mocked globally (global-mocks.ts) to prevent network calls at
+// import time. Anthropic API calls use raw fetch, stubbed per-test below.
+
 vi.mock('@repo/data-access', () => ({
   createTenantScope: (restaurantId: string) => ({ restaurantId }),
   createPlatformDataAccess: () => ({
     findTenantByHost: mockFindTenantByHost,
     findTenantBySlug: mockFindTenantBySlug,
+    findAdminAccessByClerkUserId: mockFindAdminAccessByClerkUserId,
+    claimLegacyAdminAccessByEmail: mockClaimLegacyAdminAccessByEmail,
   }),
   createTenantDataAccess: () => ({
     brand: {
@@ -66,6 +79,18 @@ describe.sequential('assistant integration', () => {
   beforeEach(() => {
     vi.resetAllMocks()
     vi.stubGlobal('fetch', anthropicFetch)
+
+    mockVerifyToken.mockResolvedValue({ sub: 'user_1' })
+    mockFindAdminAccessByClerkUserId.mockResolvedValue({
+      adminUserId: 'admin_1',
+      clerkUserId: 'user_1',
+      email: 'owner@demo.test',
+      role: 'owner',
+      restaurantId: 'rest_1',
+      tenantSlug: 'demo',
+      restaurantName: 'Demo Restaurant',
+    })
+    mockClaimLegacyAdminAccessByEmail.mockResolvedValue(null)
 
     const categories = [
       {

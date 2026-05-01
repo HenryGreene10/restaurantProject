@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import request from 'supertest'
 
+const mockVerifyToken = vi.fn()
 const mockFindTenantByHost = vi.fn()
 const mockFindTenantBySlug = vi.fn()
 const mockFindAdminAccessByClerkUserId = vi.fn()
@@ -10,9 +11,7 @@ const mockUpdateOrderStatus = vi.fn()
 const mockVerifyCustomerAccessToken = vi.fn()
 
 vi.mock('@clerk/backend', () => ({
-  verifyToken: vi.fn().mockResolvedValue({
-    sub: 'user_1',
-  }),
+  verifyToken: mockVerifyToken,
 }))
 
 vi.mock('@repo/auth', async () => {
@@ -49,6 +48,7 @@ vi.mock('@repo/data-access', () => ({
 describe('order status integration', () => {
   beforeEach(() => {
     vi.resetAllMocks()
+    mockVerifyToken.mockResolvedValue({ sub: 'user_1' })
     mockFindTenantByHost.mockResolvedValue({
       id: 'rest_1',
       slug: 'demo'
@@ -98,7 +98,7 @@ describe('order status integration', () => {
       nextStatus: 'PREPARING'
     })
     expect(mockUpdateOrderStatus).not.toHaveBeenCalled()
-  }, 10000)
+  })
 
   it('updates status for a valid transition', async () => {
     await import('./setup')

@@ -3955,6 +3955,14 @@ function BrandingTab({
         </FieldShell>
 
         <FieldShell>
+          <ColorField
+            label="Font color"
+            value={theme.textColor}
+            onChange={(value) => onThemeChange('textColor', value)}
+          />
+        </FieldShell>
+
+        <FieldShell>
           <SelectField
             label="Heading font"
             value={theme.headingFont}

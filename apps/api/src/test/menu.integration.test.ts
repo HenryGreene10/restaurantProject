@@ -6,6 +6,12 @@ const mockFindTenantBySlug = vi.fn()
 const mockGetPublicMenu = vi.fn()
 const mockListFeaturedItems = vi.fn()
 
+// menu routes don't use Clerk auth, but clerk-auth.ts is imported transitively
+// by app.ts — mock it to prevent JWKS network calls at module load time.
+vi.mock('@clerk/backend', () => ({
+  verifyToken: vi.fn().mockRejectedValue(new Error('Clerk not used in menu tests')),
+}))
+
 vi.mock('@repo/data-access', () => ({
   createTenantScope: (restaurantId: string) => ({ restaurantId }),
   createPlatformDataAccess: () => ({
@@ -53,7 +59,7 @@ describe('menu integration', () => {
     expect(mockFindTenantByHost).toHaveBeenCalledWith('demo.example.com')
     expect(mockGetPublicMenu).toHaveBeenCalledTimes(1)
     expect(response.body.categories).toHaveLength(1)
-  }, 10000)
+  })
 
   it('serves the documented /menu route with x-tenant-slug', async () => {
     await import('./setup')
@@ -72,7 +78,7 @@ describe('menu integration', () => {
     expect(response.status).toBe(200)
     expect(mockFindTenantBySlug).toHaveBeenCalledWith('joes-pizza')
     expect(mockGetPublicMenu).toHaveBeenCalled()
-  }, 10000)
+  })
 
   it('resolves tenant from x-tenant-slug when present', async () => {
     await import('./setup')

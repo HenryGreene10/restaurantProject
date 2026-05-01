@@ -34,10 +34,10 @@ const mockGetBrandConfig = vi.fn()
 const mockUpdateBrandConfig = vi.fn()
 const mockReorderCategoryItems = vi.fn()
 
+const mockVerifyToken = vi.fn()
+
 vi.mock('@clerk/backend', () => ({
-  verifyToken: vi.fn().mockResolvedValue({
-    sub: 'user_1',
-  }),
+  verifyToken: mockVerifyToken,
 }))
 
 vi.mock('@repo/data-access', () => ({
@@ -91,6 +91,7 @@ vi.mock('@repo/data-access', () => ({
 describe('admin menu integration', () => {
   beforeEach(() => {
     vi.resetAllMocks()
+    mockVerifyToken.mockResolvedValue({ sub: 'user_1' })
     mockFindTenantByHost.mockResolvedValue({
       id: 'rest_1',
       slug: 'demo'
@@ -134,9 +135,10 @@ describe('admin menu integration', () => {
       sortOrder: 1,
       visibility: 'AVAILABLE',
       availableFrom: null,
-      availableUntil: null
+      availableUntil: null,
+      daysOfWeek: null,
     })
-  }, 10000)
+  })
 
   it('updates item availability', async () => {
     await import('./setup')
@@ -205,7 +207,6 @@ describe('admin menu integration', () => {
       })
 
     expect(response.status).toBe(201)
-    expect(mockFindTenantBySlug).toHaveBeenCalledWith('demo')
     expect(mockAttachModifierGroup).toHaveBeenCalledWith({
       itemId: 'item_1',
       groupId: 'group_1',

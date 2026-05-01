@@ -9,6 +9,12 @@ const mockVerifyCustomerRefreshToken = vi.fn()
 const mockUpsertByPhone = vi.fn()
 const mockFindCustomerById = vi.fn()
 
+// customer auth routes don't use Clerk, but clerk-auth.ts is imported
+// transitively — mock it to prevent JWKS network calls at module load time.
+vi.mock('@clerk/backend', () => ({
+  verifyToken: vi.fn().mockRejectedValue(new Error('Clerk not used in customer auth tests')),
+}))
+
 vi.mock('@repo/auth', async () => {
   const actual = await vi.importActual<typeof import('@repo/auth')>('@repo/auth')
   return {
@@ -57,7 +63,7 @@ describe('customer auth integration', () => {
 
     expect(response.status).toBe(202)
     expect(mockRequestCustomerOtp).toHaveBeenCalledTimes(1)
-  }, 10000)
+  })
 
   it('verifies an OTP, persists the customer, and returns tokens', async () => {
     await import('./setup')
