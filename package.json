@@ -16,7 +16,7 @@
     "format:check": "prettier --check .",
     "typecheck": "npm -ws run typecheck --if-present",
     "db:reset-seed": "npm -w packages/db run db:reset-seed",
-    "prepare": "husky"
+    "prepare": "node -e \"process.exit((process.env.VERCEL || process.env.CI) ? 0 : 1)\" || husky"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
