@@ -1,8 +1,8 @@
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
-@import "@fontsource-variable/inter";
-@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=DM+Sans:wght@400;500;700&family=DM+Serif+Display:ital@0;1&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Libre+Baskerville:wght@400;700&family=Lora:wght@400;500;600;700&family=Merriweather:wght@400;700&family=Montserrat:wght@400;500;600;700&family=Nunito:wght@400;500;600;700&family=Playfair+Display:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Raleway:wght@400;500;600;700&display=swap");
-@import url("https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700&display=swap");
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+@import '@fontsource-variable/inter';
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=DM+Sans:wght@400;500;700&family=DM+Serif+Display:ital@0;1&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Libre+Baskerville:wght@400;700&family=Lora:wght@400;500;600;700&family=Merriweather:wght@400;700&family=Montserrat:wght@400;500;600;700&family=Nunito:wght@400;500;600;700&family=Playfair+Display:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Raleway:wght@400;500;600;700&display=swap');
+@import url('https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@400,500,700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -18,8 +18,8 @@
   --color-brand-accent: 236 170 52;
   --radius-brand: 24px;
   --shadow-brand: 0 18px 48px rgba(39, 28, 23, 0.12);
-  --font-body: "Inter", sans-serif;
-  --font-heading: "Bree Serif", serif;
+  --font-body: 'Inter', sans-serif;
+  --font-heading: 'Bree Serif', serif;
   --gradient-brand-hero: linear-gradient(135deg, rgba(194, 83, 37, 0.15), rgba(236, 170, 52, 0.25));
 }
 
@@ -29,15 +29,25 @@ body,
   min-height: 100%;
 }
 
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   margin: 0;
   font-family: var(--font-body);
   background: rgb(var(--color-brand-background));
   color: rgb(var(--color-brand-text));
+  overflow-x: clip;
 }
 
 * {
   box-sizing: border-box;
+}
+
+img {
+  display: block;
+  max-width: 100%;
 }
 
 @layer base {

@@ -231,7 +231,7 @@ export function ItemCustomizationDrawer({
 
                 <button
                   type="button"
-                  className="absolute left-4 top-4 inline-flex h-12 w-12 items-center justify-center rounded-full border shadow-lg"
+                  className="absolute left-3 top-3 inline-flex h-11 w-11 items-center justify-center rounded-full border shadow-lg sm:left-4 sm:top-4 sm:h-12 sm:w-12"
                   style={{
                     backgroundColor: hexToRgba(theme.palette.surface, 0.92),
                     borderColor: hexToRgba(theme.palette.border, 0.75),
@@ -245,7 +245,7 @@ export function ItemCustomizationDrawer({
               </div>
             ) : null}
 
-            <div className="flex-1 overflow-y-auto px-6 py-8 pb-40">
+            <div className="flex-1 overflow-y-auto px-4 py-6 pb-36 sm:px-6 sm:py-8 sm:pb-40">
               <div className="grid gap-8">
                 <section className="grid gap-4">
                   {!heroImageBackground ? (
@@ -267,13 +267,13 @@ export function ItemCustomizationDrawer({
                   ) : null}
                   <div>
                     <h2
-                      className="text-4xl font-bold leading-tight text-foreground"
+                      className="text-3xl font-bold leading-tight text-foreground sm:text-4xl"
                       style={{ fontFamily: 'var(--font-heading)' }}
                     >
                       {item.name}
                     </h2>
                     {item.description ? (
-                      <p className="mt-4 text-lg leading-9 text-muted-foreground">
+                      <p className="mt-4 text-base leading-7 text-muted-foreground sm:text-lg sm:leading-9">
                         {item.description}
                       </p>
                     ) : null}
@@ -390,7 +390,7 @@ export function ItemCustomizationDrawer({
             </div>
 
             <div
-              className="shrink-0 border-t px-6 py-5"
+              className="shrink-0 border-t px-4 py-4 sm:px-6 sm:py-5"
               style={{
                 backgroundColor: hexToRgba(theme.palette.surface, 0.98),
                 borderColor: hexToRgba(theme.palette.border, 0.75),
@@ -412,9 +412,9 @@ export function ItemCustomizationDrawer({
                   </div>
                 ) : null}
 
-                <div className="flex items-center gap-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
                   <div
-                    className="inline-flex items-center gap-5 rounded-full border px-5 py-4"
+                    className="inline-flex w-full items-center justify-center gap-5 rounded-full border px-5 py-4 sm:w-auto"
                     style={{
                       borderColor: hexToRgba(theme.palette.primary, 0.24),
                       backgroundColor: hexToRgba(theme.palette.surface, 0.9),
@@ -441,7 +441,7 @@ export function ItemCustomizationDrawer({
 
                   <button
                     type="button"
-                    className="flex min-h-[72px] flex-1 items-center justify-center rounded-full px-6 text-xl font-semibold shadow-[0_14px_30px_rgba(0,0,0,0.12)] transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="flex min-h-[64px] w-full items-center justify-center rounded-full px-6 text-lg font-semibold shadow-[0_14px_30px_rgba(0,0,0,0.12)] transition-transform hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60 sm:min-h-[72px] sm:flex-1 sm:text-xl"
                     style={{
                       background: `linear-gradient(135deg, ${theme.palette.primary}, ${theme.palette.accent})`,
                       color: theme.palette.primaryForeground,
@@ -520,7 +520,7 @@ function SelectableRow({
   return (
     <button
       type="button"
-      className="flex items-center justify-between gap-4 rounded-[18px] border px-5 py-5 text-left transition-colors"
+      className="flex items-start justify-between gap-4 rounded-[16px] border px-4 py-4 text-left transition-colors sm:items-center sm:rounded-[18px] sm:px-5 sm:py-5"
       style={{
         borderColor: selected
           ? 'rgb(var(--color-brand-primary) / 0.32)'
@@ -545,10 +545,10 @@ function SelectableRow({
         >
           <Check className="h-4 w-4" />
         </div>
-        <span className="text-lg font-medium text-foreground">{label}</span>
+        <span className="text-base font-medium text-foreground sm:text-lg">{label}</span>
       </div>
       <span
-        className="shrink-0 text-lg"
+        className="max-w-[8rem] shrink-0 text-right text-sm sm:max-w-none sm:text-lg"
         style={{
           color:
             detail === 'Included'

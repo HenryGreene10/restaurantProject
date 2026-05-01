@@ -72,7 +72,7 @@ function WalletContent({
             {theme.appTitle || tenantSlug} Rewards
           </div>
           <div
-            className="mt-2 text-6xl font-bold"
+            className="mt-2 text-5xl font-bold leading-none sm:text-6xl"
             style={{ color: 'rgb(var(--color-brand-primary))', fontFamily: 'var(--font-heading)' }}
           >
             {account.balance.toLocaleString()}
@@ -234,7 +234,7 @@ function WalletContent({
               account.history.map((event, i) => (
                 <div
                   key={i}
-                  className="flex items-center justify-between gap-4 rounded-[20px] border border-brand-border/70 bg-brand-surface px-5 py-4 shadow-brand"
+                  className="flex flex-col items-start justify-between gap-3 rounded-[20px] border border-brand-border/70 bg-brand-surface px-5 py-4 shadow-brand sm:flex-row sm:items-center sm:gap-4"
                 >
                   <div>
                     <div className="font-medium text-brand-text">

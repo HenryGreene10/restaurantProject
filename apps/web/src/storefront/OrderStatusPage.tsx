@@ -89,7 +89,7 @@ function OrderStepper({ status }: { status: string }) {
                 {done ? '✓' : i + 1}
               </div>
               <span
-                className="whitespace-nowrap text-center text-xs"
+                className="max-w-[4.25rem] text-center text-[11px] leading-tight sm:max-w-none sm:text-xs"
                 style={{
                   color: future ? 'rgb(var(--color-brand-muted))' : 'inherit',
                   fontWeight: active ? 700 : 500,
@@ -100,7 +100,7 @@ function OrderStepper({ status }: { status: string }) {
             </div>
             {i < STATUS_STEPS.length - 1 ? (
               <div
-                className="mb-5 mx-1 h-0.5 flex-1 transition-all"
+                className="mb-5 mx-1 h-0.5 flex-1 transition-all sm:mx-2"
                 style={{
                   background: done
                     ? 'rgb(var(--color-brand-primary))'
@@ -212,7 +212,7 @@ export function OrderStatusPage({
 
   return (
     <main className="min-h-screen bg-brand-background text-brand-text">
-      <div className="mx-auto max-w-4xl px-4 py-6 sm:px-6 lg:px-8">
+      <div className="mx-auto max-w-4xl px-4 py-5 sm:px-6 sm:py-6 lg:px-8">
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-brand border border-brand-border/70 bg-brand-surface/90 px-4 py-3 text-sm text-brand-muted shadow-brand">
           <div className="flex items-center gap-2">
             <ShoppingBag className="h-4 w-4" />
@@ -251,13 +251,16 @@ export function OrderStatusPage({
 
           {orderQuery.data ? (
             <section className="space-y-5">
-              <div className="rounded-[32px] border border-brand-border/70 bg-brand-surface px-6 py-8 shadow-brand">
+              <div className="rounded-[32px] border border-brand-border/70 bg-brand-surface px-4 py-6 shadow-brand sm:px-6 sm:py-8">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <div className="text-sm font-semibold uppercase tracking-[0.12em] text-brand-muted">
                       Pickup order #{orderQuery.data.orderNumber}
                     </div>
-                    <h1 className="mt-2 text-3xl" style={{ fontFamily: 'var(--font-heading)' }}>
+                    <h1
+                      className="mt-2 text-2xl sm:text-3xl"
+                      style={{ fontFamily: 'var(--font-heading)' }}
+                    >
                       {statusCopy(orderQuery.data.status)}
                     </h1>
 
@@ -304,7 +307,7 @@ export function OrderStatusPage({
               </div>
 
               <div className="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
-                <div className="rounded-[32px] border border-brand-border/70 bg-brand-surface px-6 py-6 shadow-brand">
+                <div className="rounded-[32px] border border-brand-border/70 bg-brand-surface px-4 py-5 shadow-brand sm:px-6 sm:py-6">
                   <div className="text-sm font-semibold uppercase tracking-[0.12em] text-brand-muted">
                     Order summary
                   </div>
@@ -359,7 +362,7 @@ export function OrderStatusPage({
 
                 <div className="space-y-5">
                   {/* Rewards activated card */}
-                  <div className="rounded-[32px] border border-brand-border/70 bg-brand-surface px-6 py-6 shadow-brand">
+                  <div className="rounded-[32px] border border-brand-border/70 bg-brand-surface px-4 py-5 shadow-brand sm:px-6 sm:py-6">
                     <div className="flex items-center justify-between gap-3">
                       <div className="text-sm font-semibold uppercase tracking-[0.12em] text-brand-muted">
                         Loyalty
@@ -464,7 +467,7 @@ export function OrderStatusPage({
                     )}
                   </div>
 
-                  <div className="rounded-[32px] border border-brand-border/70 bg-brand-surface px-6 py-6 shadow-brand">
+                  <div className="rounded-[32px] border border-brand-border/70 bg-brand-surface px-4 py-5 shadow-brand sm:px-6 sm:py-6">
                     <div className="text-sm font-semibold uppercase tracking-[0.12em] text-brand-muted">
                       Total
                     </div>
@@ -503,7 +506,7 @@ export function OrderStatusPage({
                     </div>
                   </div>
 
-                  <div className="rounded-[32px] border border-brand-border/70 bg-brand-surface px-6 py-6 shadow-brand">
+                  <div className="rounded-[32px] border border-brand-border/70 bg-brand-surface px-4 py-5 shadow-brand sm:px-6 sm:py-6">
                     <div className="text-sm font-semibold uppercase tracking-[0.12em] text-brand-muted">
                       Status timeline
                     </div>

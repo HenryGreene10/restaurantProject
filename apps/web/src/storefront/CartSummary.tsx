@@ -408,7 +408,7 @@ export function CartSummary({
   const drawer = (
     <>
       {itemCount > 0 && !open && !hideStickyCartBar ? (
-        <div className="fixed inset-x-4 bottom-4 z-30 isolate md:inset-x-auto md:right-6 md:w-full md:max-w-md">
+        <div className="fixed inset-x-3 bottom-3 z-30 isolate md:inset-x-auto md:right-6 md:w-full md:max-w-md">
           <Card
             className="gap-0 py-0 shadow-[0_24px_48px_rgba(15,23,42,0.22)] [backdrop-filter:none] [transform:translateZ(0)]"
             style={{
@@ -419,7 +419,7 @@ export function CartSummary({
               color: brandColors?.primaryForeground ?? 'var(--primary-foreground)',
             }}
           >
-            <CardContent className="flex items-center justify-between gap-4 px-4 py-4 sm:px-6">
+            <CardContent className="flex flex-col gap-4 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
               <div className="flex items-center gap-4">
                 <div className="rounded-[var(--radius)] border border-white/20 bg-white/10 p-2 text-primary-foreground">
                   <ShoppingBag className="h-5 w-5" />
@@ -434,7 +434,7 @@ export function CartSummary({
                 </div>
               </div>
               <Button
-                className="min-h-11 border border-white/20 bg-white text-primary hover:bg-white/90"
+                className="min-h-11 w-full border border-white/20 bg-white text-primary hover:bg-white/90 sm:w-auto"
                 style={{
                   color: brandColors?.primary ?? 'var(--primary)',
                 }}
@@ -503,7 +503,7 @@ export function CartSummary({
                         Cart
                       </div>
                       <h2
-                        className="mt-2 text-2xl text-black"
+                        className="mt-2 text-xl text-black sm:text-2xl"
                         style={{ fontFamily: 'var(--font-heading)' }}
                       >
                         Your order
@@ -684,7 +684,7 @@ export function CartSummary({
                         </CardTitle>
                       </CardHeader>
                       <CardContent className="grid gap-4">
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                           <button
                             type="button"
                             onClick={() => setFulfillmentType('PICKUP')}
@@ -780,7 +780,7 @@ export function CartSummary({
                             from this restaurant powered by EasyMenu, including order confirmations
                             and order status updates. Message and data rates may apply. Message
                             frequency varies by order activity. Reply STOP to opt out, HELP for
-                            help.{" "}
+                            help.{' '}
                             <a href="/sms-policy/" className="underline">
                               View our SMS Policy.
                             </a>
@@ -885,13 +885,13 @@ export function CartSummary({
                                     : { borderColor: 'var(--border)' }
                                 }
                               />
-                              <div className="flex-1">
+                              <div className="min-w-0 flex-1">
                                 <div className="font-medium text-foreground">{tier.name}</div>
                                 <div className="text-xs text-muted-foreground">
                                   {tier.pointsCost.toLocaleString()} pts
                                 </div>
                               </div>
-                              <div className="font-semibold text-foreground">
+                              <div className="shrink-0 text-sm font-semibold text-foreground sm:text-base">
                                 -{formatPrice(tier.discountCents)}
                               </div>
                             </button>
@@ -970,7 +970,7 @@ export function CartSummary({
                             key={item.lineId}
                             className="flex items-start justify-between gap-4 text-sm"
                           >
-                            <div>
+                            <div className="min-w-0">
                               <div className="font-medium text-foreground">
                                 {item.quantity} × {item.name}
                               </div>
@@ -978,7 +978,7 @@ export function CartSummary({
                                 {item.variantName ?? 'Standard'}
                               </div>
                             </div>
-                            <div className="font-medium text-foreground">
+                            <div className="shrink-0 font-medium text-foreground">
                               {formatPrice(cartLineTotal(item))}
                             </div>
                           </div>
@@ -1055,8 +1055,7 @@ export function CartSummary({
                       Continue to checkout
                     </Button>
                   ) : otpPhone &&
-                    !paymentSession ? /* OTP mode — buttons are inside CustomerOtpStep */
-                  null : (
+                    !paymentSession /* OTP mode — buttons are inside CustomerOtpStep */ ? null : (
                     <div className="grid gap-3">
                       {!paymentSession ? (
                         <>

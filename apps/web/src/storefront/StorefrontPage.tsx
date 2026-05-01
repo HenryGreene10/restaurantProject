@@ -652,16 +652,16 @@ export function StorefrontPage({
                       : `linear-gradient(135deg, ${hexToRgba(theme.palette.primary, 0.4)}, ${hexToRgba(theme.palette.accent, 0.28)}), linear-gradient(180deg, ${theme.palette.surface}, ${theme.palette.background})`,
                   }}
                 >
-                  <div className="absolute inset-x-0 bottom-0 p-6 sm:p-8">
+                  <div className="absolute inset-x-0 bottom-0 p-5 sm:p-8">
                     <div className="max-w-3xl">
                       <h1
-                        className="text-4xl font-bold leading-none text-white sm:text-5xl"
+                        className="text-3xl font-bold leading-tight text-white sm:text-5xl sm:leading-none"
                         style={{ fontFamily: 'var(--font-heading)' }}
                       >
                         {theme.heroHeadline || theme.appTitle || tenantSlug}
                       </h1>
 
-                      <div className="mt-4 flex flex-wrap items-center gap-3 text-sm text-white/90 sm:text-base">
+                      <div className="mt-4 flex flex-wrap items-center gap-2 text-sm text-white/90 sm:gap-3 sm:text-base">
                         {theme.heroBadgeText.trim() ? (
                           <span
                             className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5"
@@ -768,7 +768,7 @@ export function StorefrontPage({
                         <button
                           key={category.id}
                           type="button"
-                          className="whitespace-nowrap rounded-full px-6 py-2.5 text-sm font-medium transition-all"
+                          className="whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-all sm:px-6 sm:py-2.5"
                           style={{
                             backgroundColor: active
                               ? theme.palette.primary
@@ -798,7 +798,7 @@ export function StorefrontPage({
                       Featured
                     </div>
                     <h2
-                      className="text-3xl font-bold text-foreground sm:text-4xl"
+                      className="text-2xl font-bold text-foreground sm:text-4xl"
                       style={{ fontFamily: 'var(--font-heading)' }}
                     >
                       Featured Items
@@ -842,7 +842,7 @@ export function StorefrontPage({
                       <div className="flex items-end justify-between gap-4">
                         <div className="grid gap-2">
                           <h2
-                            className="text-3xl font-bold text-foreground sm:text-4xl"
+                            className="text-2xl font-bold text-foreground sm:text-4xl"
                             style={{ fontFamily: 'var(--font-heading)' }}
                           >
                             {category.name}
@@ -978,7 +978,7 @@ function MenuItemCard({
         }}
       >
         {item.photoUrl ? (
-          <div className="relative h-56 overflow-hidden p-6 pb-0">
+          <div className="relative h-48 overflow-hidden p-4 pb-0 sm:h-56 sm:p-6 sm:pb-0">
             <div
               className="h-full w-full rounded-[18px] border bg-cover bg-center transition-transform duration-500 group-hover:scale-[1.02]"
               style={{
@@ -989,7 +989,7 @@ function MenuItemCard({
             />
 
             {badgeLabel ? (
-              <div className="absolute right-9 top-9">
+              <div className="absolute right-7 top-7 sm:right-9 sm:top-9">
                 <span
                   className="inline-flex rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.08em]"
                   style={{
@@ -1006,7 +1006,7 @@ function MenuItemCard({
             ) : null}
           </div>
         ) : badgeLabel ? (
-          <div className="px-6 pt-6">
+          <div className="px-4 pt-4 sm:px-6 sm:pt-6">
             <span
               className="inline-flex rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.08em]"
               style={{
@@ -1022,11 +1022,16 @@ function MenuItemCard({
           </div>
         ) : null}
 
-        <div className={cn('flex flex-1 flex-col gap-4 px-6 pb-6', item.photoUrl ? 'pt-4' : 'pt-6')}>
+        <div
+          className={cn(
+            'flex flex-1 flex-col gap-4 px-4 pb-4 sm:px-6 sm:pb-6',
+            item.photoUrl ? 'pt-4' : 'pt-4 sm:pt-6'
+          )}
+        >
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <h3
-                className="text-2xl font-semibold leading-tight text-foreground"
+                className="text-xl font-semibold leading-tight text-foreground sm:text-2xl"
                 style={{ fontFamily: 'var(--font-heading)' }}
               >
                 {item.name}
