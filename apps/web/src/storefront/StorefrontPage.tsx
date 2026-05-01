@@ -441,456 +441,448 @@ export function StorefrontPage({
           boxShadow: `0 4px 24px ${hexToRgba(theme.palette.text, 0.04)}`,
         }}
       >
-        <div className="mx-auto w-full max-w-[1160px]">
-          <div className="flex h-16 items-center gap-4 px-4 sm:px-6">
-            <button type="button" className="shrink-0 text-left" onClick={scrollToTop}>
-              {theme.logoUrl ? (
-                <img
-                  src={theme.logoUrl}
-                  alt={theme.appTitle || 'Storefront'}
-                  className="h-7 w-auto max-w-[80px] object-contain"
-                />
-              ) : (
-                <span
-                  className="text-xl font-extrabold tracking-tight"
-                  style={{ color: theme.palette.primary, fontFamily: 'var(--font-heading)' }}
-                >
-                  {theme.appTitle || 'Storefront'}
-                </span>
-              )}
-            </button>
-
-            <nav className="hidden items-center gap-6 md:flex">
-              <button
-                type="button"
-                className="border-b-2 pb-1 text-sm font-semibold transition-colors"
-                style={{
-                  color: theme.palette.primary,
-                  borderColor: theme.palette.primary,
-                }}
-                onClick={scrollToTop}
+        <div className="mx-auto flex h-16 w-full min-w-0 max-w-[1160px] items-center gap-4 px-4 sm:px-6">
+          <button type="button" className="shrink-0 text-left" onClick={scrollToTop}>
+            {theme.logoUrl ? (
+              <img
+                src={theme.logoUrl}
+                alt={theme.appTitle || 'Storefront'}
+                className="h-7 w-auto max-w-[80px] object-contain"
+              />
+            ) : (
+              <span
+                className="text-xl font-extrabold tracking-tight"
+                style={{ color: theme.palette.primary, fontFamily: 'var(--font-heading)' }}
               >
-                Discover
-              </button>
-              <button
-                type="button"
-                className="text-sm font-medium transition-colors"
-                style={{
-                  color: activeOrderBanner
+                {theme.appTitle || 'Storefront'}
+              </span>
+            )}
+          </button>
+
+          <nav className="hidden items-center gap-6 md:flex">
+            <button
+              type="button"
+              className="border-b-2 pb-1 text-sm font-semibold transition-colors"
+              style={{
+                color: theme.palette.primary,
+                borderColor: theme.palette.primary,
+              }}
+              onClick={scrollToTop}
+            >
+              Discover
+            </button>
+            <button
+              type="button"
+              className="text-sm font-medium transition-colors"
+              style={{
+                color: activeOrderBanner ? theme.palette.text : hexToRgba(theme.palette.muted, 0.9),
+              }}
+              onClick={() => activeOrderBanner && onViewOrder(activeOrderBanner.orderId)}
+              disabled={!activeOrderBanner}
+            >
+              Orders
+            </button>
+            <button
+              type="button"
+              className="text-sm font-medium transition-colors"
+              style={{
+                color:
+                  onViewRewardsWallet && customerSession.isAuthenticated
                     ? theme.palette.text
                     : hexToRgba(theme.palette.muted, 0.9),
-                }}
-                onClick={() => activeOrderBanner && onViewOrder(activeOrderBanner.orderId)}
-                disabled={!activeOrderBanner}
-              >
-                Orders
-              </button>
-              <button
-                type="button"
-                className="text-sm font-medium transition-colors"
-                style={{
-                  color:
-                    onViewRewardsWallet && customerSession.isAuthenticated
-                      ? theme.palette.text
-                      : hexToRgba(theme.palette.muted, 0.9),
-                }}
-                onClick={() => onViewRewardsWallet?.()}
-                disabled={!onViewRewardsWallet || !customerSession.isAuthenticated}
-              >
-                Offers
-              </button>
-            </nav>
+              }}
+              onClick={() => onViewRewardsWallet?.()}
+              disabled={!onViewRewardsWallet || !customerSession.isAuthenticated}
+            >
+              Offers
+            </button>
+          </nav>
 
-            <div className="ml-auto flex flex-1 items-center justify-end gap-3">
-              <label
-                className="hidden max-w-[30rem] flex-1 items-center gap-3 rounded-full border px-4 py-2.5 sm:flex"
-                style={{
-                  backgroundColor: hexToRgba(theme.palette.surface, 0.96),
-                  borderColor: hexToRgba(theme.palette.border, 0.9),
-                  color: theme.palette.muted,
-                }}
-              >
-                <Search className="h-4 w-4" />
-                <input
-                  value={searchQuery}
-                  onChange={(event) => setSearchQuery(event.target.value)}
-                  placeholder="Search for dishes..."
-                  className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-inherit"
-                />
-              </label>
+          <div className="ml-auto flex min-w-0 flex-1 items-center justify-end gap-3">
+            <label
+              className="hidden max-w-[30rem] min-w-0 flex-1 items-center gap-3 rounded-full border px-4 py-2.5 sm:flex"
+              style={{
+                backgroundColor: hexToRgba(theme.palette.surface, 0.96),
+                borderColor: hexToRgba(theme.palette.border, 0.9),
+                color: theme.palette.muted,
+              }}
+            >
+              <Search className="h-4 w-4" />
+              <input
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search for dishes..."
+                className="w-full min-w-0 bg-transparent text-sm text-foreground outline-none placeholder:text-inherit"
+              />
+            </label>
 
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                className="relative rounded-full"
-                style={{ color: theme.palette.primary }}
-                onClick={() => setCartOpen(true)}
-                aria-label="Open cart"
-              >
-                <ShoppingCart className="h-5 w-5" />
-                {cartItemCount > 0 ? (
-                  <span
-                    className="absolute -right-1 -top-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-semibold"
-                    style={{
-                      backgroundColor: theme.palette.primary,
-                      color: theme.palette.primaryForeground,
-                    }}
-                  >
-                    {cartItemCount}
-                  </span>
-                ) : null}
-              </Button>
-            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              className="relative rounded-full"
+              style={{ color: theme.palette.primary }}
+              onClick={() => setCartOpen(true)}
+              aria-label="Open cart"
+            >
+              <ShoppingCart className="h-5 w-5" />
+              {cartItemCount > 0 ? (
+                <span
+                  className="absolute -right-1 -top-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-semibold"
+                  style={{
+                    backgroundColor: theme.palette.primary,
+                    color: theme.palette.primaryForeground,
+                  }}
+                >
+                  {cartItemCount}
+                </span>
+              ) : null}
+            </Button>
           </div>
         </div>
       </header>
 
-      <div className="mx-auto w-full max-w-[1160px]">
-        <div className="flex w-full flex-col gap-8 px-4 py-6 sm:px-6 sm:py-8">
-          {showDevBanner ? (
-            <Card className="border-border/80 bg-card shadow-sm">
-              <CardContent className="flex flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6">
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                  <ShieldCheck className="h-4 w-4" />
-                  <span>
-                    Live storefront for tenant{' '}
-                    <span className="font-semibold text-foreground">{tenantSlug}</span>
-                  </span>
-                </div>
-                <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                  <span>Source: {source === 'api' ? 'Saved admin config' : 'Preset preview'}</span>
-                  <Badge
-                    variant="outline"
-                    className="border-border bg-background text-muted-foreground"
-                  >
-                    Direct ordering
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-          ) : null}
+      <div className="mx-auto flex w-full min-w-0 max-w-[1160px] flex-col gap-8 px-4 py-6 sm:px-6 sm:py-8">
+        {showDevBanner ? (
+          <Card className="border-border/80 bg-card shadow-sm">
+            <CardContent className="flex flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6">
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <ShieldCheck className="h-4 w-4" />
+                <span>
+                  Live storefront for tenant{' '}
+                  <span className="font-semibold text-foreground">{tenantSlug}</span>
+                </span>
+              </div>
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <span>Source: {source === 'api' ? 'Saved admin config' : 'Preset preview'}</span>
+                <Badge
+                  variant="outline"
+                  className="border-border bg-background text-muted-foreground"
+                >
+                  Direct ordering
+                </Badge>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
 
-          {activeOrderBanner ? (
-            <Card
-              className="overflow-hidden border shadow-sm"
-              style={{
-                borderColor: hexToRgba(theme.palette.primary, 0.22),
-                background: `linear-gradient(135deg, ${hexToRgba(theme.palette.primary, 0.16)}, ${hexToRgba(theme.palette.accent, 0.3)})`,
-              }}
+        {activeOrderBanner ? (
+          <Card
+            className="overflow-hidden border shadow-sm"
+            style={{
+              borderColor: hexToRgba(theme.palette.primary, 0.22),
+              background: `linear-gradient(135deg, ${hexToRgba(theme.palette.primary, 0.16)}, ${hexToRgba(theme.palette.accent, 0.3)})`,
+            }}
+          >
+            <CardContent className="flex flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6">
+              <div className="flex min-w-0 items-center gap-3">
+                <div className="relative flex h-3 w-3 shrink-0 items-center justify-center">
+                  <span className="absolute inline-flex h-3 w-3 animate-ping rounded-full bg-emerald-500/40" />
+                  <span className="relative h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.16)]" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground">You have an active order</p>
+                  <p className="text-sm text-muted-foreground">
+                    Live updates are available while the kitchen works on it.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 sm:gap-3">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="rounded-full border border-white/60 bg-white/90 px-4 text-foreground shadow-sm hover:bg-white"
+                  onClick={() => onViewOrder(activeOrderBanner.orderId)}
+                >
+                  Track it here
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className="rounded-full text-muted-foreground hover:bg-white/55 hover:text-foreground"
+                  onClick={() => {
+                    dismissActiveOrderForSession(activeOrderBanner)
+                    setActiveOrderBanner(null)
+                  }}
+                  aria-label="Dismiss active order banner"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
+
+        <AnimatePresence mode="wait">
+          {showLoadingSkeletons ? (
+            <motion.div
+              key="storefront-skeletons"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18 }}
+              className="grid min-w-0 gap-8"
             >
-              <CardContent className="flex flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6">
-                <div className="flex min-w-0 items-center gap-3">
-                  <div className="relative flex h-3 w-3 shrink-0 items-center justify-center">
-                    <span className="absolute inline-flex h-3 w-3 animate-ping rounded-full bg-emerald-500/40" />
-                    <span className="relative h-2.5 w-2.5 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.16)]" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold text-foreground">
-                      You have an active order
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      Live updates are available while the kitchen works on it.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 sm:gap-3">
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    className="rounded-full border border-white/60 bg-white/90 px-4 text-foreground shadow-sm hover:bg-white"
-                    onClick={() => onViewOrder(activeOrderBanner.orderId)}
-                  >
-                    Track it here
-                    <ArrowRight className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    className="rounded-full text-muted-foreground hover:bg-white/55 hover:text-foreground"
-                    onClick={() => {
-                      dismissActiveOrderForSession(activeOrderBanner)
-                      setActiveOrderBanner(null)
-                    }}
-                    aria-label="Dismiss active order banner"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ) : null}
-
-          <AnimatePresence mode="wait">
-            {showLoadingSkeletons ? (
-              <motion.div
-                key="storefront-skeletons"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.18 }}
-                className="grid gap-8"
+              <StorefrontLoadingSkeleton />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="storefront-content"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="grid min-w-0 gap-8"
+            >
+              <section
+                className="relative overflow-hidden rounded-[24px] border shadow-[0_20px_40px_rgba(0,0,0,0.08)]"
+                style={{
+                  borderColor: hexToRgba(theme.palette.border, 0.75),
+                  backgroundColor: theme.palette.surface,
+                }}
               >
-                <StorefrontLoadingSkeleton />
-              </motion.div>
-            ) : (
-              <motion.div
-                key="storefront-content"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 0.2 }}
-                className="grid gap-8"
-              >
-                <section
-                  className="relative overflow-hidden rounded-[24px] border shadow-[0_20px_40px_rgba(0,0,0,0.08)]"
+                <div
+                  className="relative min-h-[240px] sm:min-h-[320px]"
                   style={{
-                    borderColor: hexToRgba(theme.palette.border, 0.75),
-                    backgroundColor: theme.palette.surface,
+                    background: theme.heroImageUrl
+                      ? `linear-gradient(to top, rgba(0,0,0,0.78), rgba(0,0,0,0.12)), url(${theme.heroImageUrl}) center/cover`
+                      : `linear-gradient(135deg, ${hexToRgba(theme.palette.primary, 0.4)}, ${hexToRgba(theme.palette.accent, 0.28)}), linear-gradient(180deg, ${theme.palette.surface}, ${theme.palette.background})`,
                   }}
                 >
-                  <div
-                    className="relative min-h-[240px] sm:min-h-[320px]"
-                    style={{
-                      background: theme.heroImageUrl
-                        ? `linear-gradient(to top, rgba(0,0,0,0.78), rgba(0,0,0,0.12)), url(${theme.heroImageUrl}) center/cover`
-                        : `linear-gradient(135deg, ${hexToRgba(theme.palette.primary, 0.4)}, ${hexToRgba(theme.palette.accent, 0.28)}), linear-gradient(180deg, ${theme.palette.surface}, ${theme.palette.background})`,
-                    }}
-                  >
-                    <div className="absolute inset-x-0 bottom-0 p-5 sm:p-8">
-                      <div className="max-w-3xl">
-                        <h1
-                          className="text-3xl font-bold leading-tight text-white sm:text-5xl sm:leading-none"
-                          style={{ fontFamily: 'var(--font-heading)' }}
-                        >
-                          {theme.heroHeadline || theme.appTitle || tenantSlug}
-                        </h1>
-
-                        <div className="mt-4 flex flex-wrap items-center gap-2 text-sm text-white/90 sm:gap-3 sm:text-base">
-                          {theme.heroBadgeText.trim() ? (
-                            <span
-                              className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5"
-                              style={{
-                                backgroundColor: hexToRgba(theme.palette.accent, 0.18),
-                                borderColor: hexToRgba(theme.palette.accent, 0.34),
-                                color: theme.palette.primaryForeground,
-                              }}
-                            >
-                              <Sparkles className="h-4 w-4" />
-                              {theme.heroBadgeText}
-                            </span>
-                          ) : null}
-                          <span>{categories.length} categories</span>
-                          <span className="opacity-60">•</span>
-                          <span>{totalItemCount} dishes</span>
-                          <span className="opacity-60">•</span>
-                          <span>Direct ordering</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </section>
-
-                {visiblePromoBanner && showPromoBanner ? (
-                  <Card
-                    className="overflow-hidden border-0 shadow-sm"
-                    style={{
-                      background: `linear-gradient(135deg, ${theme.palette.primary}, ${hexToRgba(theme.palette.primary, 0.88)})`,
-                      color: theme.palette.primaryForeground,
-                    }}
-                  >
-                    <CardContent className="flex flex-wrap items-start justify-between gap-4 px-4 py-4 sm:px-6">
-                      <div className="flex min-w-0 items-start gap-3">
-                        <div
-                          className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border"
-                          style={{
-                            backgroundColor: hexToRgba(theme.palette.primaryForeground, 0.16),
-                            borderColor: hexToRgba(theme.palette.primaryForeground, 0.24),
-                          }}
-                        >
-                          <Megaphone className="h-4 w-4" />
-                        </div>
-                        <div className="min-w-0">
-                          <p
-                            className="text-[11px] font-semibold uppercase tracking-[0.22em]"
-                            style={{ color: hexToRgba(theme.palette.primaryForeground, 0.78) }}
-                          >
-                            Special offer
-                          </p>
-                          <p className="mt-1 text-sm font-semibold leading-6 sm:text-[0.95rem]">
-                            {visiblePromoBanner}
-                          </p>
-                        </div>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        className="rounded-full border border-white/15 bg-white/10 text-inherit hover:bg-white/20 hover:text-inherit"
-                        onClick={() => {
-                          dismissPromoBannerForSession(tenantSlug, visiblePromoBanner)
-                          setShowPromoBanner(false)
-                        }}
-                        aria-label="Dismiss announcement banner"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ) : null}
-
-                <div className="sm:hidden">
-                  <label
-                    className="flex items-center gap-3 rounded-full border px-4 py-3"
-                    style={{
-                      backgroundColor: hexToRgba(theme.palette.surface, 0.96),
-                      borderColor: hexToRgba(theme.palette.border, 0.9),
-                      color: theme.palette.muted,
-                    }}
-                  >
-                    <Search className="h-4 w-4" />
-                    <input
-                      value={searchQuery}
-                      onChange={(event) => setSearchQuery(event.target.value)}
-                      placeholder="Search for dishes..."
-                      className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-inherit"
-                    />
-                  </label>
-                </div>
-
-                {filteredCategories.length > 0 ? (
-                  <div
-                    className="sticky top-16 z-20 -mx-4 border-y px-4 py-4 backdrop-blur-xl sm:-mx-6 sm:px-6"
-                    style={{
-                      backgroundColor: hexToRgba(theme.palette.background, 0.84),
-                      borderColor: hexToRgba(theme.palette.border, 0.7),
-                    }}
-                  >
-                    <div className="flex gap-3 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                      {filteredCategories.map((category) => {
-                        const active = activeCategoryId === category.id
-                        return (
-                          <button
-                            key={category.id}
-                            type="button"
-                            className="whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-all sm:px-6 sm:py-2.5"
-                            style={{
-                              backgroundColor: active
-                                ? theme.palette.primary
-                                : hexToRgba(theme.palette.text, 0.06),
-                              color: active ? theme.palette.primaryForeground : theme.palette.text,
-                              boxShadow: active
-                                ? `0 10px 24px ${hexToRgba(theme.palette.primary, 0.24)}`
-                                : 'none',
-                            }}
-                            onClick={() => scrollToCategory(category.id)}
-                          >
-                            {category.name}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-                ) : null}
-
-                {featuredItems.length > 0 ? (
-                  <section className="grid gap-6">
-                    <div className="grid gap-2">
-                      <div
-                        className="text-[11px] font-semibold uppercase tracking-[0.16em]"
-                        style={{ color: theme.palette.muted }}
-                      >
-                        Featured
-                      </div>
-                      <h2
-                        className="text-2xl font-bold text-foreground sm:text-4xl"
+                  <div className="absolute inset-x-0 bottom-0 p-5 sm:p-8">
+                    <div className="max-w-3xl">
+                      <h1
+                        className="text-3xl font-bold leading-tight text-white sm:text-5xl sm:leading-none"
                         style={{ fontFamily: 'var(--font-heading)' }}
                       >
-                        Featured Items
-                      </h2>
-                    </div>
+                        {theme.heroHeadline || theme.appTitle || tenantSlug}
+                      </h1>
 
-                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-                      {featuredItems.map((item) => (
-                        <MenuItemCard
-                          key={`featured-${item.id}`}
-                          item={item}
-                          featured
-                          onCustomize={() => {
-                            setEditingCartItem(null)
-                            setSelectedItem(item)
-                          }}
-                        />
-                      ))}
+                      <div className="mt-4 flex flex-wrap items-center gap-2 text-sm text-white/90 sm:gap-3 sm:text-base">
+                        {theme.heroBadgeText.trim() ? (
+                          <span
+                            className="inline-flex items-center gap-2 rounded-full border px-3 py-1.5"
+                            style={{
+                              backgroundColor: hexToRgba(theme.palette.accent, 0.18),
+                              borderColor: hexToRgba(theme.palette.accent, 0.34),
+                              color: theme.palette.primaryForeground,
+                            }}
+                          >
+                            <Sparkles className="h-4 w-4" />
+                            {theme.heroBadgeText}
+                          </span>
+                        ) : null}
+                        <span>{categories.length} categories</span>
+                        <span className="opacity-60">•</span>
+                        <span>{totalItemCount} dishes</span>
+                        <span className="opacity-60">•</span>
+                        <span>Direct ordering</span>
+                      </div>
                     </div>
-                  </section>
-                ) : null}
+                  </div>
+                </div>
+              </section>
 
-                {!filteredCategories.length || !hasVisibleItems ? (
-                  <EmptyStateCard
-                    icon={searchQuery.trim() ? Search : UtensilsCrossed}
-                    title={searchQuery.trim() ? 'No matching dishes' : 'Menu coming soon'}
-                    description={
-                      searchQuery.trim()
-                        ? `No menu items matched "${searchQuery.trim()}". Try another dish, tag, or category.`
-                        : 'This storefront is getting ready for service. Check back soon for the full menu.'
-                    }
-                  />
-                ) : (
-                  <section className="grid gap-12">
-                    {filteredCategories.map((category) => (
-                      <section
-                        key={category.id}
-                        id={`category-${category.id}`}
-                        className="scroll-mt-40 grid gap-6"
+              {visiblePromoBanner && showPromoBanner ? (
+                <Card
+                  className="overflow-hidden border-0 shadow-sm"
+                  style={{
+                    background: `linear-gradient(135deg, ${theme.palette.primary}, ${hexToRgba(theme.palette.primary, 0.88)})`,
+                    color: theme.palette.primaryForeground,
+                  }}
+                >
+                  <CardContent className="flex flex-wrap items-start justify-between gap-4 px-4 py-4 sm:px-6">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <div
+                        className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full border"
+                        style={{
+                          backgroundColor: hexToRgba(theme.palette.primaryForeground, 0.16),
+                          borderColor: hexToRgba(theme.palette.primaryForeground, 0.24),
+                        }}
                       >
-                        <div className="flex items-end justify-between gap-4">
-                          <div className="grid gap-2">
-                            <h2
-                              className="text-2xl font-bold text-foreground sm:text-4xl"
-                              style={{ fontFamily: 'var(--font-heading)' }}
-                            >
-                              {category.name}
-                            </h2>
-                            <div className="text-sm text-muted-foreground">
-                              {category.categoryItems.length} item
-                              {category.categoryItems.length === 1 ? '' : 's'}
-                              {searchQuery.trim() ? ` matching "${searchQuery.trim()}"` : ''}
-                            </div>
+                        <Megaphone className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <p
+                          className="text-[11px] font-semibold uppercase tracking-[0.22em]"
+                          style={{ color: hexToRgba(theme.palette.primaryForeground, 0.78) }}
+                        >
+                          Special offer
+                        </p>
+                        <p className="mt-1 text-sm font-semibold leading-6 sm:text-[0.95rem]">
+                          {visiblePromoBanner}
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      className="rounded-full border border-white/15 bg-white/10 text-inherit hover:bg-white/20 hover:text-inherit"
+                      onClick={() => {
+                        dismissPromoBannerForSession(tenantSlug, visiblePromoBanner)
+                        setShowPromoBanner(false)
+                      }}
+                      aria-label="Dismiss announcement banner"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </CardContent>
+                </Card>
+              ) : null}
+
+              <div className="sm:hidden">
+                <label
+                  className="flex items-center gap-3 rounded-full border px-4 py-3"
+                  style={{
+                    backgroundColor: hexToRgba(theme.palette.surface, 0.96),
+                    borderColor: hexToRgba(theme.palette.border, 0.9),
+                    color: theme.palette.muted,
+                  }}
+                >
+                  <Search className="h-4 w-4" />
+                  <input
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                    placeholder="Search for dishes..."
+                    className="w-full bg-transparent text-sm text-foreground outline-none placeholder:text-inherit"
+                  />
+                </label>
+              </div>
+
+              {filteredCategories.length > 0 ? (
+                <div
+                  className="sticky top-16 z-20 -mx-4 min-w-0 border-y px-4 py-4 backdrop-blur-xl sm:-mx-6 sm:px-6"
+                  style={{
+                    backgroundColor: hexToRgba(theme.palette.background, 0.84),
+                    borderColor: hexToRgba(theme.palette.border, 0.7),
+                  }}
+                >
+                  <div className="flex w-full min-w-0 gap-3 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    {filteredCategories.map((category) => {
+                      const active = activeCategoryId === category.id
+                      return (
+                        <button
+                          key={category.id}
+                          type="button"
+                          className="whitespace-nowrap rounded-full px-4 py-2 text-sm font-medium transition-all sm:px-6 sm:py-2.5"
+                          style={{
+                            backgroundColor: active
+                              ? theme.palette.primary
+                              : hexToRgba(theme.palette.text, 0.06),
+                            color: active ? theme.palette.primaryForeground : theme.palette.text,
+                            boxShadow: active
+                              ? `0 10px 24px ${hexToRgba(theme.palette.primary, 0.24)}`
+                              : 'none',
+                          }}
+                          onClick={() => scrollToCategory(category.id)}
+                        >
+                          {category.name}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              ) : null}
+
+              {featuredItems.length > 0 ? (
+                <section className="grid min-w-0 gap-6">
+                  <div className="grid gap-2">
+                    <div
+                      className="text-[11px] font-semibold uppercase tracking-[0.16em]"
+                      style={{ color: theme.palette.muted }}
+                    >
+                      Featured
+                    </div>
+                    <h2
+                      className="text-2xl font-bold text-foreground sm:text-4xl"
+                      style={{ fontFamily: 'var(--font-heading)' }}
+                    >
+                      Featured Items
+                    </h2>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+                    {featuredItems.map((item) => (
+                      <MenuItemCard
+                        key={`featured-${item.id}`}
+                        item={item}
+                        featured
+                        onCustomize={() => {
+                          setEditingCartItem(null)
+                          setSelectedItem(item)
+                        }}
+                      />
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+
+              {!filteredCategories.length || !hasVisibleItems ? (
+                <EmptyStateCard
+                  icon={searchQuery.trim() ? Search : UtensilsCrossed}
+                  title={searchQuery.trim() ? 'No matching dishes' : 'Menu coming soon'}
+                  description={
+                    searchQuery.trim()
+                      ? `No menu items matched "${searchQuery.trim()}". Try another dish, tag, or category.`
+                      : 'This storefront is getting ready for service. Check back soon for the full menu.'
+                  }
+                />
+              ) : (
+                <section className="grid min-w-0 gap-12">
+                  {filteredCategories.map((category) => (
+                    <section
+                      key={category.id}
+                      id={`category-${category.id}`}
+                      className="scroll-mt-40 grid min-w-0 gap-6"
+                    >
+                      <div className="flex items-end justify-between gap-4">
+                        <div className="grid gap-2">
+                          <h2
+                            className="text-2xl font-bold text-foreground sm:text-4xl"
+                            style={{ fontFamily: 'var(--font-heading)' }}
+                          >
+                            {category.name}
+                          </h2>
+                          <div className="text-sm text-muted-foreground">
+                            {category.categoryItems.length} item
+                            {category.categoryItems.length === 1 ? '' : 's'}
+                            {searchQuery.trim() ? ` matching "${searchQuery.trim()}"` : ''}
                           </div>
                         </div>
+                      </div>
 
-                        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
-                          {category.categoryItems.map((entry) => (
-                            <MenuItemCard
-                              key={entry.id}
-                              item={entry.item}
-                              onCustomize={() => {
-                                setEditingCartItem(null)
-                                setSelectedItem(entry.item)
-                              }}
-                            />
-                          ))}
-                        </div>
-                      </section>
-                    ))}
-                  </section>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
+                      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+                        {category.categoryItems.map((entry) => (
+                          <MenuItemCard
+                            key={entry.id}
+                            item={entry.item}
+                            onCustomize={() => {
+                              setEditingCartItem(null)
+                              setSelectedItem(entry.item)
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </section>
+                  ))}
+                </section>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-          {themeError || menuQuery.error ? (
-            <div className="rounded-[var(--radius)] border border-destructive/20 bg-destructive/10 px-4 py-4 text-sm text-foreground sm:px-6">
-              {themeError ??
-                (menuQuery.error instanceof Error
-                  ? menuQuery.error.message
-                  : 'Failed to load storefront')}
-            </div>
-          ) : null}
-        </div>
+        {themeError || menuQuery.error ? (
+          <div className="rounded-[var(--radius)] border border-destructive/20 bg-destructive/10 px-4 py-4 text-sm text-foreground sm:px-6">
+            {themeError ??
+              (menuQuery.error instanceof Error
+                ? menuQuery.error.message
+                : 'Failed to load storefront')}
+          </div>
+        ) : null}
       </div>
 
       <ItemCustomizationDrawer
