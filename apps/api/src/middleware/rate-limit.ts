@@ -1,4 +1,8 @@
-import { rateLimit } from 'express-rate-limit'
+import { ipKeyGenerator, rateLimit } from 'express-rate-limit'
+
+function normalizedIp(req: { ip?: string; socket?: { remoteAddress?: string } }) {
+  return ipKeyGenerator(req.ip ?? req.socket?.remoteAddress ?? '127.0.0.1')
+}
 
 // 5 OTP requests per phone number per 15 minutes.
 // Keyed by phone so a single number can't trigger spam
@@ -12,7 +16,7 @@ export const otpPhoneRateLimit = rateLimit({
     const phone = req.body?.phone
     return typeof phone === 'string' && phone.length > 0
       ? `otp:phone:${phone}`
-      : `otp:ip:${req.ip ?? 'unknown'}`
+      : `otp:ip:${normalizedIp(req)}`
   },
   message: { error: 'Too many OTP requests. Please try again later.' },
 })
@@ -24,7 +28,7 @@ export const otpIpRateLimit = rateLimit({
   limit: 5,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
-  keyGenerator: (req) => `otp:ip:${req.ip ?? 'unknown'}`,
+  keyGenerator: (req) => `otp:ip:${normalizedIp(req)}`,
   message: { error: 'Too many OTP requests from this IP. Please try again later.' },
 })
 
@@ -35,6 +39,6 @@ export const checkoutRateLimit = rateLimit({
   limit: 20,
   standardHeaders: 'draft-7',
   legacyHeaders: false,
-  keyGenerator: (req) => `checkout:ip:${req.ip ?? 'unknown'}`,
+  keyGenerator: (req) => `checkout:ip:${normalizedIp(req)}`,
   message: { error: 'Too many checkout requests. Please slow down.' },
 })

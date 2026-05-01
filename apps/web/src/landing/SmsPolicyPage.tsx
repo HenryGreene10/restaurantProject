@@ -56,9 +56,14 @@ export function SmsPolicyPage() {
                 color: 'var(--lp-text)',
                 fontStyle: 'italic',
               }}>
-                "By providing your phone number, you agree to receive order status updates via SMS.
-                Reply STOP to opt out."
+                "By providing your phone number, you agree to receive SMS text messages from this
+                restaurant powered by EasyMenu, including order confirmations and order status
+                updates. Message and data rates may apply. Message frequency varies by order
+                activity. Reply STOP to opt out, HELP for help. View our SMS Policy."
               </blockquote>
+              <p style={{ marginTop: '12px' }}>
+                Consent to receive SMS messages is not a condition of purchase.
+              </p>
             </PolicySection>
 
             <PolicySection title="Message frequency">
@@ -105,7 +110,7 @@ export function SmsPolicyPage() {
             <span className="lp-footer-copy">© 2026 EasyMenu. All rights reserved.</span>
             <div className="lp-footer-legal">
               <a href="/">Home</a>
-              <a href="/sms-policy">SMS Policy</a>
+              <a href="/sms-policy/">SMS Policy</a>
             </div>
           </div>
         </div>

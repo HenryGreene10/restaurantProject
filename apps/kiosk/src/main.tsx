@@ -91,7 +91,7 @@ const statusAction: Record<
     }
   | null
 > = {
-  PENDING: { label: "Confirm & print receipt", nextStatus: "CONFIRMED" },
+  PENDING: { label: "Confirm order", nextStatus: "CONFIRMED" },
   CONFIRMED: { label: "Start preparing", nextStatus: "PREPARING" },
   PREPARING: { label: "Mark ready", nextStatus: "READY" },
   READY: { label: "Picked up", nextStatus: "COMPLETED" },
@@ -259,6 +259,15 @@ function statusStyles(status: OrderStatus) {
   }
 }
 
+function canCancelOrder(status: OrderStatus) {
+  return (
+    status === "PENDING" ||
+    status === "CONFIRMED" ||
+    status === "PREPARING" ||
+    status === "READY"
+  )
+}
+
 function modifierLine(modifier: KitchenOrderItemModifier) {
   if (modifier.portion && modifier.portion !== "WHOLE") {
     return `${modifier.optionName} (${modifier.portion.toLowerCase()})`
@@ -340,31 +349,6 @@ async function sendKitchenDeliveryEta(
 
   if (!response.ok) {
     throw new Error(body?.error ?? "Failed to send delivery ETA")
-  }
-}
-
-async function printKitchenOrder(
-  getToken: ClerkTokenGetter,
-  tenantSlug: string,
-  orderId: string,
-) {
-  const token = await getToken()
-  if (!token) {
-    throw new Error("Unable to authenticate your kitchen session.")
-  }
-
-  const response = await fetch(`${API_BASE_URL}/admin/orders/${orderId}/print`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "x-tenant-slug": tenantSlug,
-    },
-  })
-
-  const body = (await response.json().catch(() => null)) as { error?: string } | null
-
-  if (!response.ok) {
-    throw new Error(body?.error ?? "Failed to queue print job")
   }
 }
 
@@ -530,24 +514,19 @@ function TabButton({
 
 function OrderCard({
   onAdvance,
-  onPrint,
+  onCancel,
   onSendEta,
   order,
-  printMessage,
-  printMessageTone,
   updating,
-  printing,
 }: {
   onAdvance: (order: KitchenOrder) => void
-  onPrint: (order: KitchenOrder) => void
+  onCancel: (order: KitchenOrder) => void
   onSendEta?: (etaMinutes: number) => Promise<void>
   order: KitchenOrder
-  printMessage?: string | null
-  printMessageTone?: "info" | "success" | "error"
   updating: boolean
-  printing: boolean
 }) {
   const action = statusAction[order.status]
+  const showCancelAction = canCancelOrder(order.status)
   const colors = statusStyles(order.status)
   const specialInstructions = order.notes?.trim() ?? ""
   const isDelivery = order.fulfillmentType === "DELIVERY"
@@ -847,43 +826,12 @@ function OrderCard({
         </div>
       ) : null}
 
-      {printMessage ? (
-        <div
-          style={{
-            borderRadius: "12px",
-            padding: "12px 14px",
-            fontSize: "14px",
-            fontWeight: 700,
-            background:
-              printMessageTone === "error"
-                ? "rgba(127,29,29,0.55)"
-                : printMessageTone === "success"
-                  ? "rgba(21,128,61,0.28)"
-                  : "rgba(255,255,255,0.08)",
-            color:
-              printMessageTone === "error"
-                ? "#fecaca"
-                : printMessageTone === "success"
-                  ? "#bbf7d0"
-                  : "#e5e7eb",
-            border:
-              printMessageTone === "error"
-                ? "1px solid rgba(248,113,113,0.25)"
-                : printMessageTone === "success"
-                  ? "1px solid rgba(74,222,128,0.2)"
-                  : "1px solid rgba(255,255,255,0.08)",
-          }}
-        >
-          {printMessage}
-        </div>
-      ) : null}
-
       <div style={{ display: "grid", gap: "10px" }}>
         {action ? (
           <button
             type="button"
             onClick={() => onAdvance(order)}
-            disabled={updating || printing}
+            disabled={updating}
             style={{
               minHeight: "56px",
               border: "none",
@@ -900,34 +848,36 @@ function OrderCard({
                 order.status === "READY" || order.status === "PREPARING"
                   ? "#111827"
                   : order.status === "CONFIRMED"
-                    ? "#0f172a"
-                    : "#111827",
+                  ? "#0f172a"
+                  : "#111827",
               fontSize: order.status === "PENDING" ? "18px" : "20px",
               fontWeight: 800,
-              cursor: updating || printing ? "wait" : "pointer",
+              cursor: updating ? "wait" : "pointer",
             }}
           >
             {updating ? "Updating…" : action.label}
           </button>
         ) : null}
 
-        <button
-          type="button"
-          onClick={() => onPrint(order)}
-          disabled={printing || updating}
-          style={{
-            minHeight: "48px",
-            borderRadius: "14px",
-            border: "1px solid rgba(255,255,255,0.16)",
-            background: "rgba(255,255,255,0.06)",
-            color: "#f9fafb",
-            fontSize: "16px",
-            fontWeight: 700,
-            cursor: printing || updating ? "wait" : "pointer",
-          }}
-        >
-          {printing ? "Printing…" : "Print"}
-        </button>
+        {showCancelAction ? (
+          <button
+            type="button"
+            onClick={() => onCancel(order)}
+            disabled={updating}
+            style={{
+              minHeight: "48px",
+              borderRadius: "14px",
+              border: "1px solid rgba(248,113,113,0.28)",
+              background: "rgba(127,29,29,0.38)",
+              color: "#fecaca",
+              fontSize: "16px",
+              fontWeight: 700,
+              cursor: updating ? "wait" : "pointer",
+            }}
+          >
+            Cancel order
+          </button>
+        ) : null}
       </div>
     </section>
   )
@@ -947,10 +897,6 @@ const KitchenDashboard: React.FC<{
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null)
-  const [printingOrderId, setPrintingOrderId] = useState<string | null>(null)
-  const [printFeedbackByOrderId, setPrintFeedbackByOrderId] = useState<
-    Record<string, { text: string; tone: "info" | "success" | "error" }>
-  >({})
   const [soundEnabled, setSoundEnabled] = useState(readSoundPreference)
   const [activeTab, setActiveTab] = useState<KitchenTab>("active")
   const audioContextRef = useRef<AudioContext | null>(null)
@@ -1031,16 +977,6 @@ const KitchenDashboard: React.FC<{
 
       if (order.status === "PENDING") {
         setActiveTab("active")
-        setPrintingOrderId(order.id)
-        setPrintFeedbackByOrderId((current) => ({
-          ...current,
-          [order.id]: { text: "Printing…", tone: "info" },
-        }))
-        await printKitchenOrder(getToken, tenantSlug, order.id)
-        setPrintFeedbackByOrderId((current) => ({
-          ...current,
-          [order.id]: { text: "Receipt queued for printer", tone: "success" },
-        }))
       }
 
       if (action.nextStatus === "COMPLETED") {
@@ -1059,76 +995,27 @@ const KitchenDashboard: React.FC<{
 
       await loadOrders()
     } catch (updateError) {
-      if (order.status === "PENDING") {
-        setPrintFeedbackByOrderId((current) => ({
-          ...current,
-          [order.id]: {
-            text:
-              updateError instanceof Error
-                ? updateError.message
-                : "Failed to confirm and print order",
-            tone: "error",
-          },
-        }))
-      }
       setError(updateError instanceof Error ? updateError.message : "Failed to update order")
     } finally {
       setUpdatingOrderId(null)
-      if (order.status === "PENDING") {
-        setPrintingOrderId(null)
-      }
     }
   }
 
-  async function handlePrint(order: KitchenOrder) {
-    if (!tenantSlug) {
+  async function handleCancel(order: KitchenOrder) {
+    if (!tenantSlug || !canCancelOrder(order.status)) {
       return
     }
 
-    setPrintingOrderId(order.id)
-    setPrintFeedbackByOrderId((current) => ({
-      ...current,
-      [order.id]: { text: "Printing…", tone: "info" },
-    }))
-
+    setUpdatingOrderId(order.id)
     try {
-      await printKitchenOrder(getToken, tenantSlug, order.id)
-      setPrintFeedbackByOrderId((current) => ({
-        ...current,
-        [order.id]: { text: "Receipt queued for printer", tone: "success" },
-      }))
-    } catch (printError) {
-      setPrintFeedbackByOrderId((current) => ({
-        ...current,
-        [order.id]: {
-          text: printError instanceof Error ? printError.message : "Failed to queue print job",
-          tone: "error",
-        },
-      }))
-      setError(printError instanceof Error ? printError.message : "Failed to queue print job")
+      await transitionKitchenOrder(getToken, tenantSlug, order.id, "CANCELLED")
+      await loadOrders()
+    } catch (updateError) {
+      setError(updateError instanceof Error ? updateError.message : "Failed to cancel order")
     } finally {
-      setPrintingOrderId(null)
+      setUpdatingOrderId(null)
     }
   }
-
-  useEffect(() => {
-    const orderIds = Object.keys(printFeedbackByOrderId)
-    if (orderIds.length === 0) {
-      return
-    }
-
-    const timeoutId = window.setTimeout(() => {
-      setPrintFeedbackByOrderId((current) => {
-        const next = { ...current }
-        for (const orderId of orderIds) {
-          delete next[orderId]
-        }
-        return next
-      })
-    }, 3000)
-
-    return () => window.clearTimeout(timeoutId)
-  }, [printFeedbackByOrderId])
 
   const pendingOrders = useMemo(
     () =>
@@ -1362,16 +1249,13 @@ const KitchenDashboard: React.FC<{
               key={`${activeTab}-${order.id}`}
               order={order}
               updating={updatingOrderId === order.id}
-              printing={printingOrderId === order.id}
               onAdvance={handleAdvance}
-              onPrint={handlePrint}
+              onCancel={handleCancel}
               onSendEta={
                 order.fulfillmentType === "DELIVERY"
                   ? (etaMinutes) => handleSendDeliveryEta(order.id, etaMinutes)
                   : undefined
               }
-              printMessage={printFeedbackByOrderId[order.id]?.text ?? null}
-              printMessageTone={printFeedbackByOrderId[order.id]?.tone}
             />
           ))}
         </div>

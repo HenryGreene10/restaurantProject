@@ -3,7 +3,6 @@ import { useQuery } from '@tanstack/react-query'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
   ArrowRight,
-  ChefHat,
   Megaphone,
   Search,
   ShieldCheck,
@@ -978,46 +977,52 @@ function MenuItemCard({
           boxShadow: `0 8px 24px ${hexToRgba(theme.palette.text, 0.06)}`,
         }}
       >
-        <div className="relative h-56 overflow-hidden p-6 pb-0">
-          <div
-            className="h-full w-full rounded-[18px] border bg-cover bg-center transition-transform duration-500 group-hover:scale-[1.02]"
-            style={{
-              borderColor: hexToRgba(theme.palette.border, 0.6),
-              backgroundColor: hexToRgba(theme.palette.primary, 0.08),
-              backgroundImage: item.photoUrl
-                ? `url(${item.photoUrl})`
-                : `linear-gradient(135deg, ${hexToRgba(theme.palette.primary, 0.16)}, ${hexToRgba(theme.palette.accent, 0.14)})`,
-            }}
-          >
-            {!item.photoUrl ? (
-              <div className="flex h-full items-center justify-center">
-                <ChefHat
-                  className="h-10 w-10"
-                  style={{ color: hexToRgba(theme.palette.primary, 0.7) }}
-                />
+        {item.photoUrl ? (
+          <div className="relative h-56 overflow-hidden p-6 pb-0">
+            <div
+              className="h-full w-full rounded-[18px] border bg-cover bg-center transition-transform duration-500 group-hover:scale-[1.02]"
+              style={{
+                borderColor: hexToRgba(theme.palette.border, 0.6),
+                backgroundColor: hexToRgba(theme.palette.primary, 0.08),
+                backgroundImage: `url(${item.photoUrl})`,
+              }}
+            />
+
+            {badgeLabel ? (
+              <div className="absolute right-9 top-9">
+                <span
+                  className="inline-flex rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.08em]"
+                  style={{
+                    backgroundColor:
+                      item.visibility === 'SOLD_OUT'
+                        ? hexToRgba(theme.palette.text, 0.82)
+                        : theme.palette.primary,
+                    color: theme.palette.primaryForeground,
+                  }}
+                >
+                  {badgeLabel}
+                </span>
               </div>
             ) : null}
           </div>
+        ) : badgeLabel ? (
+          <div className="px-6 pt-6">
+            <span
+              className="inline-flex rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.08em]"
+              style={{
+                backgroundColor:
+                  item.visibility === 'SOLD_OUT'
+                    ? hexToRgba(theme.palette.text, 0.82)
+                    : theme.palette.primary,
+                color: theme.palette.primaryForeground,
+              }}
+            >
+              {badgeLabel}
+            </span>
+          </div>
+        ) : null}
 
-          {badgeLabel ? (
-            <div className="absolute right-9 top-9">
-              <span
-                className="inline-flex rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.08em]"
-                style={{
-                  backgroundColor:
-                    item.visibility === 'SOLD_OUT'
-                      ? hexToRgba(theme.palette.text, 0.82)
-                      : theme.palette.primary,
-                  color: theme.palette.primaryForeground,
-                }}
-              >
-                {badgeLabel}
-              </span>
-            </div>
-          ) : null}
-        </div>
-
-        <div className="flex flex-1 flex-col gap-4 px-6 pb-6 pt-4">
+        <div className={cn('flex flex-1 flex-col gap-4 px-6 pb-6', item.photoUrl ? 'pt-4' : 'pt-6')}>
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
               <h3

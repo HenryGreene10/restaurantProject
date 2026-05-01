@@ -482,7 +482,7 @@ export function LandingPage() {
               <div className="footer-col">
                 <h4>Legal</h4>
                 <a href="/privacy">Privacy Policy</a>
-                <a href="/sms-policy">SMS Policy</a>
+                <a href="/sms-policy/">SMS Policy</a>
                 <a href="/terms">Terms of Service</a>
               </div>
             </div>

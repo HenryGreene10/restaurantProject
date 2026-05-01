@@ -7,7 +7,6 @@ import {
 } from '@repo/data-access'
 import { retrieveDirectChargePaymentIntent, verifyStripeWebhookEvent } from '@repo/payments'
 import { env } from '../config/env.js'
-import { buildCloudPrntReceiptJob } from '../lib/cloudprnt.js'
 
 async function awardLoyaltyPoints(
   tenantDataAccess: ReturnType<typeof createTenantDataAccess>,
@@ -59,20 +58,6 @@ async function awardLoyaltyPoints(
       customerPhone: checkoutSession.customerPhoneSnapshot,
     })
   }
-}
-
-async function enqueuePrintJob(
-  order: Parameters<typeof buildCloudPrntReceiptJob>[0],
-  restaurantId: string
-) {
-  const platformDataAccess = createPlatformDataAccess()
-  const restaurant = await platformDataAccess.getRestaurantById(restaurantId)
-  if (!restaurant?.cloudPrntEnabled || !restaurant.cloudPrntMacAddress) {
-    return
-  }
-
-  const ticket = buildCloudPrntReceiptJob(order)
-  await platformDataAccess.updateRestaurantPendingPrintJob(restaurantId, ticket)
 }
 
 export function registerStripeWebhookRoute(app: Express) {
@@ -159,7 +144,6 @@ export function registerStripeWebhookRoute(app: Express) {
           )
 
           if (orderResult.kind === 'created') {
-            await enqueuePrintJob(orderResult.order, tenant.id)
             await awardLoyaltyPoints(tenantDataAccess, orderResult.order, checkoutSession)
           }
         }

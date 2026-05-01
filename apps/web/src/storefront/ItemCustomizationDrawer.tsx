@@ -154,9 +154,7 @@ export function ItemCustomizationDrawer({
   }, [item, selectedModifierPayload, selectedVariant])
 
   const canSubmit = !!item && validationErrors.length === 0 && item.visibility !== 'SOLD_OUT'
-  const heroImageBackground = item?.photoUrl
-    ? `url(${item.photoUrl}) center/cover`
-    : `linear-gradient(135deg, ${hexToRgba(theme.palette.primary, 0.18)}, ${hexToRgba(theme.palette.accent, 0.14)})`
+  const heroImageBackground = item?.photoUrl ? `url(${item.photoUrl}) center/cover` : null
 
   function toggleMultiSelect(groupId: string, optionId: string, maxSelections: number | null) {
     setSelectedOptions((current) => {
@@ -221,33 +219,52 @@ export function ItemCustomizationDrawer({
             transition={{ type: 'spring', stiffness: 280, damping: 28 }}
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="relative h-72 shrink-0 overflow-hidden">
-              <div
-                className="h-full w-full"
-                style={{
-                  background: heroImageBackground,
-                }}
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+            {heroImageBackground ? (
+              <div className="relative h-72 shrink-0 overflow-hidden">
+                <div
+                  className="h-full w-full"
+                  style={{
+                    background: heroImageBackground,
+                  }}
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
 
-              <button
-                type="button"
-                className="absolute left-4 top-4 inline-flex h-12 w-12 items-center justify-center rounded-full border shadow-lg"
-                style={{
-                  backgroundColor: hexToRgba(theme.palette.surface, 0.92),
-                  borderColor: hexToRgba(theme.palette.border, 0.75),
-                  color: theme.palette.text,
-                }}
-                onClick={onClose}
-                aria-label="Close customization drawer"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
+                <button
+                  type="button"
+                  className="absolute left-4 top-4 inline-flex h-12 w-12 items-center justify-center rounded-full border shadow-lg"
+                  style={{
+                    backgroundColor: hexToRgba(theme.palette.surface, 0.92),
+                    borderColor: hexToRgba(theme.palette.border, 0.75),
+                    color: theme.palette.text,
+                  }}
+                  onClick={onClose}
+                  aria-label="Close customization drawer"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+            ) : null}
 
             <div className="flex-1 overflow-y-auto px-6 py-8 pb-40">
               <div className="grid gap-8">
                 <section className="grid gap-4">
+                  {!heroImageBackground ? (
+                    <div>
+                      <button
+                        type="button"
+                        className="inline-flex h-12 w-12 items-center justify-center rounded-full border shadow-lg"
+                        style={{
+                          backgroundColor: hexToRgba(theme.palette.surface, 0.92),
+                          borderColor: hexToRgba(theme.palette.border, 0.75),
+                          color: theme.palette.text,
+                        }}
+                        onClick={onClose}
+                        aria-label="Close customization drawer"
+                      >
+                        <X className="h-5 w-5" />
+                      </button>
+                    </div>
+                  ) : null}
                   <div>
                     <h2
                       className="text-4xl font-bold leading-tight text-foreground"

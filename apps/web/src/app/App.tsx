@@ -47,7 +47,7 @@ export function App() {
     setPathname(nextPath)
   }
 
-  if (pathname === "/sms-policy") {
+  if (pathname === "/sms-policy" || pathname === "/sms-policy/") {
     return <SmsPolicyPage />
   }
 

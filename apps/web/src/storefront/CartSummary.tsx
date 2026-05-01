@@ -776,8 +776,14 @@ export function CartSummary({
                             placeholder="(555) 555-5555"
                           />
                           <div className="text-xs text-muted-foreground">
-                            By providing your phone number, you agree to receive order status
-                            updates via SMS. Reply STOP to opt out.
+                            By providing your phone number, you agree to receive SMS text messages
+                            from this restaurant powered by EasyMenu, including order confirmations
+                            and order status updates. Message and data rates may apply. Message
+                            frequency varies by order activity. Reply STOP to opt out, HELP for
+                            help.{" "}
+                            <a href="/sms-policy/" className="underline">
+                              View our SMS Policy.
+                            </a>
                           </div>
                           {showPhoneError ? (
                             <div className="text-sm text-red-600">{phoneError}</div>

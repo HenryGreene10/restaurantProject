@@ -59,16 +59,10 @@ export function registerAdminPrintingRoutes(r: Router) {
 
   r.patch("/admin/restaurant/printing", async (req: TenantRequest, res) => {
     try {
-      const tenantDataAccess = tenantDataAccessFor(req)
-      const input = parsePrintingBody(req.body)
-      const settings = await tenantDataAccess.printing.updateSettings({
-        cloudPrntEnabled: input.enabled,
-        cloudPrntMacAddress: input.macAddress,
-      })
-
-      return res.json({
-        enabled: settings.cloudPrntEnabled,
-        macAddress: settings.cloudPrntMacAddress,
+      tenantDataAccessFor(req)
+      parsePrintingBody(req.body)
+      return res.status(409).json({
+        error: "Printing is paused for the digital kiosk launch.",
       })
     } catch (error) {
       return res.status(400).json({

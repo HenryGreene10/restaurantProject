@@ -1971,18 +1971,22 @@ export const App: React.FC = () => {
       </SectionCard>
 
       <SectionCard
-        title="Printing"
-        subtitle="Configure a Star CloudPRNT printer for automatic kitchen ticket printing."
+        title="Digital kitchen workflow"
+        subtitle="Printing is paused for launch. Use the kitchen dashboard to process orders live."
       >
         <div className="grid gap-4">
           <div className="flex items-start justify-between gap-4 rounded-[var(--radius)] border border-border/70 bg-background px-4 py-4">
             <div className="grid gap-2">
               <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                 <Printer className="h-4 w-4 text-primary" />
-                Automatic kitchen printing
+                Digital-only launch mode
               </div>
               <div className="text-sm text-muted-foreground">
-                {isPrintingLoading ? 'Loading printer settings…' : printingStatusLabel}
+                {isPrintingLoading
+                  ? 'Checking previous printer configuration…'
+                  : printingStatusLabel === 'Printer connected'
+                    ? 'A printer was configured previously, but new orders will stay digital-only for launch.'
+                    : 'New orders will stay in the kitchen dashboard until printing is re-enabled later.'}
               </div>
             </div>
             <Badge
@@ -1994,73 +1998,28 @@ export const App: React.FC = () => {
                   'border-primary/30 text-foreground'
               )}
             >
-              {printingStatusLabel}
+              Printing paused
             </Badge>
           </div>
 
-          <label className="flex items-start gap-3 rounded-[var(--radius)] border border-border/70 bg-background px-4 py-4 text-sm text-foreground">
-            <input
-              type="checkbox"
-              className="mt-1 h-4 w-4 rounded border-border"
-              checked={printingSettings.enabled}
-              onChange={(event) => {
-                setPrintingSettings((current) => ({
-                  ...current,
-                  enabled: event.target.checked,
-                }))
-                setPrintingMessage(null)
-              }}
-            />
-            <div className="grid gap-1">
-              <span className="font-medium">Enable automatic printing</span>
-              <span className="text-muted-foreground">
-                When enabled, new paid orders are queued for the configured Star printer.
-              </span>
-            </div>
-          </label>
-
-          <div className="grid gap-2">
-            <Label htmlFor="printer-mac-address">Printer MAC address</Label>
-            <Input
-              id="printer-mac-address"
-              value={printingSettings.macAddress ?? ''}
-              placeholder="XX:XX:XX:XX:XX:XX"
-              spellCheck={false}
-              autoCapitalize="characters"
-              onChange={(event) => {
-                setPrintingSettings((current) => ({
-                  ...current,
-                  macAddress: event.target.value.toUpperCase(),
-                }))
-                setPrintingMessage(null)
-              }}
-            />
-            <div className="text-sm text-muted-foreground">
-              Find this on your printer&apos;s configuration sheet. Format: XX:XX:XX:XX:XX:XX
-            </div>
+          <div className="rounded-[var(--radius)] border border-border/70 bg-background px-4 py-4 text-sm text-muted-foreground">
+            Orders will be confirmed, prepared, and completed in the kitchen dashboard without
+            generating CloudPRNT jobs. Re-enable printing after launch once the queue model is
+            hardened.
           </div>
 
-          {printingMessage ? (
-            <div
-              className={cn(
-                'rounded-[var(--radius)] px-4 py-4 text-sm',
-                printingMessage === 'Printing settings saved.'
-                  ? 'border border-primary/20 bg-primary/10 text-foreground'
-                  : 'border border-destructive/20 bg-destructive/10 text-destructive'
-              )}
-            >
-              {printingMessage}
-            </div>
-          ) : null}
-
-          <Button
-            type="button"
-            className="min-h-11"
-            disabled={isPrintingLoading || isPrintingSaving || !isPrintingDirty}
-            onClick={() => void savePrintingSettings()}
-          >
-            {isPrintingSaving ? 'Saving…' : 'Save'}
-          </Button>
+          <div className="flex flex-wrap gap-3">
+            <Button asChild type="button" className="min-h-11">
+              <a href={kitchenKioskUrl} target="_blank" rel="noreferrer">
+                Open kitchen dashboard
+              </a>
+            </Button>
+            <Button asChild type="button" variant="outline" className="min-h-11">
+              <a href={storefrontUrl} target="_blank" rel="noreferrer">
+                Open storefront
+              </a>
+            </Button>
+          </div>
         </div>
       </SectionCard>
     </div>
