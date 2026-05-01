@@ -78,6 +78,11 @@ export type MenuCategory = {
 }
 
 export type MenuResponse = {
+  restaurant?: {
+    id: string
+    name: string
+    slug: string
+  } | null
   brandConfig?: {
     config?: Record<string, unknown>
   } | null

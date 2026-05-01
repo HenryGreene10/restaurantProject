@@ -906,6 +906,7 @@ export function StorefrontPage({
       <CartSummary
         items={cartItems}
         tenantSlug={tenantSlug}
+        restaurantName={menuQuery.data?.restaurant?.name ?? undefined}
         brandColors={{
           accent: theme.palette.accent,
           primary: theme.palette.primary,

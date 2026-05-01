@@ -79,6 +79,7 @@ const NEW_MEMBER_BULLETS = [
 type CartSummaryProps = {
   items: CartItem[]
   tenantSlug: string
+  restaurantName?: string
   brandColors?: {
     accent: string
     primary: string
@@ -117,6 +118,7 @@ type CartSummaryProps = {
 export function CartSummary({
   items,
   tenantSlug,
+  restaurantName,
   brandColors,
   loyaltyAccount,
   customerName,
@@ -142,6 +144,7 @@ export function CartSummary({
   onViewRewardsWallet: _onViewRewardsWallet,
 }: CartSummaryProps) {
   const { theme } = useTheme()
+  const checkoutRestaurantName = restaurantName?.trim() || theme.appTitle || tenantSlug
   const itemCount = cartItemCount(items)
   const subtotal = cartSubtotal(items)
   const [checkoutMode, setCheckoutMode] = useState(false)
@@ -481,7 +484,7 @@ export function CartSummary({
                       {theme.logoUrl ? (
                         <img
                           src={theme.logoUrl}
-                          alt={theme.appTitle}
+                          alt={checkoutRestaurantName}
                           className="h-7 w-auto max-w-[80px] shrink-0 object-contain"
                         />
                       ) : null}
@@ -493,7 +496,7 @@ export function CartSummary({
                           className="text-lg font-semibold"
                           style={{ fontFamily: 'var(--font-heading)' }}
                         >
-                          {theme.appTitle}
+                          {checkoutRestaurantName}
                         </h2>
                       </div>
                     </div>
