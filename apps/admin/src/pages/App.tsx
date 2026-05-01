@@ -1873,7 +1873,7 @@ export const App: React.FC = () => {
   const printingStatusLabel =
     printingSettings.enabled && printingSettings.macAddress ? 'Printer connected' : 'Not configured'
   const restaurantDisplayName =
-    draftTheme.appTitle.trim() || stripeStatus?.displayName || linkedTenantSlug
+    menuData?.restaurant?.name?.trim() || stripeStatus?.displayName || linkedTenantSlug
   const userDisplayName =
     user?.fullName || user?.firstName || user?.primaryEmailAddress?.emailAddress || 'Admin'
   const storefrontUrl = storefrontUrlForTenant(linkedTenantSlug)

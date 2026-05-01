@@ -602,7 +602,17 @@ export function createTenantDataAccess(scope: TenantScope) {
       return withTenantConnection(scope.restaurantId, async (prisma) => {
         const menuRecord = await ensureDefaultMenu(prisma, scope.restaurantId)
 
-        const [categories, brandConfig] = await Promise.all([
+        const [restaurant, categories, brandConfig] = await Promise.all([
+          prisma.restaurant.findUnique({
+            where: {
+              id: scope.restaurantId,
+            },
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+            },
+          }),
           prisma.menuCategory.findMany({
             where: scoped.scopeWhere({
               menuId: menuRecord.id,
@@ -642,7 +652,12 @@ export function createTenantDataAccess(scope: TenantScope) {
           }),
         ])
 
+        if (!restaurant) {
+          throw notFound('Restaurant')
+        }
+
         return {
+          restaurant,
           menu: menuRecord,
           categories,
           brandConfig,
