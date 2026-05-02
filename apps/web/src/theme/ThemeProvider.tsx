@@ -108,13 +108,17 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
     return themePresets.cleanMinimal
   }, [cachedLiveTheme, liveThemeQuery.data, source, tenantSlug])
+  const documentTitle =
+    source === "api"
+      ? liveThemeQuery.data?.restaurant?.name?.trim() || theme.appTitle
+      : theme.appTitle
 
   useLayoutEffect(() => {
     applyThemeVariables(theme)
     if (tenantSlug) {
-      document.title = theme.appTitle
+      document.title = documentTitle
     }
-  }, [theme, tenantSlug])
+  }, [documentTitle, theme, tenantSlug])
 
   useLayoutEffect(() => {
     if (
