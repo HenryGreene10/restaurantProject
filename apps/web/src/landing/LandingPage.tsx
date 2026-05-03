@@ -673,7 +673,11 @@ export function LandingPage() {
               {
                 label: 'Kitchen display cost',
                 us: <span className="yes">Included</span>,
-                a: <span className="sm">DoorDash tablet may carry weekly fee after trial</span>,
+                a: (
+                  <span className="sm">
+                    DoorDash tablet may carry weekly fee after intro period
+                  </span>
+                ),
                 b: <span className="sm">Marketplace tablet / workflow</span>,
                 d: <span className="sm">Quote / hardware dependent</span>,
                 c: <span className="sm">$20-$30/mo per KDS device</span>,
@@ -715,8 +719,8 @@ export function LandingPage() {
           </div>
           <p className="comp-source r">
             Competitor figures are based on public pricing pages checked May 2026. DoorDash and
-            Grubhub rates vary by plan, market, trial, and selected services; Toast pricing varies
-            by hardware and implementation; Square varies by plan and device count.
+            Grubhub rates vary by plan, market, introductory offer, and selected services; Toast
+            pricing varies by hardware and implementation; Square varies by plan and device count.
           </p>
         </div>
       </section>
