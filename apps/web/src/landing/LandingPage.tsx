@@ -586,6 +586,9 @@ export function LandingPage() {
                 'Stripe direct payouts',
                 'Insights dashboard',
                 'Customer data ownership',
+                'No long-term contract',
+                'Cancel anytime',
+                'Satisfaction guarantee',
               ].map((feat) => (
                 <div className="pricing-feat" key={feat}>
                   <div className="p-check">{CHECK}</div>
@@ -609,8 +612,8 @@ export function LandingPage() {
                 </svg>
               </a>
               <div className="pricing-note">
-                Guided launch support included. Stripe processing fees apply separately (2.9% +
-                30¢).
+                No long-term contract. Cancel anytime. If launch setup does not feel right, tell us
+                and we will make it right. Stripe processing fees apply separately (2.9% + 30¢).
               </div>
             </div>
           </div>
@@ -766,7 +769,7 @@ export function LandingPage() {
               </a>
             </div>
             <div className="cta-note">
-              Setup help included from day one. No commission. Stripe fees separate.
+              No contract. Cancel anytime. Satisfaction guaranteed. Stripe fees separate.
             </div>
           </div>
         </div>
