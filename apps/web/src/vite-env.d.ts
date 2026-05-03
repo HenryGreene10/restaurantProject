@@ -5,6 +5,7 @@ interface ImportMetaEnv {
   readonly VITE_API_BASE_URL?: string
   readonly VITE_TENANT_DOMAIN_SUFFIX?: string
   readonly VITE_STRIPE_PUBLISHABLE_KEY?: string
+  readonly VITE_CONTACT_FORM_ENDPOINT?: string
 }
 
 interface ImportMeta {

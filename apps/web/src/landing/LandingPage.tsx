@@ -1,5 +1,15 @@
-import { useEffect } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import './landing.css'
+
+const CONTACT_FORM_ENDPOINT = import.meta.env.VITE_CONTACT_FORM_ENDPOINT?.trim() ?? ''
+
+const emptyContactForm = {
+  restaurantName: '',
+  contactName: '',
+  contactInfo: '',
+  website: '',
+  message: '',
+}
 
 const CHECK = (
   <svg
@@ -16,6 +26,12 @@ const CHECK = (
 )
 
 export function LandingPage() {
+  const [contactForm, setContactForm] = useState(emptyContactForm)
+  const [contactStatus, setContactStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>(
+    'idle'
+  )
+  const [contactMessage, setContactMessage] = useState<string | null>(null)
+
   useEffect(() => {
     document.title = 'EasyMenu — Direct ordering for independent restaurants'
 
@@ -33,6 +49,60 @@ export function LandingPage() {
     document.querySelectorAll('.lp-root .r').forEach((el) => io.observe(el))
     return () => io.disconnect()
   }, [])
+
+  function updateContactField(field: keyof typeof emptyContactForm, value: string) {
+    setContactForm((current) => ({ ...current, [field]: value }))
+  }
+
+  async function handleContactSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setContactStatus('idle')
+    setContactMessage(null)
+
+    const restaurantName = contactForm.restaurantName.trim()
+    const contactName = contactForm.contactName.trim()
+    const contactInfo = contactForm.contactInfo.trim()
+
+    if (!restaurantName || !contactName || !contactInfo) {
+      setContactStatus('error')
+      setContactMessage('Restaurant name, your name, and phone or email are required.')
+      return
+    }
+
+    if (!CONTACT_FORM_ENDPOINT) {
+      setContactStatus('error')
+      setContactMessage('Contact form is not configured yet. Add VITE_CONTACT_FORM_ENDPOINT.')
+      return
+    }
+
+    const body = new FormData()
+    body.append('restaurantName', restaurantName)
+    body.append('name', contactName)
+    body.append('contact', contactInfo)
+    body.append('website', contactForm.website.trim())
+    body.append('message', contactForm.message.trim())
+    body.append('source', 'EasyMenu landing contact form')
+
+    setContactStatus('submitting')
+    try {
+      const response = await fetch(CONTACT_FORM_ENDPOINT, {
+        method: 'POST',
+        headers: { Accept: 'application/json' },
+        body,
+      })
+
+      if (!response.ok) {
+        throw new Error('Contact form submission failed')
+      }
+
+      setContactForm(emptyContactForm)
+      setContactStatus('success')
+      setContactMessage("Thanks. We'll follow up with the next step.")
+    } catch {
+      setContactStatus('error')
+      setContactMessage('Message could not be sent. Please try again in a minute.')
+    }
+  }
 
   return (
     <div className="lp-root">
@@ -760,17 +830,98 @@ export function LandingPage() {
                   <path d="M3 7h8M7 3l4 4-4 4" />
                 </svg>
               </a>
-              <a
-                href="mailto:hello@easymenu.website"
-                className="btn-outline"
-                style={{ fontSize: 15 }}
-              >
+              <a href="#contact" className="btn-outline" style={{ fontSize: 15 }}>
                 Talk to us
               </a>
             </div>
             <div className="cta-note">
               No contract. Cancel anytime. Satisfaction guaranteed. Stripe fees separate.
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── CONTACT ── */}
+      <section id="contact" className="contact-section">
+        <div className="wrap">
+          <div className="contact-card r">
+            <div className="contact-copy">
+              <div className="eyebrow">
+                <div className="eyebrow-dot" /> Questions before signup?
+              </div>
+              <h2>Talk through setup before you start.</h2>
+              <p>
+                Send the restaurant details and we&apos;ll follow up about menu setup, website
+                linking, Stripe, or whether EasyMenu fits your operation.
+              </p>
+              <div className="contact-points">
+                <span>No hello@ inbox required</span>
+                <span>Best for pre-signup questions</span>
+                <span>Signup still starts with the $279 setup flow</span>
+              </div>
+            </div>
+            <form className="contact-form" onSubmit={handleContactSubmit}>
+              <div className="contact-grid">
+                <label className="contact-field">
+                  <span>Restaurant name</span>
+                  <input
+                    value={contactForm.restaurantName}
+                    onChange={(event) => updateContactField('restaurantName', event.target.value)}
+                    placeholder="Joe's Pizza"
+                    autoComplete="organization"
+                    required
+                  />
+                </label>
+                <label className="contact-field">
+                  <span>Your name</span>
+                  <input
+                    value={contactForm.contactName}
+                    onChange={(event) => updateContactField('contactName', event.target.value)}
+                    placeholder="Maria"
+                    autoComplete="name"
+                    required
+                  />
+                </label>
+              </div>
+              <label className="contact-field">
+                <span>Phone or email</span>
+                <input
+                  value={contactForm.contactInfo}
+                  onChange={(event) => updateContactField('contactInfo', event.target.value)}
+                  placeholder="555-123-4567 or owner@example.com"
+                  autoComplete="email"
+                  required
+                />
+              </label>
+              <label className="contact-field">
+                <span>Website or Google Maps link</span>
+                <input
+                  value={contactForm.website}
+                  onChange={(event) => updateContactField('website', event.target.value)}
+                  placeholder="https://..."
+                  autoComplete="url"
+                />
+              </label>
+              <label className="contact-field">
+                <span>What do you want help with?</span>
+                <textarea
+                  value={contactForm.message}
+                  onChange={(event) => updateContactField('message', event.target.value)}
+                  placeholder="Menu setup, website link, Stripe, pricing questions..."
+                  rows={4}
+                />
+              </label>
+              {contactMessage ? (
+                <div className={`contact-status ${contactStatus}`}>{contactMessage}</div>
+              ) : null}
+              <button
+                type="submit"
+                className="btn-primary contact-submit"
+                disabled={contactStatus === 'submitting'}
+              >
+                {contactStatus === 'submitting' ? 'Sending...' : 'Send message'}
+              </button>
+            </form>
           </div>
         </div>
       </section>
@@ -806,7 +957,7 @@ export function LandingPage() {
                 <h4>Restaurant</h4>
                 <a href="https://admin.easymenu.website/signup">Get started for $279</a>
                 <a href="https://admin.easymenu.website">Admin login</a>
-                <a href="mailto:hello@easymenu.website">Contact us</a>
+                <a href="#contact">Contact us</a>
               </div>
               <div className="footer-col">
                 <h4>Legal</h4>
@@ -821,7 +972,7 @@ export function LandingPage() {
             <div className="footer-legal">
               <a href="/privacy">Privacy</a>
               <a href="/terms">Terms</a>
-              <a href="mailto:hello@easymenu.website">Contact</a>
+              <a href="#contact">Contact</a>
             </div>
           </div>
         </div>

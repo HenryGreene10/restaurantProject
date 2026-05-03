@@ -13,6 +13,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+const SETUP_PAYMENT_URL = import.meta.env.VITE_SETUP_PAYMENT_URL?.trim() ?? ''
 
 function normalizeSlug(value: string) {
   return value
@@ -171,7 +172,13 @@ export const OnboardingPage: React.FC<{
         token,
       })
 
-      setSuccessMessage('Restaurant setup created. Redirecting to your dashboard…')
+      if (SETUP_PAYMENT_URL) {
+        setSuccessMessage('Restaurant setup created. Redirecting to secure setup payment…')
+        window.location.assign(SETUP_PAYMENT_URL)
+        return
+      }
+
+      setSuccessMessage('Restaurant setup created. Setup payment is not configured yet.')
       await onCompleted()
     } catch (error) {
       setFormError(error instanceof Error ? error.message : 'Failed to create restaurant')

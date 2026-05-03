@@ -1,6 +1,7 @@
 # Environment Variables
 
 ## Scope Rules
+
 - Root `.env` is for Node services and DB scripts:
   - API
   - worker
@@ -12,12 +13,15 @@
 - Do not assume root `.env` values are automatically available to Vite apps.
 
 ## Root `.env`
+
 Used by:
+
 - `apps/api`
 - `apps/workers`
 - `packages/db` scripts
 
 Current backend/service vars:
+
 - `NODE_ENV`
 - `PORT`
 - `DATABASE_URL`
@@ -46,36 +50,51 @@ Current backend/service vars:
 - `NOTIFICATION_WORKER_BATCH_SIZE`
 
 Notes:
+
 - `BASE_DOMAIN` or `TENANT_DOMAIN_SUFFIX` is required by the API config.
 - `JWT_SECRET` is still present in the config surface but current customer auth uses the access/refresh secret pair.
 - `TWILIO_MESSAGING_SERVICE_SID` is used by the worker, not by the API.
 
 ## `apps/web/.env.local`
+
 Used by:
+
 - storefront Vite app
 
 Current frontend vars:
+
 - `VITE_API_BASE_URL`
+- `VITE_CONTACT_FORM_ENDPOINT`
 - `VITE_SENTRY_DSN`
 - `VITE_TENANT_DOMAIN_SUFFIX`
 
 Notes:
+
 - `VITE_API_BASE_URL` points the storefront at the API.
+- `VITE_CONTACT_FORM_ENDPOINT` points the landing page contact form at a hosted form endpoint such as Formspree, Formspark, Tally, or another webhook-backed form service.
 - `VITE_TENANT_DOMAIN_SUFFIX` drives subdomain tenant resolution in production.
 - `TENANT_DOMAIN_SUFFIX` is also read by `apps/web/vite.config.ts` as a fallback, but use `VITE_TENANT_DOMAIN_SUFFIX` for clarity.
 
 ## `apps/admin/.env.local`
+
 Used by:
+
 - admin Vite app
 
 Current frontend vars:
+
 - `VITE_API_BASE_URL`
+- `VITE_SETUP_PAYMENT_URL`
 
 Notes:
+
 - Admin auth itself is handled by Clerk in the app and backend, but the admin frontend currently does not read a local `VITE_CLERK_*` variable from the code paths inspected here.
+- `VITE_SETUP_PAYMENT_URL` should be a Stripe Payment Link for the one-time $279 initial setup fee. Configure the Stripe Payment Link success URL to your Calendly setup meeting link so new restaurants pay first, then schedule the setup call.
 
 ## Render Service Vars
+
 Set these in the Render API service:
+
 - `NODE_ENV=production`
 - `PORT`
 - `DATABASE_URL`
@@ -98,6 +117,7 @@ Set these in the Render API service:
 - `TWILIO_VERIFY_SERVICE_SID`
 
 Set these in the Render worker service if the worker is deployed separately:
+
 - `NODE_ENV=production`
 - `DATABASE_URL`
 - `TWILIO_ACCOUNT_SID`
@@ -108,36 +128,48 @@ Set these in the Render worker service if the worker is deployed separately:
 - `NOTIFICATION_WORKER_BATCH_SIZE`
 
 Notes:
+
 - Render services do not share a repo root `.env`; each service needs its own env configuration.
 - API and worker can share some values, but set them per service.
 
 ## Vercel Project Vars
+
 Set these in the storefront Vercel project:
+
 - `VITE_API_BASE_URL`
+- `VITE_CONTACT_FORM_ENDPOINT`
 - `VITE_SENTRY_DSN`
 - `VITE_TENANT_DOMAIN_SUFFIX`
 
 Set these in the admin Vercel project:
+
 - `VITE_API_BASE_URL`
+- `VITE_SETUP_PAYMENT_URL`
 
 Notes:
+
 - Vercel frontend env vars must use `VITE_` to be exposed to the browser bundle.
 - Frontend projects should not receive backend secrets like Stripe secret keys, JWT secrets, Twilio auth tokens, or Clerk secret keys.
+- The current setup fee flow uses a Stripe Payment Link redirect. It does not write payment status back to the app. If you need strict in-app access control based on paid setup status, add a backend Stripe Checkout session route, webhook handling, and a tenant payment status field.
 
 ## Local Example Split
 
 Root `.env`:
+
 - backend, worker, and DB script values only
 
 `apps/web/.env.local`:
+
 - storefront `VITE_*` values only
 
 `apps/admin/.env.local`:
+
 - admin `VITE_*` values only
 
 ## Current Example Names
 
 Root `.env`:
+
 ```env
 NODE_ENV=development
 PORT=4000
@@ -166,13 +198,17 @@ NOTIFICATION_WORKER_BATCH_SIZE=10
 ```
 
 `apps/web/.env.local`:
+
 ```env
 VITE_API_BASE_URL=http://127.0.0.1:4000
+VITE_CONTACT_FORM_ENDPOINT=
 VITE_SENTRY_DSN=
 VITE_TENANT_DOMAIN_SUFFIX=easymenu.website
 ```
 
 `apps/admin/.env.local`:
+
 ```env
 VITE_API_BASE_URL=http://127.0.0.1:4000
+VITE_SETUP_PAYMENT_URL=
 ```
