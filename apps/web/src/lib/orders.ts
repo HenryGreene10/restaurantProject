@@ -1,14 +1,14 @@
-import type { CartItem } from "../storefront/cartStore"
+import type { CartItem } from '../storefront/cartStore'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api"
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api'
 
 export type CustomerOrderStatus =
-  | "PENDING"
-  | "CONFIRMED"
-  | "PREPARING"
-  | "READY"
-  | "COMPLETED"
-  | "CANCELLED"
+  | 'PENDING'
+  | 'CONFIRMED'
+  | 'PREPARING'
+  | 'READY'
+  | 'COMPLETED'
+  | 'CANCELLED'
 
 export type CustomerOrder = {
   id: string
@@ -23,6 +23,8 @@ export type CustomerOrder = {
   totalCents: number
   notes: string | null
   pickupTime: string | null
+  estimatedFulfillmentMinutes: number | null
+  deliveryAddressSnapshot: unknown | null
   createdAt: string
   updatedAt: string
   customerNameSnapshot: string | null
@@ -60,9 +62,9 @@ type CreateOrderResponse = {
 
 function authHeaders(tenantSlug: string, accessToken?: string | null, includeJson = false) {
   return {
-    ...(includeJson ? { "Content-Type": "application/json" } : {}),
+    ...(includeJson ? { 'Content-Type': 'application/json' } : {}),
     ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-    "x-tenant-slug": tenantSlug,
+    'x-tenant-slug': tenantSlug,
   }
 }
 
@@ -79,10 +81,10 @@ export async function createPickupOrder(input: {
   items: CartItem[]
 }) {
   const response = await fetch(`${API_BASE_URL}/v1/orders`, {
-    method: "POST",
+    method: 'POST',
     headers: authHeaders(input.tenantSlug, input.accessToken, true),
     body: JSON.stringify({
-      type: "PICKUP",
+      type: 'PICKUP',
       customerName: input.customerName,
       customerPhone: input.customerPhone,
       notes: input.orderNotes,
@@ -106,7 +108,7 @@ export async function createPickupOrder(input: {
     | null
 
   if (!response.ok || !body?.id) {
-    throw new Error(parseError(response.status, body, "Failed to place order"))
+    throw new Error(parseError(response.status, body, 'Failed to place order'))
   }
 
   return body as CreateOrderResponse
@@ -126,19 +128,16 @@ export async function fetchCustomerOrder(input: {
     | null
 
   if (!response.ok || !body?.id) {
-    throw new Error(parseError(response.status, body, "Failed to load order"))
+    throw new Error(parseError(response.status, body, 'Failed to load order'))
   }
 
   return body as CustomerOrder
 }
 
-export async function fetchPublicOrderStatus(input: {
-  tenantSlug: string
-  orderId: string
-}) {
+export async function fetchPublicOrderStatus(input: { tenantSlug: string; orderId: string }) {
   const response = await fetch(`${API_BASE_URL}/v1/orders/${input.orderId}/status`, {
     headers: {
-      "x-tenant-slug": input.tenantSlug,
+      'x-tenant-slug': input.tenantSlug,
     },
   })
 
@@ -147,7 +146,7 @@ export async function fetchPublicOrderStatus(input: {
     | null
 
   if (!response.ok || !body?.id) {
-    throw new Error(parseError(response.status, body, "Failed to load order status"))
+    throw new Error(parseError(response.status, body, 'Failed to load order status'))
   }
 
   return body as CustomerOrder

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react"
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ClerkProvider,
   SignIn,
@@ -7,16 +7,10 @@ import {
   useAuth,
   useClerk,
   useUser,
-} from "@clerk/clerk-react"
-import { createRoot } from "react-dom/client"
+} from '@clerk/clerk-react'
+import { createRoot } from 'react-dom/client'
 
-type OrderStatus =
-  | "PENDING"
-  | "CONFIRMED"
-  | "PREPARING"
-  | "READY"
-  | "COMPLETED"
-  | "CANCELLED"
+type OrderStatus = 'PENDING' | 'CONFIRMED' | 'PREPARING' | 'READY' | 'COMPLETED' | 'CANCELLED'
 
 type KitchenOrderItemModifier = {
   id: string
@@ -30,20 +24,36 @@ type KitchenOrderItem = {
   name: string
   quantity: number
   variantName: string | null
+  unitPriceCents: number
+  linePriceCents: number
   notes?: string | null
   modifierSelections?: KitchenOrderItemModifier[]
+}
+
+type KitchenOrderStatusEvent = {
+  id: string
+  toStatus: OrderStatus
+  createdAt: string
 }
 
 type KitchenOrder = {
   id: string
   orderNumber: number
   customerNameSnapshot: string | null
+  customerPhoneSnapshot: string | null
   createdAt: string
   status: OrderStatus
   notes?: string | null
-  fulfillmentType: "PICKUP" | "DELIVERY"
-  deliveryAddressSnapshot: string | null
+  fulfillmentType: 'PICKUP' | 'DELIVERY'
+  deliveryAddressSnapshot: unknown | null
+  estimatedFulfillmentMinutes: number | null
+  subtotalCents: number
+  taxCents: number
+  tipCents: number
+  discountCents: number
+  totalCents: number
   items: KitchenOrderItem[]
+  statusEvents?: KitchenOrderStatusEvent[]
 }
 
 type CompletedOrderRecord = {
@@ -51,25 +61,25 @@ type CompletedOrderRecord = {
   order: KitchenOrder
 }
 
-type KitchenTab = "pending" | "active" | "completed"
+type KitchenTab = 'pending' | 'active' | 'completed'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api"
-const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY ?? ""
-const TENANT_DOMAIN_SUFFIX = (import.meta.env.VITE_TENANT_DOMAIN_SUFFIX ?? "").trim().toLowerCase()
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api'
+const CLERK_PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY ?? ''
+const TENANT_DOMAIN_SUFFIX = (import.meta.env.VITE_TENANT_DOMAIN_SUFFIX ?? '').trim().toLowerCase()
 
-const RESERVED_KITCHEN_SUBDOMAINS = new Set(["www", "admin", "api", "app", "kiosk", "kitchen"])
+const RESERVED_KITCHEN_SUBDOMAINS = new Set(['www', 'admin', 'api', 'app', 'kiosk', 'kitchen'])
 
 function getTenantSlugFromSubdomain(): string | null {
-  if (typeof window === "undefined") return null
+  if (typeof window === 'undefined') return null
   const hostname = window.location.hostname.toLowerCase()
 
   if (TENANT_DOMAIN_SUFFIX && hostname.endsWith(`.${TENANT_DOMAIN_SUFFIX}`)) {
-    const sub = hostname.slice(0, -(`.${TENANT_DOMAIN_SUFFIX}`.length)).trim()
+    const sub = hostname.slice(0, -`.${TENANT_DOMAIN_SUFFIX}`.length).trim()
     if (sub && !RESERVED_KITCHEN_SUBDOMAINS.has(sub)) return sub
   }
 
   if (import.meta.env.DEV) {
-    const q = new URLSearchParams(window.location.search).get("tenant")?.trim()
+    const q = new URLSearchParams(window.location.search).get('tenant')?.trim()
     return q || null
   }
 
@@ -78,29 +88,28 @@ function getTenantSlugFromSubdomain(): string | null {
 const POLL_INTERVAL_MS = 10_000
 const EIGHT_HOURS_MS = 8 * 60 * 60 * 1000
 const FOUR_HOURS_MS = 4 * 60 * 60 * 1000
-const SOUND_PREF_STORAGE_KEY = "kitchen-dashboard-sound-enabled"
-const COMPLETED_CACHE_STORAGE_KEY = "kitchen-dashboard-completed-orders"
+const SOUND_PREF_STORAGE_KEY = 'kitchen-dashboard-sound-enabled'
+const COMPLETED_CACHE_STORAGE_KEY = 'kitchen-dashboard-completed-orders'
 
 type ClerkTokenGetter = () => Promise<string | null>
 
 const statusAction: Record<
   OrderStatus,
-  | {
-      label: string
-      nextStatus: OrderStatus
-    }
-  | null
+  {
+    label: string
+    nextStatus: OrderStatus
+  } | null
 > = {
-  PENDING: { label: "Confirm order", nextStatus: "CONFIRMED" },
-  CONFIRMED: { label: "Start preparing", nextStatus: "PREPARING" },
-  PREPARING: { label: "Mark ready", nextStatus: "READY" },
-  READY: { label: "Picked up", nextStatus: "COMPLETED" },
+  PENDING: { label: 'Confirm order', nextStatus: 'CONFIRMED' },
+  CONFIRMED: { label: 'Start preparing', nextStatus: 'PREPARING' },
+  PREPARING: { label: 'Mark ready', nextStatus: 'READY' },
+  READY: { label: 'Picked up', nextStatus: 'COMPLETED' },
   COMPLETED: null,
   CANCELLED: null,
 }
 
 function tenantSlugFromMetadata(value: unknown) {
-  if (typeof value !== "string") {
+  if (typeof value !== 'string') {
     return null
   }
 
@@ -113,12 +122,12 @@ function completedCacheKey(tenantSlug: string) {
 }
 
 function readSoundPreference() {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return true
   }
 
   const rawValue = window.localStorage.getItem(SOUND_PREF_STORAGE_KEY)
-  return rawValue === null ? true : rawValue === "true"
+  return rawValue === null ? true : rawValue === 'true'
 }
 
 function writeSoundPreference(enabled: boolean) {
@@ -126,7 +135,7 @@ function writeSoundPreference(enabled: boolean) {
 }
 
 function readCompletedOrders(tenantSlug: string): CompletedOrderRecord[] {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return []
   }
 
@@ -142,14 +151,14 @@ function readCompletedOrders(tenantSlug: string): CompletedOrderRecord[] {
     }
 
     return parsed.filter((entry): entry is CompletedOrderRecord => {
-      if (!entry || typeof entry !== "object") {
+      if (!entry || typeof entry !== 'object') {
         return false
       }
 
       const candidate = entry as Record<string, unknown>
       return (
-        typeof candidate.completedAt === "string" &&
-        typeof candidate.order === "object" &&
+        typeof candidate.completedAt === 'string' &&
+        typeof candidate.order === 'object' &&
         candidate.order !== null
       )
     })
@@ -171,10 +180,56 @@ function isWithinWindow(value: string, durationMs: number) {
 }
 
 function formatPlacedTime(value: string) {
-  return new Intl.DateTimeFormat("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
+  return new Intl.DateTimeFormat('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
   }).format(new Date(value))
+}
+
+function formatPrice(priceCents: number) {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+  }).format(priceCents / 100)
+}
+
+function formatDeliveryAddress(value: unknown) {
+  if (typeof value === 'string') {
+    const trimmed = value.trim()
+    return trimmed.length > 0 ? trimmed : null
+  }
+
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null
+  }
+
+  const record = value as Record<string, unknown>
+  const parts = [
+    record.street,
+    record.line1,
+    record.address,
+    record.unit,
+    record.apartment,
+    record.city,
+    record.state,
+    record.zip,
+    record.postalCode,
+  ]
+    .filter((part): part is string => typeof part === 'string' && part.trim().length > 0)
+    .map((part) => part.trim())
+
+  return parts.length > 0 ? parts.join(', ') : null
+}
+
+function latestStatusTime(order: KitchenOrder, status: OrderStatus) {
+  const events = order.statusEvents ?? []
+  const latest = events
+    .filter((event) => event.toStatus === status)
+    .sort(
+      (left, right) => parseOrderTimestamp(right.createdAt) - parseOrderTimestamp(left.createdAt)
+    )[0]
+
+  return latest?.createdAt ?? null
 }
 
 function formatElapsedTime(value: string) {
@@ -182,7 +237,7 @@ function formatElapsedTime(value: string) {
   const elapsedMinutes = Math.max(0, Math.floor(elapsedMs / 60_000))
 
   if (elapsedMinutes < 1) {
-    return "Just now"
+    return 'Just now'
   }
 
   if (elapsedMinutes < 60) {
@@ -193,9 +248,7 @@ function formatElapsedTime(value: string) {
   const minutes = elapsedMinutes % 60
 
   if (hours < 24) {
-    return minutes === 0
-      ? `${hours} hr ago`
-      : `${hours} hr ${minutes} min ago`
+    return minutes === 0 ? `${hours} hr ago` : `${hours} hr ${minutes} min ago`
   }
 
   return `${Math.floor(hours / 24)} day ago`
@@ -203,73 +256,70 @@ function formatElapsedTime(value: string) {
 
 function orderStatusLabel(status: OrderStatus) {
   switch (status) {
-    case "PENDING":
-      return "Pending"
-    case "CONFIRMED":
-      return "Confirmed"
-    case "PREPARING":
-      return "Preparing"
-    case "READY":
-      return "Ready"
-    case "COMPLETED":
-      return "Picked up"
-    case "CANCELLED":
-      return "Cancelled"
+    case 'PENDING':
+      return 'Pending'
+    case 'CONFIRMED':
+      return 'Confirmed'
+    case 'PREPARING':
+      return 'Preparing'
+    case 'READY':
+      return 'Ready'
+    case 'COMPLETED':
+      return 'Picked up'
+    case 'CANCELLED':
+      return 'Cancelled'
   }
 }
 
 function statusStyles(status: OrderStatus) {
   switch (status) {
-    case "PENDING":
+    case 'PENDING':
       return {
-        badgeBackground: "rgba(255,255,255,0.08)",
-        badgeColor: "#f9fafb",
-        border: "1px solid rgba(255,255,255,0.07)",
-        cardBackground: "#1f2937",
+        badgeBackground: 'rgba(255,255,255,0.08)',
+        badgeColor: '#f9fafb',
+        border: '1px solid rgba(255,255,255,0.07)',
+        cardBackground: '#1f2937',
       }
-    case "CONFIRMED":
+    case 'CONFIRMED':
       return {
-        badgeBackground: "rgba(59,130,246,0.2)",
-        badgeColor: "#dbeafe",
-        border: "1px solid rgba(96,165,250,0.25)",
-        cardBackground: "linear-gradient(180deg, rgba(30,64,175,0.28), rgba(17,24,39,0.95))",
+        badgeBackground: 'rgba(59,130,246,0.2)',
+        badgeColor: '#dbeafe',
+        border: '1px solid rgba(96,165,250,0.25)',
+        cardBackground: 'linear-gradient(180deg, rgba(30,64,175,0.28), rgba(17,24,39,0.95))',
       }
-    case "PREPARING":
+    case 'PREPARING':
       return {
-        badgeBackground: "rgba(245,158,11,0.2)",
-        badgeColor: "#fef3c7",
-        border: "1px solid rgba(251,191,36,0.24)",
-        cardBackground: "linear-gradient(180deg, rgba(146,64,14,0.28), rgba(17,24,39,0.95))",
+        badgeBackground: 'rgba(245,158,11,0.2)',
+        badgeColor: '#fef3c7',
+        border: '1px solid rgba(251,191,36,0.24)',
+        cardBackground: 'linear-gradient(180deg, rgba(146,64,14,0.28), rgba(17,24,39,0.95))',
       }
-    case "READY":
-    case "COMPLETED":
+    case 'READY':
+    case 'COMPLETED':
       return {
-        badgeBackground: "rgba(34,197,94,0.2)",
-        badgeColor: "#dcfce7",
-        border: "1px solid rgba(74,222,128,0.24)",
-        cardBackground: "linear-gradient(180deg, rgba(21,128,61,0.24), rgba(17,24,39,0.95))",
+        badgeBackground: 'rgba(34,197,94,0.2)',
+        badgeColor: '#dcfce7',
+        border: '1px solid rgba(74,222,128,0.24)',
+        cardBackground: 'linear-gradient(180deg, rgba(21,128,61,0.24), rgba(17,24,39,0.95))',
       }
-    case "CANCELLED":
+    case 'CANCELLED':
       return {
-        badgeBackground: "rgba(239,68,68,0.2)",
-        badgeColor: "#fecaca",
-        border: "1px solid rgba(248,113,113,0.24)",
-        cardBackground: "#1f2937",
+        badgeBackground: 'rgba(239,68,68,0.2)',
+        badgeColor: '#fecaca',
+        border: '1px solid rgba(248,113,113,0.24)',
+        cardBackground: '#1f2937',
       }
   }
 }
 
 function canCancelOrder(status: OrderStatus) {
   return (
-    status === "PENDING" ||
-    status === "CONFIRMED" ||
-    status === "PREPARING" ||
-    status === "READY"
+    status === 'PENDING' || status === 'CONFIRMED' || status === 'PREPARING' || status === 'READY'
   )
 }
 
 function modifierLine(modifier: KitchenOrderItemModifier) {
-  if (modifier.portion && modifier.portion !== "WHOLE") {
+  if (modifier.portion && modifier.portion !== 'WHOLE') {
     return `${modifier.optionName} (${modifier.portion.toLowerCase()})`
   }
 
@@ -279,16 +329,17 @@ function modifierLine(modifier: KitchenOrderItemModifier) {
 async function fetchKitchenOrders(tenantSlug: string) {
   const response = await fetch(`${API_BASE_URL}/v1/kitchen/orders`, {
     headers: {
-      "x-tenant-slug": tenantSlug,
+      'x-tenant-slug': tenantSlug,
     },
   })
 
-  const body = (await response.json().catch(() => null)) as
-    | { error?: string; orders?: KitchenOrder[] }
-    | null
+  const body = (await response.json().catch(() => null)) as {
+    error?: string
+    orders?: KitchenOrder[]
+  } | null
 
   if (!response.ok) {
-    throw new Error(body?.error ?? "Failed to load kitchen orders")
+    throw new Error(body?.error ?? 'Failed to load kitchen orders')
   }
 
   return (body?.orders ?? []).slice().sort((left, right) => {
@@ -300,19 +351,19 @@ async function transitionKitchenOrder(
   getToken: ClerkTokenGetter,
   tenantSlug: string,
   orderId: string,
-  nextStatus: OrderStatus,
+  nextStatus: OrderStatus
 ) {
   const token = await getToken()
   if (!token) {
-    throw new Error("Unable to authenticate your kitchen session.")
+    throw new Error('Unable to authenticate your kitchen session.')
   }
 
   const response = await fetch(`${API_BASE_URL}/admin/orders/${orderId}/status`, {
-    method: "PATCH",
+    method: 'PATCH',
     headers: {
       Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-      "x-tenant-slug": tenantSlug,
+      'Content-Type': 'application/json',
+      'x-tenant-slug': tenantSlug,
     },
     body: JSON.stringify({ status: nextStatus }),
   })
@@ -320,7 +371,7 @@ async function transitionKitchenOrder(
   const body = (await response.json().catch(() => null)) as { error?: string } | null
 
   if (!response.ok) {
-    throw new Error(body?.error ?? "Failed to update order")
+    throw new Error(body?.error ?? 'Failed to update order')
   }
 }
 
@@ -328,19 +379,19 @@ async function sendKitchenDeliveryEta(
   getToken: ClerkTokenGetter,
   tenantSlug: string,
   orderId: string,
-  etaMinutes: number,
+  etaMinutes: number
 ) {
   const token = await getToken()
   if (!token) {
-    throw new Error("Unable to authenticate your kitchen session.")
+    throw new Error('Unable to authenticate your kitchen session.')
   }
 
   const response = await fetch(`${API_BASE_URL}/admin/orders/${orderId}/delivery-eta`, {
-    method: "POST",
+    method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-      "x-tenant-slug": tenantSlug,
+      'Content-Type': 'application/json',
+      'x-tenant-slug': tenantSlug,
     },
     body: JSON.stringify({ etaMinutes }),
   })
@@ -348,12 +399,12 @@ async function sendKitchenDeliveryEta(
   const body = (await response.json().catch(() => null)) as { error?: string } | null
 
   if (!response.ok) {
-    throw new Error(body?.error ?? "Failed to send delivery ETA")
+    throw new Error(body?.error ?? 'Failed to send delivery ETA')
   }
 }
 
 function playAlertTone(audioContextRef: React.MutableRefObject<AudioContext | null>) {
-  if (typeof window === "undefined") {
+  if (typeof window === 'undefined') {
     return
   }
 
@@ -372,7 +423,7 @@ function playAlertTone(audioContextRef: React.MutableRefObject<AudioContext | nu
   const audioContext = audioContextRef.current ?? new AudioContextCtor()
   audioContextRef.current = audioContext
 
-  if (audioContext.state === "suspended") {
+  if (audioContext.state === 'suspended') {
     void audioContext.resume()
   }
 
@@ -384,7 +435,7 @@ function playAlertTone(audioContextRef: React.MutableRefObject<AudioContext | nu
     const gain = audioContext.createGain()
     const startAt = now + index * 0.18
 
-    oscillator.type = "sine"
+    oscillator.type = 'sine'
     oscillator.frequency.setValueAtTime(frequency, startAt)
 
     gain.gain.setValueAtTime(0.0001, startAt)
@@ -401,7 +452,7 @@ function playAlertTone(audioContextRef: React.MutableRefObject<AudioContext | nu
 function mergeCompletedOrders(
   tenantSlug: string,
   liveReadyOrders: KitchenOrder[],
-  cachedCompletedOrders: CompletedOrderRecord[],
+  cachedCompletedOrders: CompletedOrderRecord[]
 ) {
   const readyEntries = liveReadyOrders.map((order) => ({
     completedAt: order.createdAt,
@@ -416,49 +467,44 @@ function mergeCompletedOrders(
     }
 
     const existing = byId.get(entry.order.id)
-    if (!existing || parseOrderTimestamp(existing.completedAt) < parseOrderTimestamp(entry.completedAt)) {
+    if (
+      !existing ||
+      parseOrderTimestamp(existing.completedAt) < parseOrderTimestamp(entry.completedAt)
+    ) {
       byId.set(entry.order.id, entry)
     }
   }
 
   const merged = Array.from(byId.values()).sort(
-    (left, right) => parseOrderTimestamp(right.completedAt) - parseOrderTimestamp(left.completedAt),
+    (left, right) => parseOrderTimestamp(right.completedAt) - parseOrderTimestamp(left.completedAt)
   )
 
   writeCompletedOrders(tenantSlug, merged)
   return merged
 }
 
-function EmptyState({
-  eyebrow,
-  title,
-}: {
-  eyebrow: string
-  title: string
-}) {
+function EmptyState({ eyebrow, title }: { eyebrow: string; title: string }) {
   return (
     <section
       style={{
-        borderRadius: "20px",
-        background: "#1f2937",
-        padding: "36px 28px",
-        textAlign: "center",
-        color: "#d1d5db",
+        borderRadius: '20px',
+        background: '#1f2937',
+        padding: '36px 28px',
+        textAlign: 'center',
+        color: '#d1d5db',
       }}
     >
       <div
         style={{
-          fontSize: "18px",
-          textTransform: "uppercase",
-          letterSpacing: "0.08em",
-          color: "#9ca3af",
+          fontSize: '18px',
+          textTransform: 'uppercase',
+          letterSpacing: '0.08em',
+          color: '#9ca3af',
         }}
       >
         {eyebrow}
       </div>
-      <div style={{ marginTop: "12px", fontSize: "28px", color: "#ffffff" }}>
-        {title}
-      </div>
+      <div style={{ marginTop: '12px', fontSize: '28px', color: '#ffffff' }}>{title}</div>
     </section>
   )
 }
@@ -479,31 +525,31 @@ function TabButton({
       type="button"
       onClick={onClick}
       style={{
-        display: "inline-flex",
-        alignItems: "center",
-        gap: "10px",
-        minHeight: "48px",
-        borderRadius: "999px",
-        border: active ? "1px solid rgba(255,255,255,0.16)" : "1px solid rgba(255,255,255,0.08)",
-        background: active ? "#f9fafb" : "rgba(255,255,255,0.04)",
-        color: active ? "#111827" : "#e5e7eb",
-        padding: "0 16px",
-        fontSize: "15px",
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '10px',
+        minHeight: '48px',
+        borderRadius: '999px',
+        border: active ? '1px solid rgba(255,255,255,0.16)' : '1px solid rgba(255,255,255,0.08)',
+        background: active ? '#f9fafb' : 'rgba(255,255,255,0.04)',
+        color: active ? '#111827' : '#e5e7eb',
+        padding: '0 16px',
+        fontSize: '15px',
         fontWeight: 700,
-        cursor: "pointer",
+        cursor: 'pointer',
       }}
     >
       <span>{label}</span>
       <span
         style={{
-          minWidth: "28px",
-          borderRadius: "999px",
-          padding: "4px 8px",
-          background: active ? "rgba(17,24,39,0.08)" : "rgba(255,255,255,0.08)",
-          color: active ? "#111827" : "#f9fafb",
-          fontSize: "13px",
+          minWidth: '28px',
+          borderRadius: '999px',
+          padding: '4px 8px',
+          background: active ? 'rgba(17,24,39,0.08)' : 'rgba(255,255,255,0.08)',
+          color: active ? '#111827' : '#f9fafb',
+          fontSize: '13px',
           fontWeight: 700,
-          textAlign: "center",
+          textAlign: 'center',
         }}
       >
         {count}
@@ -528,32 +574,37 @@ function OrderCard({
   const action = statusAction[order.status]
   const showCancelAction = canCancelOrder(order.status)
   const colors = statusStyles(order.status)
-  const specialInstructions = order.notes?.trim() ?? ""
-  const isDelivery = order.fulfillmentType === "DELIVERY"
-  const deliveryAddress =
-    typeof order.deliveryAddressSnapshot === "string"
-      ? order.deliveryAddressSnapshot.trim()
-      : null
+  const specialInstructions = order.notes?.trim() ?? ''
+  const isDelivery = order.fulfillmentType === 'DELIVERY'
+  const deliveryAddress = formatDeliveryAddress(order.deliveryAddressSnapshot)
+  const confirmedAt = latestStatusTime(order, 'CONFIRMED')
+  const itemCount = order.items.reduce((sum, item) => sum + item.quantity, 0)
+  const totalRows: Array<[string, number]> = [
+    ['Subtotal', order.subtotalCents],
+    ...(isDelivery ? ([['Delivery fee', 0]] as Array<[string, number]>) : []),
+    ['Taxes', order.taxCents],
+    ['Tip', order.tipCents],
+    ...(order.discountCents > 0
+      ? ([['Discount', -order.discountCents]] as Array<[string, number]>)
+      : []),
+  ]
 
-  const [etaInput, setEtaInput] = useState("")
   const [etaSending, setEtaSending] = useState(false)
-  const [etaSent, setEtaSent] = useState(false)
+  const [etaSent, setEtaSent] = useState<number | null>(null)
   const [etaError, setEtaError] = useState<string | null>(null)
 
-  async function handleSendEta() {
-    const minutes = parseInt(etaInput, 10)
-    if (!minutes || minutes <= 0 || !onSendEta) {
-      setEtaError("Enter a valid number of minutes")
+  async function handleSendEta(minutes: number) {
+    if (!onSendEta) {
       return
     }
+
     setEtaSending(true)
     setEtaError(null)
     try {
       await onSendEta(minutes)
-      setEtaSent(true)
-      setEtaInput("")
+      setEtaSent(minutes)
     } catch (error) {
-      setEtaError(error instanceof Error ? error.message : "Failed to send ETA")
+      setEtaError(error instanceof Error ? error.message : 'Failed to send ETA')
     } finally {
       setEtaSending(false)
     }
@@ -562,32 +613,32 @@ function OrderCard({
   return (
     <section
       style={{
-        display: "grid",
-        gap: "18px",
-        borderRadius: "22px",
+        display: 'grid',
+        gap: '18px',
+        borderRadius: '22px',
         border: colors.border,
         background: colors.cardBackground,
-        padding: "22px",
-        boxShadow: "0 20px 40px rgba(0,0,0,0.22)",
+        padding: '22px',
+        boxShadow: '0 20px 40px rgba(0,0,0,0.22)',
       }}
     >
       <div
         style={{
-          display: "flex",
-          justifyContent: "space-between",
-          gap: "16px",
-          alignItems: "start",
-          flexWrap: "wrap",
+          display: 'flex',
+          justifyContent: 'space-between',
+          gap: '16px',
+          alignItems: 'start',
+          flexWrap: 'wrap',
         }}
       >
-        <div style={{ display: "grid", gap: "8px" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "12px", flexWrap: "wrap" }}>
+        <div style={{ display: 'grid', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
             <div
               style={{
-                fontSize: "36px",
+                fontSize: '36px',
                 fontWeight: 800,
                 lineHeight: 1,
-                letterSpacing: "-0.04em",
+                letterSpacing: '-0.04em',
               }}
             >
               #{order.orderNumber}
@@ -595,44 +646,49 @@ function OrderCard({
             {isDelivery ? (
               <div
                 style={{
-                  borderRadius: "999px",
-                  padding: "4px 12px",
-                  background: "rgba(251,146,60,0.2)",
-                  color: "#fed7aa",
-                  border: "1px solid rgba(251,146,60,0.3)",
-                  fontSize: "13px",
+                  borderRadius: '999px',
+                  padding: '4px 12px',
+                  background: 'rgba(251,146,60,0.2)',
+                  color: '#fed7aa',
+                  border: '1px solid rgba(251,146,60,0.3)',
+                  fontSize: '13px',
                   fontWeight: 700,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.06em",
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
                 }}
               >
                 Delivery
               </div>
             ) : null}
           </div>
-          <div style={{ fontSize: "26px", fontWeight: 700, lineHeight: 1.1 }}>
-            {order.customerNameSnapshot || "Guest"}
+          <div style={{ fontSize: '26px', fontWeight: 700, lineHeight: 1.1 }}>
+            {order.customerNameSnapshot || 'Guest'}
           </div>
+          {order.customerPhoneSnapshot ? (
+            <div style={{ fontSize: '18px', color: '#e5e7eb', fontWeight: 650 }}>
+              {order.customerPhoneSnapshot}
+            </div>
+          ) : null}
           {isDelivery && deliveryAddress ? (
             <div
               style={{
-                borderRadius: "12px",
-                background: "rgba(251,146,60,0.12)",
-                border: "1px solid rgba(251,146,60,0.25)",
-                color: "#fed7aa",
-                padding: "10px 14px",
-                fontSize: "15px",
+                borderRadius: '12px',
+                background: 'rgba(251,146,60,0.12)',
+                border: '1px solid rgba(251,146,60,0.25)',
+                color: '#fed7aa',
+                padding: '10px 14px',
+                fontSize: '15px',
                 fontWeight: 600,
                 lineHeight: 1.4,
               }}
             >
               <div
                 style={{
-                  fontSize: "11px",
+                  fontSize: '11px',
                   fontWeight: 800,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.08em",
-                  marginBottom: "4px",
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                  marginBottom: '4px',
                   opacity: 0.7,
                 }}
               >
@@ -641,26 +697,59 @@ function OrderCard({
               {deliveryAddress}
             </div>
           ) : null}
-          <div style={{ display: "grid", gap: "4px", color: "#d1d5db" }}>
-            <div style={{ fontSize: "18px", fontWeight: 700 }}>
+          {isDelivery ? (
+            <div
+              style={{
+                borderRadius: '12px',
+                background: 'rgba(255,255,255,0.06)',
+                border: '1px solid rgba(255,255,255,0.08)',
+                color: '#e5e7eb',
+                padding: '10px 14px',
+                fontSize: '15px',
+                fontWeight: 650,
+                lineHeight: 1.4,
+              }}
+            >
+              <div
+                style={{
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
+                  marginBottom: '4px',
+                  color: '#9ca3af',
+                }}
+              >
+                Delivery instructions
+              </div>
+              Customer requested contact-free delivery. Text customer when needed.
+            </div>
+          ) : null}
+          <div style={{ display: 'grid', gap: '4px', color: '#d1d5db' }}>
+            <div style={{ fontSize: '18px', fontWeight: 700 }}>
               {formatElapsedTime(order.createdAt)}
             </div>
-            <div style={{ fontSize: "14px", color: "#9ca3af" }}>
+            <div style={{ fontSize: '14px', color: '#9ca3af' }}>
               Placed at {formatPlacedTime(order.createdAt)}
             </div>
+            {confirmedAt ? (
+              <div style={{ fontSize: '14px', color: '#86efac', fontWeight: 700 }}>
+                Confirmed at {formatPlacedTime(confirmedAt)}
+              </div>
+            ) : null}
           </div>
         </div>
 
         <div
           style={{
-            borderRadius: "999px",
-            padding: "8px 14px",
+            borderRadius: '999px',
+            padding: '8px 14px',
             background: colors.badgeBackground,
             color: colors.badgeColor,
-            fontSize: "14px",
+            fontSize: '14px',
             fontWeight: 700,
-            textTransform: "uppercase",
-            letterSpacing: "0.06em",
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
           }}
         >
           {orderStatusLabel(order.status)}
@@ -670,32 +759,54 @@ function OrderCard({
       {specialInstructions ? (
         <div
           style={{
-            borderRadius: "16px",
-            background: "#fef3c7",
-            border: "1px solid rgba(245,158,11,0.34)",
-            color: "#78350f",
-            padding: "14px 16px",
-            display: "grid",
-            gap: "6px",
+            borderRadius: '16px',
+            background: '#fef3c7',
+            border: '1px solid rgba(245,158,11,0.34)',
+            color: '#78350f',
+            padding: '14px 16px',
+            display: 'grid',
+            gap: '6px',
           }}
         >
           <div
             style={{
-              fontSize: "12px",
+              fontSize: '12px',
               fontWeight: 800,
-              textTransform: "uppercase",
-              letterSpacing: "0.08em",
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
             }}
           >
             Special instructions
           </div>
-          <div style={{ fontSize: "18px", fontWeight: 800, lineHeight: 1.35 }}>
+          <div style={{ fontSize: '18px', fontWeight: 800, lineHeight: 1.35 }}>
             {specialInstructions}
           </div>
         </div>
       ) : null}
 
-      <div style={{ display: "grid", gap: "12px" }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '12px',
+          borderRadius: '14px',
+          background: 'rgba(255,255,255,0.06)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          padding: '12px 16px',
+        }}
+      >
+        <div style={{ fontSize: '18px', fontWeight: 800 }}>
+          {itemCount} item{itemCount === 1 ? '' : 's'}
+        </div>
+        {order.estimatedFulfillmentMinutes ? (
+          <div style={{ color: '#fed7aa', fontSize: '15px', fontWeight: 800 }}>
+            ETA sent: {order.estimatedFulfillmentMinutes} min
+          </div>
+        ) : null}
+      </div>
+
+      <div style={{ display: 'grid', gap: '12px' }}>
         {order.items.map((item) => {
           const detailLines = [
             item.variantName?.trim() || null,
@@ -707,35 +818,38 @@ function OrderCard({
             <div
               key={item.id}
               style={{
-                display: "grid",
-                gap: "8px",
-                borderRadius: "16px",
-                background: "rgba(255,255,255,0.05)",
-                padding: "14px 16px",
+                display: 'grid',
+                gap: '8px',
+                borderRadius: '16px',
+                background: 'rgba(255,255,255,0.05)',
+                padding: '14px 16px',
               }}
             >
               <div
                 style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: "16px",
-                  alignItems: "start",
-                  fontSize: "20px",
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  gap: '16px',
+                  alignItems: 'start',
+                  fontSize: '20px',
                 }}
               >
-                <div style={{ color: "#ffffff", fontWeight: 700 }}>
+                <div style={{ color: '#ffffff', fontWeight: 700 }}>
                   {item.quantity} × {item.name}
+                </div>
+                <div style={{ color: '#ffffff', fontWeight: 800, whiteSpace: 'nowrap' }}>
+                  {formatPrice(item.linePriceCents)}
                 </div>
               </div>
 
               {detailLines.length > 0 ? (
-                <div style={{ display: "grid", gap: "4px" }}>
+                <div style={{ display: 'grid', gap: '4px' }}>
                   {detailLines.map((line, index) => (
                     <div
                       key={`${item.id}-${index}`}
                       style={{
-                        fontSize: "15px",
-                        color: "#d1d5db",
+                        fontSize: '15px',
+                        color: '#d1d5db',
                         lineHeight: 1.4,
                       }}
                     >
@@ -752,110 +866,134 @@ function OrderCard({
       {isDelivery && onSendEta ? (
         <div
           style={{
-            borderRadius: "16px",
-            background: "rgba(255,255,255,0.05)",
-            border: "1px solid rgba(251,146,60,0.2)",
-            padding: "14px 16px",
-            display: "grid",
-            gap: "10px",
+            borderRadius: '16px',
+            background: 'rgba(255,255,255,0.05)',
+            border: '1px solid rgba(251,146,60,0.2)',
+            padding: '14px 16px',
+            display: 'grid',
+            gap: '10px',
           }}
         >
           <div
             style={{
-              fontSize: "13px",
+              fontSize: '13px',
               fontWeight: 700,
-              textTransform: "uppercase",
-              letterSpacing: "0.06em",
-              color: "#fed7aa",
+              textTransform: 'uppercase',
+              letterSpacing: '0.06em',
+              color: '#fed7aa',
             }}
           >
             Send delivery ETA
           </div>
-          <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-            <input
-              type="number"
-              min={1}
-              value={etaInput}
-              onChange={(event) => {
-                setEtaInput(event.target.value)
-                setEtaSent(false)
-              }}
-              placeholder="Minutes"
-              disabled={etaSending}
-              style={{
-                flex: 1,
-                minHeight: "44px",
-                borderRadius: "10px",
-                border: "1px solid rgba(255,255,255,0.15)",
-                background: "rgba(255,255,255,0.08)",
-                color: "#f9fafb",
-                padding: "0 12px",
-                fontSize: "16px",
-                fontWeight: 600,
-                outline: "none",
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => void handleSendEta()}
-              disabled={etaSending || !etaInput}
-              style={{
-                minHeight: "44px",
-                borderRadius: "10px",
-                border: "none",
-                background: etaSending ? "rgba(251,146,60,0.4)" : "#f97316",
-                color: "#111827",
-                padding: "0 16px",
-                fontSize: "15px",
-                fontWeight: 800,
-                cursor: etaSending || !etaInput ? "not-allowed" : "pointer",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {etaSending ? "Sending…" : "Send ETA"}
-            </button>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+              gap: '10px',
+            }}
+          >
+            {[30, 45, 60].map((minutes) => (
+              <button
+                key={minutes}
+                type="button"
+                onClick={() => void handleSendEta(minutes)}
+                disabled={etaSending}
+                style={{
+                  minHeight: '48px',
+                  borderRadius: '12px',
+                  border: 'none',
+                  background: etaSending ? 'rgba(251,146,60,0.4)' : '#f97316',
+                  color: '#111827',
+                  padding: '0 12px',
+                  fontSize: '16px',
+                  fontWeight: 900,
+                  cursor: etaSending ? 'wait' : 'pointer',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {etaSending ? 'Sending' : `${minutes} min`}
+              </button>
+            ))}
           </div>
           {etaSent ? (
-            <div style={{ fontSize: "14px", color: "#86efac", fontWeight: 600 }}>
-              SMS sent to customer
+            <div style={{ fontSize: '14px', color: '#86efac', fontWeight: 600 }}>
+              {etaSent} minute ETA sent to customer
             </div>
           ) : null}
-          {etaError ? (
-            <div style={{ fontSize: "14px", color: "#fca5a5" }}>{etaError}</div>
-          ) : null}
+          {etaError ? <div style={{ fontSize: '14px', color: '#fca5a5' }}>{etaError}</div> : null}
         </div>
       ) : null}
 
-      <div style={{ display: "grid", gap: "10px" }}>
+      <div
+        style={{
+          display: 'grid',
+          gap: '8px',
+          borderTop: '1px solid rgba(255,255,255,0.1)',
+          paddingTop: '14px',
+        }}
+      >
+        {totalRows.map(([label, value]) => (
+          <div
+            key={label}
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              gap: '16px',
+              color: '#d1d5db',
+              fontSize: '16px',
+              fontWeight: 650,
+            }}
+          >
+            <span>{label}</span>
+            <span>{formatPrice(value)}</span>
+          </div>
+        ))}
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            gap: '16px',
+            color: '#ffffff',
+            fontSize: '22px',
+            fontWeight: 900,
+            paddingTop: '6px',
+          }}
+        >
+          <span>Restaurant total</span>
+          <span>{formatPrice(order.totalCents)}</span>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gap: '10px' }}>
         {action ? (
           <button
             type="button"
             onClick={() => onAdvance(order)}
             disabled={updating}
             style={{
-              minHeight: "56px",
-              border: "none",
-              borderRadius: "16px",
+              minHeight: '56px',
+              border: 'none',
+              borderRadius: '16px',
               background:
-                order.status === "READY"
-                  ? "#22c55e"
-                  : order.status === "PREPARING"
-                    ? "#f59e0b"
-                    : order.status === "CONFIRMED"
-                      ? "#60a5fa"
-                      : "#f9fafb",
+                order.status === 'READY'
+                  ? '#22c55e'
+                  : order.status === 'PREPARING'
+                    ? '#f59e0b'
+                    : order.status === 'CONFIRMED'
+                      ? '#60a5fa'
+                      : '#f9fafb',
               color:
-                order.status === "READY" || order.status === "PREPARING"
-                  ? "#111827"
-                  : order.status === "CONFIRMED"
-                  ? "#0f172a"
-                  : "#111827",
-              fontSize: order.status === "PENDING" ? "18px" : "20px",
+                order.status === 'READY' || order.status === 'PREPARING'
+                  ? '#111827'
+                  : order.status === 'CONFIRMED'
+                    ? '#0f172a'
+                    : '#111827',
+              fontSize: order.status === 'PENDING' ? '18px' : '20px',
               fontWeight: 800,
-              cursor: updating ? "wait" : "pointer",
+              cursor: updating ? 'wait' : 'pointer',
             }}
           >
-            {updating ? "Updating…" : action.label}
+            {updating ? 'Updating…' : action.label}
           </button>
         ) : null}
 
@@ -865,14 +1003,14 @@ function OrderCard({
             onClick={() => onCancel(order)}
             disabled={updating}
             style={{
-              minHeight: "48px",
-              borderRadius: "14px",
-              border: "1px solid rgba(248,113,113,0.28)",
-              background: "rgba(127,29,29,0.38)",
-              color: "#fecaca",
-              fontSize: "16px",
+              minHeight: '48px',
+              borderRadius: '14px',
+              border: '1px solid rgba(248,113,113,0.28)',
+              background: 'rgba(127,29,29,0.38)',
+              color: '#fecaca',
+              fontSize: '16px',
               fontWeight: 700,
-              cursor: updating ? "wait" : "pointer",
+              cursor: updating ? 'wait' : 'pointer',
             }}
           >
             Cancel order
@@ -887,18 +1025,14 @@ const KitchenDashboard: React.FC<{
   getToken: ClerkTokenGetter
   onSignOut: () => Promise<void>
   tenantSlug: string
-}> = ({
-  getToken,
-  onSignOut,
-  tenantSlug,
-}) => {
+}> = ({ getToken, onSignOut, tenantSlug }) => {
   const [orders, setOrders] = useState<KitchenOrder[]>([])
   const [completedOrders, setCompletedOrders] = useState<CompletedOrderRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null)
   const [soundEnabled, setSoundEnabled] = useState(readSoundPreference)
-  const [activeTab, setActiveTab] = useState<KitchenTab>("active")
+  const [activeTab, setActiveTab] = useState<KitchenTab>('active')
   const audioContextRef = useRef<AudioContext | null>(null)
   const seenOrderIdsRef = useRef<Set<string>>(new Set())
   const hasLoadedOnceRef = useRef(false)
@@ -909,12 +1043,12 @@ const KitchenDashboard: React.FC<{
       const currentLiveIds = new Set(
         nextOrders
           .filter((order) => isWithinWindow(order.createdAt, EIGHT_HOURS_MS))
-          .map((order) => order.id),
+          .map((order) => order.id)
       )
 
       if (hasLoadedOnceRef.current && soundEnabled) {
         const hasNewOrders = Array.from(currentLiveIds).some(
-          (orderId) => !seenOrderIdsRef.current.has(orderId),
+          (orderId) => !seenOrderIdsRef.current.has(orderId)
         )
 
         if (hasNewOrders) {
@@ -929,18 +1063,16 @@ const KitchenDashboard: React.FC<{
       const nextCompletedOrders = mergeCompletedOrders(
         tenantSlug,
         nextOrders.filter(
-          (order) =>
-            order.status === "READY" &&
-            isWithinWindow(order.createdAt, FOUR_HOURS_MS),
+          (order) => order.status === 'READY' && isWithinWindow(order.createdAt, FOUR_HOURS_MS)
         ),
-        cachedCompletedOrders,
+        cachedCompletedOrders
       )
 
       setOrders(nextOrders)
       setCompletedOrders(nextCompletedOrders)
       setError(null)
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Failed to load kitchen orders")
+      setError(loadError instanceof Error ? loadError.message : 'Failed to load kitchen orders')
     } finally {
       setLoading(false)
     }
@@ -961,6 +1093,7 @@ const KitchenDashboard: React.FC<{
 
   async function handleSendDeliveryEta(orderId: string, etaMinutes: number) {
     await sendKitchenDeliveryEta(getToken, tenantSlug, orderId, etaMinutes)
+    await loadOrders()
   }
 
   async function handleAdvance(order: KitchenOrder) {
@@ -975,27 +1108,31 @@ const KitchenDashboard: React.FC<{
     try {
       await transitionKitchenOrder(getToken, tenantSlug, order.id, action.nextStatus)
 
-      if (order.status === "PENDING") {
-        setActiveTab("active")
+      if (order.status === 'PENDING') {
+        setActiveTab('active')
       }
 
-      if (action.nextStatus === "COMPLETED") {
-        const nextCompleted = mergeCompletedOrders(tenantSlug, [], [
-          ...readCompletedOrders(tenantSlug),
-          {
-            completedAt: new Date().toISOString(),
-            order: {
-              ...order,
-              status: "COMPLETED",
+      if (action.nextStatus === 'COMPLETED') {
+        const nextCompleted = mergeCompletedOrders(
+          tenantSlug,
+          [],
+          [
+            ...readCompletedOrders(tenantSlug),
+            {
+              completedAt: new Date().toISOString(),
+              order: {
+                ...order,
+                status: 'COMPLETED',
+              },
             },
-          },
-        ])
+          ]
+        )
         setCompletedOrders(nextCompleted)
       }
 
       await loadOrders()
     } catch (updateError) {
-      setError(updateError instanceof Error ? updateError.message : "Failed to update order")
+      setError(updateError instanceof Error ? updateError.message : 'Failed to update order')
     } finally {
       setUpdatingOrderId(null)
     }
@@ -1008,10 +1145,10 @@ const KitchenDashboard: React.FC<{
 
     setUpdatingOrderId(order.id)
     try {
-      await transitionKitchenOrder(getToken, tenantSlug, order.id, "CANCELLED")
+      await transitionKitchenOrder(getToken, tenantSlug, order.id, 'CANCELLED')
       await loadOrders()
     } catch (updateError) {
-      setError(updateError instanceof Error ? updateError.message : "Failed to cancel order")
+      setError(updateError instanceof Error ? updateError.message : 'Failed to cancel order')
     } finally {
       setUpdatingOrderId(null)
     }
@@ -1020,36 +1157,33 @@ const KitchenDashboard: React.FC<{
   const pendingOrders = useMemo(
     () =>
       orders.filter(
-        (order) =>
-          order.status === "PENDING" &&
-          isWithinWindow(order.createdAt, EIGHT_HOURS_MS),
+        (order) => order.status === 'PENDING' && isWithinWindow(order.createdAt, EIGHT_HOURS_MS)
       ),
-    [orders],
+    [orders]
   )
 
   const activeOrders = useMemo(
     () =>
       orders.filter(
         (order) =>
-          (order.status === "CONFIRMED" || order.status === "PREPARING") &&
-          isWithinWindow(order.createdAt, EIGHT_HOURS_MS),
+          (order.status === 'CONFIRMED' || order.status === 'PREPARING') &&
+          isWithinWindow(order.createdAt, EIGHT_HOURS_MS)
       ),
-    [orders],
+    [orders]
   )
 
   const visibleCompletedOrders = useMemo(
-    () =>
-      completedOrders.filter((entry) => isWithinWindow(entry.completedAt, FOUR_HOURS_MS)),
-    [completedOrders],
+    () => completedOrders.filter((entry) => isWithinWindow(entry.completedAt, FOUR_HOURS_MS)),
+    [completedOrders]
   )
 
   const visibleOrders = useMemo(() => {
     switch (activeTab) {
-      case "pending":
+      case 'pending':
         return pendingOrders
-      case "active":
+      case 'active':
         return activeOrders
-      case "completed":
+      case 'completed':
         return visibleCompletedOrders.map((entry) => entry.order)
     }
   }, [activeTab, activeOrders, pendingOrders, visibleCompletedOrders])
@@ -1057,72 +1191,73 @@ const KitchenDashboard: React.FC<{
   return (
     <main
       style={{
-        minHeight: "100vh",
+        minHeight: '100vh',
         margin: 0,
-        background: "#111827",
-        color: "#ffffff",
-        fontFamily: "Inter, system-ui, sans-serif",
+        background: '#111827',
+        color: '#ffffff',
+        fontFamily: 'Inter, system-ui, sans-serif',
       }}
     >
       <div
         style={{
-          margin: "0 auto",
-          maxWidth: "1440px",
-          padding: "24px",
-          display: "grid",
-          gap: "24px",
+          margin: '0 auto',
+          maxWidth: '1440px',
+          padding: '24px',
+          display: 'grid',
+          gap: '24px',
         }}
       >
         <header
           style={{
-            display: "grid",
-            gap: "16px",
+            display: 'grid',
+            gap: '16px',
           }}
         >
           <div
             style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "start",
-              gap: "16px",
-              flexWrap: "wrap",
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'start',
+              gap: '16px',
+              flexWrap: 'wrap',
             }}
           >
             <div>
               <div
                 style={{
-                  fontSize: "14px",
-                  color: "#9ca3af",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.08em",
+                  fontSize: '14px',
+                  color: '#9ca3af',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em',
                 }}
               >
                 Kitchen dashboard
               </div>
-              <h1 style={{ margin: "8px 0 0", fontSize: "40px", lineHeight: 1.1 }}>
+              <h1 style={{ margin: '8px 0 0', fontSize: '40px', lineHeight: 1.1 }}>
                 Live pickup orders
               </h1>
             </div>
 
             <div
               style={{
-                display: "grid",
-                gap: "10px",
-                justifyItems: "end",
+                display: 'grid',
+                gap: '10px',
+                justifyItems: 'end',
               }}
             >
               <div
                 style={{
-                  display: "grid",
-                  gap: "6px",
-                  justifyItems: "end",
-                  fontSize: "15px",
-                  color: "#d1d5db",
+                  display: 'grid',
+                  gap: '6px',
+                  justifyItems: 'end',
+                  fontSize: '15px',
+                  color: '#d1d5db',
                 }}
               >
                 <div>Tenant: {tenantSlug}</div>
                 <div>
-                  {pendingOrders.length} pending • {activeOrders.length} active • {visibleCompletedOrders.length} completed
+                  {pendingOrders.length} pending • {activeOrders.length} active •{' '}
+                  {visibleCompletedOrders.length} completed
                 </div>
               </div>
 
@@ -1130,18 +1265,18 @@ const KitchenDashboard: React.FC<{
                 type="button"
                 onClick={() => setSoundEnabled((current) => !current)}
                 style={{
-                  minHeight: "44px",
-                  borderRadius: "999px",
-                  border: "1px solid rgba(255,255,255,0.12)",
-                  background: soundEnabled ? "#f9fafb" : "rgba(255,255,255,0.05)",
-                  color: soundEnabled ? "#111827" : "#f9fafb",
-                  padding: "0 16px",
-                  fontSize: "14px",
+                  minHeight: '44px',
+                  borderRadius: '999px',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  background: soundEnabled ? '#f9fafb' : 'rgba(255,255,255,0.05)',
+                  color: soundEnabled ? '#111827' : '#f9fafb',
+                  padding: '0 16px',
+                  fontSize: '14px',
                   fontWeight: 700,
-                  cursor: "pointer",
+                  cursor: 'pointer',
                 }}
               >
-                Sound {soundEnabled ? "on" : "off"}
+                Sound {soundEnabled ? 'on' : 'off'}
               </button>
 
               <button
@@ -1150,15 +1285,15 @@ const KitchenDashboard: React.FC<{
                   void onSignOut()
                 }}
                 style={{
-                  minHeight: "44px",
-                  borderRadius: "999px",
-                  border: "1px solid rgba(255,255,255,0.12)",
-                  background: "rgba(255,255,255,0.05)",
-                  color: "#f9fafb",
-                  padding: "0 16px",
-                  fontSize: "14px",
+                  minHeight: '44px',
+                  borderRadius: '999px',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  background: 'rgba(255,255,255,0.05)',
+                  color: '#f9fafb',
+                  padding: '0 16px',
+                  fontSize: '14px',
                   fontWeight: 700,
-                  cursor: "pointer",
+                  cursor: 'pointer',
                 }}
               >
                 Sign out
@@ -1166,24 +1301,24 @@ const KitchenDashboard: React.FC<{
             </div>
           </div>
 
-          <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
             <TabButton
-              active={activeTab === "pending"}
+              active={activeTab === 'pending'}
               count={pendingOrders.length}
               label="Pending"
-              onClick={() => setActiveTab("pending")}
+              onClick={() => setActiveTab('pending')}
             />
             <TabButton
-              active={activeTab === "active"}
+              active={activeTab === 'active'}
               count={activeOrders.length}
               label="Active"
-              onClick={() => setActiveTab("active")}
+              onClick={() => setActiveTab('active')}
             />
             <TabButton
-              active={activeTab === "completed"}
+              active={activeTab === 'completed'}
               count={visibleCompletedOrders.length}
               label="Completed"
-              onClick={() => setActiveTab("completed")}
+              onClick={() => setActiveTab('completed')}
             />
           </div>
         </header>
@@ -1191,12 +1326,12 @@ const KitchenDashboard: React.FC<{
         {error ? (
           <section
             style={{
-              border: "1px solid rgba(248,113,113,0.35)",
-              background: "rgba(127,29,29,0.45)",
-              color: "#fecaca",
-              borderRadius: "16px",
-              padding: "16px 20px",
-              fontSize: "16px",
+              border: '1px solid rgba(248,113,113,0.35)',
+              background: 'rgba(127,29,29,0.45)',
+              color: '#fecaca',
+              borderRadius: '16px',
+              padding: '16px 20px',
+              fontSize: '16px',
             }}
           >
             {error}
@@ -1206,11 +1341,11 @@ const KitchenDashboard: React.FC<{
         {loading && orders.length === 0 ? (
           <section
             style={{
-              borderRadius: "20px",
-              background: "#1f2937",
-              padding: "28px",
-              fontSize: "20px",
-              color: "#d1d5db",
+              borderRadius: '20px',
+              background: '#1f2937',
+              padding: '28px',
+              fontSize: '20px',
+              color: '#d1d5db',
             }}
           >
             Loading kitchen orders…
@@ -1220,28 +1355,28 @@ const KitchenDashboard: React.FC<{
         {!loading && visibleOrders.length === 0 ? (
           <EmptyState
             eyebrow={
-              activeTab === "pending"
-                ? "No pending orders"
-                : activeTab === "active"
-                  ? "No active orders"
-                  : "No recent completed orders"
+              activeTab === 'pending'
+                ? 'No pending orders'
+                : activeTab === 'active'
+                  ? 'No active orders'
+                  : 'No recent completed orders'
             }
             title={
-              activeTab === "pending"
-                ? "Orders waiting for confirmation will appear here."
-                : activeTab === "active"
-                  ? "Confirmed and preparing orders will appear here."
-                  : "Ready and picked-up orders from the last 4 hours will appear here."
+              activeTab === 'pending'
+                ? 'Orders waiting for confirmation will appear here.'
+                : activeTab === 'active'
+                  ? 'Confirmed and preparing orders will appear here.'
+                  : 'Ready and picked-up orders from the last 4 hours will appear here.'
             }
           />
         ) : null}
 
         <div
           style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-            gap: "20px",
-            alignItems: "start",
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+            gap: '20px',
+            alignItems: 'start',
           }}
         >
           {visibleOrders.map((order) => (
@@ -1252,7 +1387,7 @@ const KitchenDashboard: React.FC<{
               onAdvance={handleAdvance}
               onCancel={handleCancel}
               onSendEta={
-                order.fulfillmentType === "DELIVERY"
+                order.fulfillmentType === 'DELIVERY'
                   ? (etaMinutes) => handleSendDeliveryEta(order.id, etaMinutes)
                   : undefined
               }
@@ -1275,49 +1410,46 @@ function SignedInKitchenApp({ subdomainTenant }: { subdomainTenant: string | nul
   const { signOut } = useClerk()
   const { getToken } = useAuth()
   const { user } = useUser()
-  const tenantSlug =
-    subdomainTenant ?? tenantSlugFromMetadata(user?.publicMetadata?.tenantSlug)
+  const tenantSlug = subdomainTenant ?? tenantSlugFromMetadata(user?.publicMetadata?.tenantSlug)
 
   if (!tenantSlug) {
     return (
       <main
         style={{
-          minHeight: "100vh",
+          minHeight: '100vh',
           margin: 0,
-          background: "#111827",
-          color: "#ffffff",
-          fontFamily: "Inter, system-ui, sans-serif",
-          display: "grid",
-          placeItems: "center",
-          padding: "24px",
+          background: '#111827',
+          color: '#ffffff',
+          fontFamily: 'Inter, system-ui, sans-serif',
+          display: 'grid',
+          placeItems: 'center',
+          padding: '24px',
         }}
       >
         <section
           style={{
-            maxWidth: "640px",
-            borderRadius: "24px",
-            background: "#1f2937",
-            border: "1px solid rgba(255,255,255,0.08)",
-            padding: "32px",
-            display: "grid",
-            gap: "12px",
-            textAlign: "center",
+            maxWidth: '640px',
+            borderRadius: '24px',
+            background: '#1f2937',
+            border: '1px solid rgba(255,255,255,0.08)',
+            padding: '32px',
+            display: 'grid',
+            gap: '12px',
+            textAlign: 'center',
           }}
         >
           <div
             style={{
-              fontSize: "14px",
-              color: "#9ca3af",
-              textTransform: "uppercase",
-              letterSpacing: "0.08em",
+              fontSize: '14px',
+              color: '#9ca3af',
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
             }}
           >
             Kitchen dashboard
           </div>
-          <h1 style={{ margin: 0, fontSize: "34px", lineHeight: 1.05 }}>
-            Account not linked
-          </h1>
-          <p style={{ margin: 0, color: "#d1d5db", fontSize: "18px", lineHeight: 1.6 }}>
+          <h1 style={{ margin: 0, fontSize: '34px', lineHeight: 1.05 }}>Account not linked</h1>
+          <p style={{ margin: 0, color: '#d1d5db', fontSize: '18px', lineHeight: 1.6 }}>
             Your account is not linked to a restaurant. Please contact support.
           </p>
           <div>
@@ -1327,15 +1459,15 @@ function SignedInKitchenApp({ subdomainTenant }: { subdomainTenant: string | nul
                 void signOut()
               }}
               style={{
-                minHeight: "44px",
-                borderRadius: "999px",
-                border: "1px solid rgba(255,255,255,0.12)",
-                background: "rgba(255,255,255,0.05)",
-                color: "#f9fafb",
-                padding: "0 16px",
-                fontSize: "14px",
+                minHeight: '44px',
+                borderRadius: '999px',
+                border: '1px solid rgba(255,255,255,0.12)',
+                background: 'rgba(255,255,255,0.05)',
+                color: '#f9fafb',
+                padding: '0 16px',
+                fontSize: '14px',
                 fontWeight: 700,
-                cursor: "pointer",
+                cursor: 'pointer',
               }}
             >
               Sign out
@@ -1347,11 +1479,7 @@ function SignedInKitchenApp({ subdomainTenant }: { subdomainTenant: string | nul
   }
 
   return (
-    <KitchenDashboard
-      getToken={getToken}
-      tenantSlug={tenantSlug}
-      onSignOut={() => signOut()}
-    />
+    <KitchenDashboard getToken={getToken} tenantSlug={tenantSlug} onSignOut={() => signOut()} />
   )
 }
 
@@ -1362,42 +1490,40 @@ function Root() {
     return (
       <main
         style={{
-          minHeight: "100vh",
+          minHeight: '100vh',
           margin: 0,
-          background: "#111827",
-          color: "#ffffff",
-          fontFamily: "Inter, system-ui, sans-serif",
-          display: "grid",
-          placeItems: "center",
-          padding: "24px",
+          background: '#111827',
+          color: '#ffffff',
+          fontFamily: 'Inter, system-ui, sans-serif',
+          display: 'grid',
+          placeItems: 'center',
+          padding: '24px',
         }}
       >
         <section
           style={{
-            maxWidth: "640px",
-            borderRadius: "24px",
-            background: "#1f2937",
-            border: "1px solid rgba(255,255,255,0.08)",
-            padding: "32px",
-            display: "grid",
-            gap: "12px",
-            textAlign: "center",
+            maxWidth: '640px',
+            borderRadius: '24px',
+            background: '#1f2937',
+            border: '1px solid rgba(255,255,255,0.08)',
+            padding: '32px',
+            display: 'grid',
+            gap: '12px',
+            textAlign: 'center',
           }}
         >
           <div
             style={{
-              fontSize: "14px",
-              color: "#9ca3af",
-              textTransform: "uppercase",
-              letterSpacing: "0.08em",
+              fontSize: '14px',
+              color: '#9ca3af',
+              textTransform: 'uppercase',
+              letterSpacing: '0.08em',
             }}
           >
             Kitchen dashboard
           </div>
-          <h1 style={{ margin: 0, fontSize: "34px", lineHeight: 1.05 }}>
-            Clerk is not configured
-          </h1>
-          <p style={{ margin: 0, color: "#d1d5db", fontSize: "18px", lineHeight: 1.6 }}>
+          <h1 style={{ margin: 0, fontSize: '34px', lineHeight: 1.05 }}>Clerk is not configured</h1>
+          <p style={{ margin: 0, color: '#d1d5db', fontSize: '18px', lineHeight: 1.6 }}>
             Add <code>VITE_CLERK_PUBLISHABLE_KEY</code> to the kiosk environment.
           </p>
         </section>
@@ -1410,14 +1536,14 @@ function Root() {
       <SignedOut>
         <main
           style={{
-            minHeight: "100vh",
+            minHeight: '100vh',
             margin: 0,
-            background: "#111827",
-            color: "#ffffff",
-            fontFamily: "Inter, system-ui, sans-serif",
-            display: "grid",
-            placeItems: "center",
-            padding: "24px",
+            background: '#111827',
+            color: '#ffffff',
+            fontFamily: 'Inter, system-ui, sans-serif',
+            display: 'grid',
+            placeItems: 'center',
+            padding: '24px',
           }}
         >
           <SignIn />
@@ -1430,7 +1556,7 @@ function Root() {
   )
 }
 
-createRoot(document.getElementById("root")!).render(
+createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <Root />
   </React.StrictMode>

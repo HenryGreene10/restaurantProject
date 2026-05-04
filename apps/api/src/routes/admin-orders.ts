@@ -13,26 +13,31 @@ export function registerAdminOrderRoutes(r: Router) {
 
     const { etaMinutes } = req.body ?? {}
 
-    if (
-      typeof etaMinutes !== 'number' ||
-      !Number.isInteger(etaMinutes) ||
-      etaMinutes <= 0
-    ) {
+    if (typeof etaMinutes !== 'number' || !Number.isInteger(etaMinutes) || etaMinutes <= 0) {
       return res.status(400).json({ error: 'etaMinutes must be a positive integer' })
     }
 
     const tenantDataAccess = createTenantDataAccess(createTenantScope(req.tenant.id))
 
+    const updatedOrder = await tenantDataAccess.orders.setEstimatedFulfillmentMinutes(
+      routeParam(req, 'orderId'),
+      etaMinutes
+    )
+
+    if (!updatedOrder) {
+      return res.status(404).json({ error: 'Order not found' })
+    }
+
     const result = await tenantDataAccess.orders.enqueueDeliveryEtaNotification(
       routeParam(req, 'orderId'),
-      etaMinutes,
+      etaMinutes
     )
 
     if (!result) {
-      return res.status(404).json({ error: 'Order not found or no customer phone on file' })
+      return res.status(404).json({ error: 'No customer phone on file' })
     }
 
-    return res.status(200).json({ ok: true })
+    return res.status(200).json({ ok: true, estimatedFulfillmentMinutes: etaMinutes })
   })
 
   r.post('/admin/orders/:orderId/print', async (_req: TenantRequest, res) => {

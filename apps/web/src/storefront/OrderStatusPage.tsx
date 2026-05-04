@@ -264,6 +264,16 @@ export function OrderStatusPage({
                       {statusCopy(orderQuery.data.status)}
                     </h1>
 
+                    {orderQuery.data.estimatedFulfillmentMinutes ? (
+                      <div className="mt-4 inline-flex items-center gap-2 rounded-full border border-brand-border bg-brand-background px-4 py-2 text-sm font-semibold text-brand-text">
+                        <Clock3 className="h-4 w-4" />
+                        Estimated{' '}
+                        {orderQuery.data.fulfillmentType === 'DELIVERY'
+                          ? 'arrival'
+                          : 'ready'} in {orderQuery.data.estimatedFulfillmentMinutes} minutes
+                      </div>
+                    ) : null}
+
                     {/* Welcome message for new members */}
                     {welcomeOfferApplied && firstName ? (
                       <p className="mt-3 text-sm text-brand-muted">
@@ -279,7 +289,9 @@ export function OrderStatusPage({
                       </div>
                       <div className="flex items-center gap-2">
                         <MapPin className="h-4 w-4" />
-                        Pickup for {orderQuery.data.customerNameSnapshot ?? 'guest'}
+                        {orderQuery.data.fulfillmentType === 'DELIVERY'
+                          ? 'Delivery'
+                          : 'Pickup'} for {orderQuery.data.customerNameSnapshot ?? 'guest'}
                       </div>
                     </div>
                   </div>

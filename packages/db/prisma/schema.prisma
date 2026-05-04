@@ -400,6 +400,7 @@ model Order {
   promoCode              String?
   notes                  String?
   pickupTime             DateTime?
+  estimatedFulfillmentMinutes Int?
   deliveryAddressSnapshot Json?
   customerNameSnapshot   String?
   customerPhoneSnapshot  String?

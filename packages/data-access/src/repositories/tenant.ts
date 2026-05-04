@@ -1742,6 +1742,9 @@ export function createTenantDataAccess(scope: TenantScope) {
                 modifierSelections: true,
               },
             },
+            statusEvents: {
+              orderBy: [{ createdAt: 'asc' }],
+            },
           },
           orderBy: [{ createdAt: 'desc' }],
         })
@@ -1843,6 +1846,29 @@ export function createTenantDataAccess(scope: TenantScope) {
               newStatus: nextStatus,
             },
           }),
+        })
+      })
+    },
+
+    async setEstimatedFulfillmentMinutes(orderId: string, etaMinutes: number) {
+      return withTenantConnection(scope.restaurantId, async (prisma) => {
+        const existing = await prisma.order.findFirst({
+          where: scoped.scopeWhere({ id: orderId }),
+        })
+
+        if (!existing) {
+          return null
+        }
+
+        await prisma.order.updateMany({
+          where: scoped.scopeWhere({ id: orderId }),
+          data: {
+            estimatedFulfillmentMinutes: etaMinutes,
+          },
+        })
+
+        return prisma.order.findFirst({
+          where: scoped.scopeWhere({ id: orderId }),
         })
       })
     },
