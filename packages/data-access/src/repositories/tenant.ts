@@ -416,18 +416,20 @@ async function normalizeOrderItems(
           } satisfies NormalizedOrderModifierSnapshot
         }
 
+        // No optionId means we cannot validate this modifier against the DB.
+        // Default priceDeltaCents to 0 rather than trusting the client-supplied value.
         return {
           groupId: modifier.groupId ?? null,
           groupName: modifier.groupName,
           optionId: modifier.optionId ?? null,
           optionName: modifier.optionName,
-          priceDeltaCents: modifier.priceDeltaCents ?? 0,
+          priceDeltaCents: 0,
           portion: modifier.portion ?? 'WHOLE',
         } satisfies NormalizedOrderModifierSnapshot
       })
 
-      const unitPriceCents =
-        selectedVariant?.priceCents ?? item.unitPriceCents ?? menuItem.basePriceCents
+      // Always resolve price from the DB. Never trust the client-supplied unitPriceCents.
+      const unitPriceCents = selectedVariant?.priceCents ?? menuItem.basePriceCents
       const modifierUnitTotal = normalizedModifiers.reduce(
         (sum, modifier) => sum + modifier.priceDeltaCents,
         0
@@ -1455,6 +1457,12 @@ export function createTenantDataAccess(scope: TenantScope) {
   }
 
   const checkouts = {
+    async computeCartTotal(items: CreateOrderItemInput[]) {
+      return withTenantConnection(scope.restaurantId, async (prisma) => {
+        return normalizeOrderItems(prisma, scope, scoped, items)
+      })
+    },
+
     async createCheckoutSession(input: CreateCheckoutSessionInput) {
       return withTenantConnection(scope.restaurantId, async (prisma) => {
         const customer = await resolveOrderCustomer(prisma, scope, scoped, {
