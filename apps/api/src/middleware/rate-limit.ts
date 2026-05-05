@@ -42,3 +42,14 @@ export const checkoutRateLimit = rateLimit({
   keyGenerator: (req) => `checkout:ip:${normalizedIp(req)}`,
   message: { error: 'Too many checkout requests. Please slow down.' },
 })
+
+// 10 cash order submissions per IP per minute. Tighter than checkout because
+// the cash path bypasses Stripe and writes an order row directly.
+export const orderRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  limit: 10,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  keyGenerator: (req) => `order:ip:${normalizedIp(req)}`,
+  message: { error: 'Too many order requests. Please slow down.' },
+})

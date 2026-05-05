@@ -1,0 +1,27 @@
+# Audit Remediation Tasks
+
+## Security
+
+- [x] Remove claimLegacyAdminAccessByEmail bridge (PR open: security/remove-email-bridge — merge to close)
+- [ ] Add rate limiting to POST /v1/orders (cash order path)
+- [ ] Fix CORS — currently allows all \*.vercel.app
+- [ ] Add order item count limit at application level
+
+## Structural
+
+- [ ] Fix /health endpoint to actually check DB connectivity
+- [ ] Add idempotency key guard to order creation webhook path
+- [ ] Replace console.error with structured logging and correlation IDs
+- [ ] Wire up Redis for notification worker instead of polling PostgreSQL every 2s
+- [ ] Add DB migration CI gate to GitHub Actions pipeline
+- [ ] Add pagination to all list endpoints (admin orders, menu items)
+- [ ] Add soft-delete for menu items to protect order history
+
+## Refactoring
+
+- [ ] Break up apps/admin/src/pages/App.tsx (1000+ lines)
+- [ ] Clean up apps/pwa/ dead code or remove entirely
+
+## Missing Features
+
+- [ ] Build loyalty points UI so customers can see and redeem points

@@ -2,7 +2,7 @@ import { z } from 'zod'
 
 const EnvSchema = z
   .object({
-    NODE_ENV: z.enum(["development", "test", "production"]).default('development'),
+    NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     PORT: z.string().default('4000'),
     DATABASE_URL: z.string(),
     JWT_SECRET: z.string().optional(),
@@ -30,6 +30,7 @@ const EnvSchema = z
     CLOUDFLARE_R2_SECRET_ACCESS_KEY: z.string().default(''),
     CLOUDFLARE_R2_BUCKET_NAME: z.string().default(''),
     CLOUDFLARE_R2_PUBLIC_URL: z.string().default(''),
+    CORS_VERCEL_PROJECT: z.string().optional(),
   })
   .transform((input) => ({
     ...input,
