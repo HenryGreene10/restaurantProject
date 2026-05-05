@@ -122,6 +122,12 @@ export function registerStripeWebhookRoute(app: Express) {
             return res.status(200).json({ received: true })
           }
 
+          // Idempotency guard: Stripe may re-deliver on timeout/error; skip if
+          // the order was already created from this checkout session.
+          if (checkoutSession.status === 'ORDER_CREATED') {
+            return res.status(200).json({ received: true })
+          }
+
           const freshPaymentIntent = await retrieveDirectChargePaymentIntent({
             config: {
               secretKey: runtime.STRIPE_SECRET_KEY,

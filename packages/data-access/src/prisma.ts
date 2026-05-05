@@ -1,9 +1,9 @@
-import { PrismaClient, type Prisma } from "@repo/db"
+import { PrismaClient, type Prisma } from '@repo/db'
 
 // Keep the Prisma client internal to this package. Callers only receive
 // tenant-bound repositories, never the raw client itself.
 const prismaClient = new PrismaClient({
-  log: ["error", "warn"]
+  log: ['error', 'warn'],
 })
 
 export type RootPrismaClient = PrismaClient
@@ -14,9 +14,7 @@ export async function withTenantConnection<T>(
   callback: (client: TenantTransactionClient) => Promise<T>
 ): Promise<T> {
   return prismaClient.$transaction(async (transactionClient) => {
-    await transactionClient.$executeRawUnsafe(
-      `SET LOCAL app.restaurant_id = '${restaurantId}'`
-    )
+    await transactionClient.$executeRawUnsafe(`SET LOCAL app.restaurant_id = '${restaurantId}'`)
 
     return callback(transactionClient)
   })
@@ -24,4 +22,13 @@ export async function withTenantConnection<T>(
 
 export function getInternalPrismaClient(): RootPrismaClient {
   return prismaClient
+}
+
+export async function checkDatabaseConnection(): Promise<boolean> {
+  try {
+    await prismaClient.$queryRaw`SELECT 1`
+    return true
+  } catch {
+    return false
+  }
 }
