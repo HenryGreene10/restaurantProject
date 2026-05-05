@@ -5,7 +5,6 @@ const mockVerifyToken = vi.fn()
 const mockFindTenantByHost = vi.fn()
 const mockFindTenantBySlug = vi.fn()
 const mockFindAdminAccessByClerkUserId = vi.fn()
-const mockClaimLegacyAdminAccessByEmail = vi.fn()
 const mockFindOrderById = vi.fn()
 const mockUpdateOrderStatus = vi.fn()
 const mockVerifyCustomerAccessToken = vi.fn()
@@ -28,21 +27,20 @@ vi.mock('@repo/data-access', () => ({
     findTenantByHost: mockFindTenantByHost,
     findTenantBySlug: mockFindTenantBySlug,
     findAdminAccessByClerkUserId: mockFindAdminAccessByClerkUserId,
-    claimLegacyAdminAccessByEmail: mockClaimLegacyAdminAccessByEmail,
   }),
   createTenantDataAccess: () => ({
     menu: {
       getPublicMenu: vi.fn(),
-      listFeaturedItems: vi.fn()
+      listFeaturedItems: vi.fn(),
     },
     customers: {},
     orders: {
       findById: mockFindOrderById,
       updateStatus: mockUpdateOrderStatus,
       createOrder: vi.fn(),
-      listActiveKitchenOrders: vi.fn()
-    }
-  })
+      listActiveKitchenOrders: vi.fn(),
+    },
+  }),
 }))
 
 describe('order status integration', () => {
@@ -51,11 +49,11 @@ describe('order status integration', () => {
     mockVerifyToken.mockResolvedValue({ sub: 'user_1' })
     mockFindTenantByHost.mockResolvedValue({
       id: 'rest_1',
-      slug: 'demo'
+      slug: 'demo',
     })
     mockFindTenantBySlug.mockResolvedValue({
       id: 'rest_1',
-      slug: 'demo'
+      slug: 'demo',
     })
     mockFindAdminAccessByClerkUserId.mockResolvedValue({
       adminUserId: 'admin_1',
@@ -66,13 +64,12 @@ describe('order status integration', () => {
       tenantSlug: 'demo',
       restaurantName: 'Demo Restaurant',
     })
-    mockClaimLegacyAdminAccessByEmail.mockResolvedValue(null)
     mockVerifyCustomerAccessToken.mockReturnValue({
       sub: 'cust_1',
       customerId: 'cust_1',
       restaurantId: 'rest_1',
       phone: '+15555550123',
-      type: 'customer-access'
+      type: 'customer-access',
     })
   })
 
@@ -82,7 +79,7 @@ describe('order status integration', () => {
 
     mockFindOrderById.mockResolvedValue({
       id: 'order_1',
-      status: 'READY'
+      status: 'READY',
     })
 
     const response = await request(createApp())
@@ -95,7 +92,7 @@ describe('order status integration', () => {
     expect(response.body).toEqual({
       error: 'Invalid order status transition',
       currentStatus: 'READY',
-      nextStatus: 'PREPARING'
+      nextStatus: 'PREPARING',
     })
     expect(mockUpdateOrderStatus).not.toHaveBeenCalled()
   })
@@ -106,11 +103,11 @@ describe('order status integration', () => {
 
     mockFindOrderById.mockResolvedValue({
       id: 'order_1',
-      status: 'CONFIRMED'
+      status: 'CONFIRMED',
     })
     mockUpdateOrderStatus.mockResolvedValue({
       id: 'order_1',
-      status: 'PREPARING'
+      status: 'PREPARING',
     })
 
     const response = await request(createApp())
@@ -120,11 +117,7 @@ describe('order status integration', () => {
       .send({ status: 'PREPARING', actorAdminId: 'admin_1' })
 
     expect(response.status).toBe(200)
-    expect(mockUpdateOrderStatus).toHaveBeenCalledWith(
-      'order_1',
-      'PREPARING',
-      'admin_1'
-    )
+    expect(mockUpdateOrderStatus).toHaveBeenCalledWith('order_1', 'PREPARING', 'admin_1')
   })
 
   it('returns the customer order when the access token matches the order owner', async () => {
@@ -157,8 +150,8 @@ describe('order status integration', () => {
           unitPriceCents: 600,
           linePriceCents: 1200,
           notes: null,
-          modifierSelections: []
-        }
+          modifierSelections: [],
+        },
       ],
       statusEvents: [
         {
@@ -166,9 +159,9 @@ describe('order status integration', () => {
           fromStatus: null,
           toStatus: 'PENDING',
           source: 'customer',
-          createdAt: new Date('2026-04-01T12:00:00.000Z')
-        }
-      ]
+          createdAt: new Date('2026-04-01T12:00:00.000Z'),
+        },
+      ],
     })
 
     const response = await request(createApp())
@@ -182,7 +175,7 @@ describe('order status integration', () => {
       id: 'order_1',
       orderNumber: 42,
       status: 'PREPARING',
-      customerNameSnapshot: 'Casey'
+      customerNameSnapshot: 'Casey',
     })
   })
 
@@ -208,7 +201,7 @@ describe('order status integration', () => {
       customerNameSnapshot: 'Casey',
       customerPhoneSnapshot: '+15555550123',
       items: [],
-      statusEvents: []
+      statusEvents: [],
     })
 
     const response = await request(createApp())
@@ -218,7 +211,7 @@ describe('order status integration', () => {
 
     expect(response.status).toBe(403)
     expect(response.body).toEqual({
-      error: 'Order does not belong to this customer'
+      error: 'Order does not belong to this customer',
     })
   })
 
@@ -252,8 +245,8 @@ describe('order status integration', () => {
           unitPriceCents: 600,
           linePriceCents: 1200,
           notes: null,
-          modifierSelections: []
-        }
+          modifierSelections: [],
+        },
       ],
       statusEvents: [
         {
@@ -261,9 +254,9 @@ describe('order status integration', () => {
           fromStatus: null,
           toStatus: 'PENDING',
           source: 'customer',
-          createdAt: new Date('2026-04-01T12:00:00.000Z')
-        }
-      ]
+          createdAt: new Date('2026-04-01T12:00:00.000Z'),
+        },
+      ],
     })
 
     const response = await request(createApp())
@@ -275,7 +268,7 @@ describe('order status integration', () => {
       id: 'order_1',
       orderNumber: 42,
       status: 'PREPARING',
-      customerNameSnapshot: 'Casey'
+      customerNameSnapshot: 'Casey',
     })
     expect(mockVerifyCustomerAccessToken).not.toHaveBeenCalled()
   })
@@ -292,7 +285,7 @@ describe('order status integration', () => {
 
     expect(response.status).toBe(404)
     expect(response.body).toEqual({
-      error: 'Order not found'
+      error: 'Order not found',
     })
   })
 })

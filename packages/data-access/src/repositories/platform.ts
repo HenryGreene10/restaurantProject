@@ -1,6 +1,6 @@
-import { randomUUID } from "node:crypto"
-import { Prisma } from "@repo/db"
-import { getInternalPrismaClient } from "../prisma.js"
+import { randomUUID } from 'node:crypto'
+import { Prisma } from '@repo/db'
+import { getInternalPrismaClient } from '../prisma.js'
 
 export type ResolvedTenant = {
   id: string
@@ -64,13 +64,10 @@ function mapAdminAccess(row: AdminAccessRow | null) {
   }
 }
 
-async function queryAdminAccessByColumn(
-  column: "clerkUserId" | "email",
-  value: string,
-) {
+async function queryAdminAccessByColumn(column: 'clerkUserId' | 'email', value: string) {
   const prisma = getInternalPrismaClient()
   const columnPredicate =
-    column === "clerkUserId"
+    column === 'clerkUserId'
       ? Prisma.sql`admin_user."clerkUserId" = ${value}`
       : Prisma.sql`admin_user."email" = ${value}`
   const rows = await prisma.$queryRaw<AdminAccessRow[]>(Prisma.sql`
@@ -119,7 +116,7 @@ export function createPlatformDataAccess() {
 
     async findTenantBySlug(slug: string): Promise<ResolvedTenant | null> {
       const restaurant = await prisma.restaurant.findUnique({
-        where: { slug: normalizeSlug(slug) }
+        where: { slug: normalizeSlug(slug) },
       })
 
       if (!restaurant) {
@@ -128,31 +125,31 @@ export function createPlatformDataAccess() {
 
       return {
         id: restaurant.id,
-        slug: restaurant.slug
+        slug: restaurant.slug,
       }
     },
 
     async findTenantByHost(host: string): Promise<ResolvedTenant | null> {
-      const hostname = host.split(":")[0].toLowerCase()
+      const hostname = host.split(':')[0].toLowerCase()
 
       const domain = await prisma.restaurantDomain.findUnique({
-        where: { hostname }
+        where: { hostname },
       })
 
       if (domain) {
         const restaurant = await prisma.restaurant.findUnique({
-          where: { id: domain.restaurantId }
+          where: { id: domain.restaurantId },
         })
 
         if (restaurant) {
           return {
             id: restaurant.id,
-            slug: restaurant.slug
+            slug: restaurant.slug,
           }
         }
       }
 
-      const hostParts = hostname.split(".")
+      const hostParts = hostname.split('.')
       if (hostParts.length < 3) {
         return null
       }
@@ -170,7 +167,7 @@ export function createPlatformDataAccess() {
     },
 
     async findTenantByStripeAccountId(
-      stripeAccountId: string,
+      stripeAccountId: string
     ): Promise<StripeConnectedTenant | null> {
       const restaurant = await prisma.restaurant.findUnique({
         where: { stripeAccountId },
@@ -190,7 +187,7 @@ export function createPlatformDataAccess() {
     },
 
     async findRestaurantByCloudPrntMacAddress(
-      cloudPrntMacAddress: string,
+      cloudPrntMacAddress: string
     ): Promise<CloudPrntRestaurant | null> {
       const restaurant = await prisma.restaurant.findFirst({
         where: { cloudPrntMacAddress },
@@ -208,51 +205,7 @@ export function createPlatformDataAccess() {
     },
 
     async findAdminAccessByClerkUserId(clerkUserId: string): Promise<AdminAccess | null> {
-      return queryAdminAccessByColumn("clerkUserId", clerkUserId)
-    },
-
-    async claimLegacyAdminAccessByEmail(input: {
-      clerkUserId: string
-      email: string
-    }): Promise<AdminAccess | null> {
-      const normalizedEmail = input.email.trim().toLowerCase()
-      if (!normalizedEmail) {
-        return null
-      }
-
-      return prisma.$transaction(async (transactionClient) => {
-        const matches = await transactionClient.$queryRaw<AdminAccessRow[]>(Prisma.sql`
-          SELECT
-            admin_user."id" AS "adminUserId",
-            admin_user."clerkUserId" AS "clerkUserId",
-            admin_user."email" AS "email",
-            admin_user."role" AS "role",
-            restaurant."id" AS "restaurantId",
-            restaurant."slug" AS "tenantSlug",
-            restaurant."name" AS "restaurantName"
-          FROM "AdminUser" AS admin_user
-          INNER JOIN "Restaurant" AS restaurant
-            ON restaurant."id" = admin_user."restaurantId"
-          WHERE LOWER(admin_user."email") = ${normalizedEmail}
-          ORDER BY admin_user."createdAt" ASC
-          LIMIT 2
-        `)
-
-        if (matches.length !== 1) {
-          return null
-        }
-
-        await transactionClient.$executeRaw(Prisma.sql`
-          UPDATE "AdminUser"
-          SET "clerkUserId" = ${input.clerkUserId}
-          WHERE "id" = ${matches[0].adminUserId}
-        `)
-
-        return mapAdminAccess({
-          ...matches[0],
-          clerkUserId: input.clerkUserId,
-        })
-      })
+      return queryAdminAccessByColumn('clerkUserId', clerkUserId)
     },
 
     async createRestaurantOnboarding(input: {
@@ -288,7 +241,7 @@ export function createPlatformDataAccess() {
               ${restaurant.id},
               ${input.clerkUserId},
               ${normalizedEmail},
-              ${"owner"},
+              ${'owner'},
               NOW()
             )
           `)
@@ -301,11 +254,8 @@ export function createPlatformDataAccess() {
           }
         })
       } catch (error) {
-        if (
-          error instanceof Prisma.PrismaClientKnownRequestError &&
-          error.code === "P2002"
-        ) {
-          throw new Error("SLUG_TAKEN")
+        if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+          throw new Error('SLUG_TAKEN')
         }
 
         throw error
@@ -330,7 +280,7 @@ export function createPlatformDataAccess() {
       input: {
         chargesEnabled: boolean
         payoutsEnabled: boolean
-      },
+      }
     ) {
       return prisma.restaurant.update({
         where: { stripeAccountId },
@@ -341,10 +291,7 @@ export function createPlatformDataAccess() {
       })
     },
 
-    async updateRestaurantPendingPrintJob(
-      restaurantId: string,
-      pendingPrintJob: string | null,
-    ) {
+    async updateRestaurantPendingPrintJob(restaurantId: string, pendingPrintJob: string | null) {
       return prisma.restaurant.update({
         where: { id: restaurantId },
         data: {
