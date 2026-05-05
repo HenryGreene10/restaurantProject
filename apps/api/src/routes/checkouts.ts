@@ -84,7 +84,7 @@ export function registerCheckoutRoutes(r: Router) {
           return res.status(400).json({ error: 'Tip must be a non-negative whole number of cents' })
         }
 
-        const normalizedTipCents = type === 'DELIVERY' ? tipCents ?? 0 : 0
+        const normalizedTipCents = type === 'DELIVERY' ? (tipCents ?? 0) : 0
 
         if (
           !stripeConnection.stripeAccountId ||
@@ -96,17 +96,13 @@ export function registerCheckoutRoutes(r: Router) {
           })
         }
 
-        // Compute subtotal to apply new-member % discount before session creation
-        const tempSubtotal = items.reduce(
-          (sum: number, item: { unitPriceCents?: number; quantity?: number }) => {
-            return sum + (item.unitPriceCents ?? 0) * (item.quantity ?? 1)
-          },
-          0
-        )
+        // Compute subtotal from DB prices to apply new-member discount correctly.
+        // Never use client-submitted prices for this calculation.
+        const cartTotal = await tenantDataAccess.checkouts.computeCartTotal(items)
         const discountCents = await resolveNewMemberDiscount(
           tenantDataAccess,
           normalizedCustomerPhone,
-          tempSubtotal
+          cartTotal.subtotalCents
         )
 
         const checkoutSession = await tenantDataAccess.checkouts.createCheckoutSession({
