@@ -4,6 +4,7 @@ import { createTenantDataAccess, createTenantScope } from '@repo/data-access'
 import { transitionOrderStatus } from '../services/order-status.js'
 import { normalizeCustomerPhone, readBearerToken, verifyCustomer } from '../lib/customer-order.js'
 import { orderRateLimit } from '../middleware/rate-limit.js'
+import { logger } from '../lib/logger.js'
 
 const MAX_ORDER_ITEMS = 50
 
@@ -261,7 +262,7 @@ export function registerOrderRoutes(r: Router) {
       } catch (error) {
         const message =
           error instanceof Error ? error.message : 'Failed to enqueue order status SMS notification'
-        console.error(message)
+        logger.error('Failed to enqueue order status SMS notification', { message })
       }
     }
 

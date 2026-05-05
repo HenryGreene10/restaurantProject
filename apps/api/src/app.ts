@@ -4,6 +4,7 @@ import cors, { type CorsOptions } from 'cors'
 import * as Sentry from '@sentry/node'
 import { requireClerkAuth } from './middleware/clerk-auth.js'
 import { tenantMiddleware } from './middleware/tenant.js'
+import { requestIdMiddleware } from './lib/logger.js'
 import { registerHealthRoutes } from './routes/health.js'
 import { registerMenuRoutes } from './routes/menu.js'
 import { registerAdminBrandRoutes } from './routes/admin-brand.js'
@@ -85,6 +86,7 @@ export function createApp() {
   app.options('*', cors(corsOptions))
   app.use(express.json({ limit: '1mb' }))
   app.use(morgan('dev'))
+  app.use(requestIdMiddleware as Parameters<typeof app.use>[0])
 
   registerHealthRoutes(app)
   registerOnboardingRoutes(app)

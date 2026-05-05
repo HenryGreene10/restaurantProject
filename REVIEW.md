@@ -24,3 +24,15 @@ Two failure patterns exist in the test suite before these changes:
 Neither issue is caused by changes in this remediation pass.
 
 ---
+
+## Structured logging: customerPhone removed from loyalty error log
+
+The original `awardLoyaltyPoints` error log in `stripe-webhook.ts` included `customerPhoneSnapshot`. Phone numbers are PII; removed from structured log. The `orderId` and `customerId` are sufficient to trace the failure. No data was being persisted — this only affects log output.
+
+---
+
+## Webhook idempotency: remaining race condition
+
+The `ORDER_CREATED` early-exit in the webhook prevents re-processing on Stripe retries (the common case). A true concurrent-delivery race is still possible: two webhook deliveries arriving within milliseconds of each other could both pass the status check before either commits. The data layer's `createdOrderId` guard in `createOrderFromCheckoutSession` provides a second layer, but it's not atomic (READ COMMITTED isolation). Fixing this properly requires either a `SELECT FOR UPDATE` on the checkout session row or a unique constraint on `CheckoutSession.createdOrderId`. A DB migration is needed for the constraint approach — deferring to a future migration task.
+
+---

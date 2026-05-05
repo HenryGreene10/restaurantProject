@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from 'express'
 import { verifyToken } from '@clerk/backend'
 import { createPlatformDataAccess } from '@repo/data-access'
 import { env } from '../config/env.js'
+import { logger } from '../lib/logger.js'
 
 type ClerkIdentity = {
   clerkUserId: string
@@ -75,7 +76,7 @@ export async function requireClerkIdentity(req: Request, res: Response, next: Ne
 
     return next()
   } catch (error) {
-    console.error('Clerk token verification failed', error)
+    logger.error('Clerk token verification failed', { error: String(error) })
     return res.status(401).json({ error: 'Invalid Clerk token' })
   }
 }
@@ -105,7 +106,7 @@ export async function requireClerkAuth(req: Request, res: Response, next: NextFu
 
     return next()
   } catch (error) {
-    console.error('Clerk token verification failed', error)
+    logger.error('Clerk token verification failed', { error: String(error) })
     return res.status(401).json({ error: 'Invalid Clerk token' })
   }
 }
