@@ -855,11 +855,13 @@ export function createTenantDataAccess(scope: TenantScope) {
       })
     },
 
-    async listItems() {
+    async listItems(opts?: { limit?: number; cursor?: string }) {
       return withTenantConnection(scope.restaurantId, async (prisma) => {
-        return prisma.menuItem.findMany({
+        const items = await prisma.menuItem.findMany({
           where: scoped.scopeWhere({}),
-          orderBy: [{ createdAt: 'asc' }],
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+          ...(opts?.limit ? { take: opts.limit + 1 } : {}),
+          ...(opts?.cursor ? { cursor: { id: opts.cursor }, skip: 1 } : {}),
           include: {
             categoryItems: {
               include: {
@@ -882,6 +884,16 @@ export function createTenantDataAccess(scope: TenantScope) {
             },
           },
         })
+
+        if (!opts?.limit) {
+          return { items, nextCursor: null }
+        }
+
+        const hasMore = items.length > opts.limit
+        return {
+          items: hasMore ? items.slice(0, opts.limit) : items,
+          nextCursor: hasMore ? items[opts.limit - 1].id : null,
+        }
       })
     },
 
@@ -1725,6 +1737,28 @@ export function createTenantDataAccess(scope: TenantScope) {
           totalCents: normalized.totalCents + normalizeTipCents(input.tipCents),
           paymentStatus: 'PENDING',
         })
+      })
+    },
+
+    async listOrders(opts?: { limit?: number; cursor?: string; status?: OrderStatus[] }) {
+      const pageSize = opts?.limit ?? 50
+      return withTenantConnection(scope.restaurantId, async (prisma) => {
+        const rows = await prisma.order.findMany({
+          where: scoped.scopeWhere(opts?.status ? { status: { in: opts.status } } : {}),
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          take: pageSize + 1,
+          ...(opts?.cursor ? { cursor: { id: opts.cursor }, skip: 1 } : {}),
+          include: {
+            items: { include: { modifierSelections: true } },
+            statusEvents: { orderBy: [{ createdAt: 'asc' }] },
+          },
+        })
+
+        const hasMore = rows.length > pageSize
+        return {
+          orders: hasMore ? rows.slice(0, pageSize) : rows,
+          nextCursor: hasMore ? rows[pageSize - 1].id : null,
+        }
       })
     },
 

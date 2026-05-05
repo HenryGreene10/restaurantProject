@@ -31,6 +31,18 @@ The original `awardLoyaltyPoints` error log in `stripe-webhook.ts` included `cus
 
 ---
 
+## Redis worker: deferred
+
+Replacing the polling worker with Redis pub/sub would eliminate the 2s polling latency on SMS notifications. However, it requires adding a Redis service to Render, adding the `ioredis` or `redis` package, and changing the worker architecture significantly. At 1 pilot restaurant, the 2s polling latency is within the 30s NFR and the Postgres polling overhead is negligible. Deferred until a second restaurant is onboarded and the latency gap becomes measurable.
+
+---
+
+## Pagination: backward compatibility decision
+
+`listItems` pagination added as **opt-in** (omitting `limit`/`cursor` returns all items as before). This keeps the admin frontend working unchanged. The frontend should adopt `limit=100&cursor=...` when it handles large catalogs. Admin orders list endpoint added with pagination built in from day one (new endpoint, no backward compat concern).
+
+---
+
 ## Webhook idempotency: remaining race condition
 
 The `ORDER_CREATED` early-exit in the webhook prevents re-processing on Stripe retries (the common case). A true concurrent-delivery race is still possible: two webhook deliveries arriving within milliseconds of each other could both pass the status check before either commits. The data layer's `createdOrderId` guard in `createOrderFromCheckoutSession` provides a second layer, but it's not atomic (READ COMMITTED isolation). Fixing this properly requires either a `SELECT FOR UPDATE` on the checkout session row or a unique constraint on `CheckoutSession.createdOrderId`. A DB migration is needed for the constraint approach — deferring to a future migration task.

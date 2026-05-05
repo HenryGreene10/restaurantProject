@@ -3,9 +3,9 @@
 ## Security
 
 - [x] Remove claimLegacyAdminAccessByEmail bridge (PR open: security/remove-email-bridge — merge to close)
-- [ ] Add rate limiting to POST /v1/orders (cash order path)
-- [ ] Fix CORS — currently allows all \*.vercel.app
-- [ ] Add order item count limit at application level
+- [x] Add rate limiting to POST /v1/orders (cash order path)
+- [x] Fix CORS — currently allows all \*.vercel.app
+- [x] Add order item count limit at application level
 
 ## Structural
 
