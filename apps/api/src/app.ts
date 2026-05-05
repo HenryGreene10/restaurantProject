@@ -1,4 +1,4 @@
-import express from 'express'
+import express, { type NextFunction, type Request, type Response } from 'express'
 import morgan from 'morgan'
 import cors, { type CorsOptions } from 'cors'
 import * as Sentry from '@sentry/node'
@@ -89,6 +89,16 @@ export function createApp() {
   app.use('/admin', requireClerkAuth)
   app.use('/v1/assistant/command', requireClerkAuth)
   app.use(tenantMiddleware)
+  // Defense-in-depth: reject any admin request where the resolved tenant does not
+  // match the authenticated admin's restaurant. tenantMiddleware already derives
+  // req.tenant from req.adminUser for admin routes, so a mismatch indicates a bug
+  // or tampered middleware chain — not normal traffic.
+  app.use('/admin', (req: Request, res: Response, next: NextFunction) => {
+    if (req.adminUser && req.tenant && req.adminUser.restaurantId !== req.tenant.id) {
+      return res.status(403).json({ error: 'Admin restaurant does not match request tenant' })
+    }
+    return next()
+  })
   registerCustomerAuthRoutes(app)
   registerMenuRoutes(app)
   registerCheckoutRoutes(app)
