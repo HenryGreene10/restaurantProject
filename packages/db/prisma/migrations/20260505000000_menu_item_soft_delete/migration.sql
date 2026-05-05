@@ -1,0 +1,2 @@
+ALTER TABLE "MenuItem"
+ADD COLUMN "deletedAt" TIMESTAMP(3);

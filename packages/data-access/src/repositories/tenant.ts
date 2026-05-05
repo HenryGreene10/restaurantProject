@@ -638,6 +638,7 @@ export function createTenantDataAccess(scope: TenantScope) {
             orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
             include: {
               categoryItems: {
+                where: { item: { deletedAt: null } },
                 orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
                 include: {
                   item: {
@@ -689,6 +690,7 @@ export function createTenantDataAccess(scope: TenantScope) {
         return prisma.menuItem.findMany({
           where: scoped.scopeWhere({
             isFeatured: true,
+            deletedAt: null,
           }),
           orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
           include: {
@@ -858,7 +860,7 @@ export function createTenantDataAccess(scope: TenantScope) {
     async listItems(opts?: { limit?: number; cursor?: string }) {
       return withTenantConnection(scope.restaurantId, async (prisma) => {
         const items = await prisma.menuItem.findMany({
-          where: scoped.scopeWhere({}),
+          where: scoped.scopeWhere({ deletedAt: null }),
           orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
           ...(opts?.limit ? { take: opts.limit + 1 } : {}),
           ...(opts?.cursor ? { cursor: { id: opts.cursor }, skip: 1 } : {}),
@@ -1004,15 +1006,16 @@ export function createTenantDataAccess(scope: TenantScope) {
     async deleteItem(itemId: string) {
       return withTenantConnection(scope.restaurantId, async (prisma) => {
         const existing = await prisma.menuItem.findFirst({
-          where: scoped.scopeWhere({ id: itemId }),
+          where: scoped.scopeWhere({ id: itemId, deletedAt: null }),
         })
 
         if (!existing) {
           return null
         }
 
-        await prisma.menuItem.deleteMany({
-          where: scoped.scopeDelete({ id: itemId }),
+        await prisma.menuItem.updateMany({
+          where: scoped.scopeWhere({ id: itemId }),
+          data: { deletedAt: new Date() },
         })
 
         return existing
