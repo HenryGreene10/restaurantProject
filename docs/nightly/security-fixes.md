@@ -119,6 +119,7 @@ written and committed for review. It must be:
 ### Script behaviour
 
 For every `AdminUser` row the script:
+
 - Calls `clerk.users.getUser(storedClerkUserId)` to verify the ID is still active.
 - If stale (404), calls `clerk.users.getUserList({ emailAddress: [email] })`.
 - If exactly one Clerk user matches, updates the DB row.

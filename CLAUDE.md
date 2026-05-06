@@ -9,6 +9,7 @@ EasyMenu is a multi-tenant restaurant SaaS platform. Each restaurant gets an iso
 ## Commands
 
 ### API (primary development target)
+
 ```bash
 npm run dev                        # run API server (ts-node, hot-reload not included)
 npm -w api run test                # run all API tests
@@ -20,6 +21,7 @@ npm run typecheck                  # tsc --noEmit across all workspaces
 ```
 
 ### Frontend apps (admin, kiosk, pwa, web)
+
 ```bash
 npm -w admin run dev               # admin panel (Vite dev server)
 npm -w web run dev                 # marketing/storefront
@@ -28,6 +30,7 @@ npm -w pwa run dev                 # PWA storefront
 ```
 
 ### Database
+
 ```bash
 npm -w @repo/db run prisma:migrate    # run pending migrations (dev)
 npm -w @repo/db run prisma:generate   # regenerate Prisma client after schema changes
@@ -65,6 +68,7 @@ There are two data access factories — never use raw Prisma outside this packag
 ### Multi-tenancy
 
 Tenant isolation is enforced at two layers:
+
 1. **Application layer**: every tenant data access call requires a `TenantScope` branded type. The scope helpers (`scopeWhere`, `scopeCreate`, `scopeUpdate`) inject `restaurantId` automatically.
 2. **Database layer**: Postgres Row Level Security policies enforce `app.restaurant_id` on all tenant tables. `withTenantConnection(restaurantId, callback)` wraps the transaction.
 
