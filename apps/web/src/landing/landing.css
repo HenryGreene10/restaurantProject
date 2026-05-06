@@ -174,7 +174,7 @@
 }
 .lp-root .hero-text {
   padding-top: 88px;
-  padding-bottom: 64px;
+  padding-bottom: 40px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -272,11 +272,6 @@
   color: var(--text-3);
 }
 
-/* ── HERO SCREENSHOT ── */
-.lp-root .hero-ss-wrap {
-  position: relative;
-  padding-bottom: 80px;
-}
 .lp-root .ss-frame {
   border-radius: 14px;
   border: 1px solid var(--border-md);
@@ -320,63 +315,6 @@
   width: 100%;
   height: auto;
 }
-.lp-root .hero-glow {
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 80%;
-  height: 200px;
-  background: radial-gradient(
-    ellipse at center bottom,
-    rgba(26, 107, 56, 0.08) 0%,
-    transparent 70%
-  );
-  pointer-events: none;
-  z-index: -1;
-}
-
-/* ── TRUST BAR ── */
-.lp-root .trust {
-  border-top: 1px solid var(--border);
-  border-bottom: 1px solid var(--border);
-  padding: 20px 0;
-}
-.lp-root .trust-inner {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0 28px;
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-.lp-root .trust-label {
-  font-size: 11.5px;
-  color: var(--text-3);
-  font-weight: 500;
-  letter-spacing: 0.3px;
-  white-space: nowrap;
-}
-.lp-root .trust-sep {
-  width: 1px;
-  height: 16px;
-  background: var(--border);
-}
-.lp-root .trust-items {
-  display: flex;
-  gap: 24px;
-  align-items: center;
-  flex-wrap: wrap;
-  justify-content: center;
-}
-.lp-root .trust-item {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-3);
-}
-
 /* ── SECTION ── */
 .lp-root section {
   padding: 96px 0;

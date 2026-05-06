@@ -187,45 +187,6 @@ export function LandingPage() {
             Includes initial menu setup, Stripe connection, and help linking from your website
           </div>
         </div>
-
-        <div className="hero-ss-wrap r rd2">
-          <div className="ss-frame">
-            <div className="ss-chrome">
-              <div className="ss-dot" style={{ background: '#ff5f57' }} />
-              <div className="ss-dot" style={{ background: '#febc2e' }} />
-              <div className="ss-dot" style={{ background: '#28c840' }} />
-              <div className="ss-url">your-restaurant.easymenu.website</div>
-            </div>
-            <img
-              src="/landing/feat-storefront.png"
-              alt="Customer-facing EasyMenu storefront with branded ordering page and menu"
-            />
-          </div>
-          <div className="hero-glow" />
-        </div>
-      </div>
-
-      {/* ── TRUST BAR ── */}
-      <div className="trust">
-        <div className="trust-inner">
-          <div className="trust-label">Payments &amp; infrastructure</div>
-          <div className="trust-sep" />
-          <div className="trust-items">
-            {[
-              'Stripe Connect',
-              'Apple Pay',
-              'Google Pay',
-              'Klarna',
-              'Cash App Pay',
-              'Twilio SMS',
-              'Cloudflare R2',
-            ].map((t) => (
-              <div className="trust-item" key={t}>
-                {t}
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
 
       {/* ── PRODUCT TOUR ── */}
