@@ -1,9 +1,9 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "/api"
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api'
 
 export type ClerkTokenGetter = () => Promise<string | null>
 
 type AdminFetchOptions = {
-  method?: "GET" | "POST" | "PATCH" | "DELETE"
+  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'
   tenantSlug: string
   getToken: ClerkTokenGetter
   body?: unknown
@@ -28,20 +28,20 @@ function serializeBody(body: unknown) {
 export async function adminFetch(path: string, options: AdminFetchOptions) {
   const token = await options.getToken()
   if (!token) {
-    throw new Error("Unable to authenticate your admin session.")
+    throw new Error('Unable to authenticate your admin session.')
   }
 
   const headers: Record<string, string> = {
     Authorization: `Bearer ${token}`,
-    "x-tenant-slug": options.tenantSlug,
+    'x-tenant-slug': options.tenantSlug,
   }
 
   if (options.body !== undefined) {
-    headers["Content-Type"] = "application/json"
+    headers['Content-Type'] = 'application/json'
   }
 
   return fetch(`${API_BASE_URL}${path}`, {
-    method: options.method ?? "GET",
+    method: options.method ?? 'GET',
     headers,
     body: serializeBody(options.body),
   })
@@ -52,17 +52,17 @@ export async function adminUploadFileJson<T>(path: string, options: AdminUploadO
 
   const token = await options.getToken()
   if (!token) {
-    throw new Error("Unable to authenticate your admin session.")
+    throw new Error('Unable to authenticate your admin session.')
   }
 
   const formData = new FormData()
-  formData.append(options.fieldName ?? "image", options.file, options.file.name)
+  formData.append(options.fieldName ?? 'image', options.file, options.file.name)
 
   const response = await fetch(`${API_BASE_URL}${path}`, {
-    method: "POST",
+    method: 'POST',
     headers: {
       Authorization: `Bearer ${token}`,
-      "x-tenant-slug": options.tenantSlug,
+      'x-tenant-slug': options.tenantSlug,
     },
     body: formData,
   })
@@ -77,8 +77,19 @@ export async function adminUploadFileJson<T>(path: string, options: AdminUploadO
   return response.json() as Promise<T>
 }
 
+export class SubscriptionRequiredError extends Error {
+  constructor() {
+    super('Subscription required')
+    this.name = 'SubscriptionRequiredError'
+  }
+}
+
 export async function adminFetchJson<T>(path: string, options: AdminFetchOptions) {
   const response = await adminFetch(path, options)
+
+  if (response.status === 402) {
+    throw new SubscriptionRequiredError()
+  }
 
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as { error?: string } | null

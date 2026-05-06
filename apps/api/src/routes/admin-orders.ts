@@ -35,7 +35,9 @@ export function registerAdminOrderRoutes(r: Router) {
     const result = await tenantDataAccess.orders.listOrders({
       limit,
       cursor,
-      status: statusFilter as Parameters<typeof tenantDataAccess.orders.listOrders>[0]['status'],
+      status: statusFilter as NonNullable<
+        Parameters<typeof tenantDataAccess.orders.listOrders>[0]
+      >['status'],
     })
 
     return res.json(result)

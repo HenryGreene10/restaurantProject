@@ -24,6 +24,8 @@ export type CloudPrntRestaurant = {
   pendingPrintJob: string | null
 }
 
+export type SubscriptionStatus = 'PENDING' | 'ACTIVE' | 'CANCELLED'
+
 export type AdminAccess = {
   adminUserId: string
   clerkUserId: string
@@ -32,6 +34,7 @@ export type AdminAccess = {
   restaurantId: string
   tenantSlug: string
   restaurantName: string
+  subscriptionStatus: SubscriptionStatus
 }
 
 type AdminAccessRow = {
@@ -42,6 +45,7 @@ type AdminAccessRow = {
   restaurantId: string
   tenantSlug: string
   restaurantName: string
+  subscriptionStatus: SubscriptionStatus
 }
 
 function normalizeSlug(slug: string) {
@@ -65,6 +69,7 @@ function mapAdminAccess(row: AdminAccessRow | null) {
     restaurantId: row.restaurantId,
     tenantSlug: row.tenantSlug,
     restaurantName: row.restaurantName,
+    subscriptionStatus: row.subscriptionStatus,
   }
 }
 
@@ -82,7 +87,8 @@ async function queryAdminAccessByColumn(column: 'clerkUserId' | 'email', value: 
       admin_user."role" AS "role",
       restaurant."id" AS "restaurantId",
       restaurant."slug" AS "tenantSlug",
-      restaurant."name" AS "restaurantName"
+      restaurant."name" AS "restaurantName",
+      restaurant."subscriptionStatus" AS "subscriptionStatus"
     FROM "AdminUser" AS admin_user
     INNER JOIN "Restaurant" AS restaurant
       ON restaurant."id" = admin_user."restaurantId"
@@ -101,9 +107,9 @@ async function queryAdminAccessByColumn(column: 'clerkUserId' | 'email', value: 
 export function createPlatformDataAccess() {
   const prisma = getInternalPrismaClient()
 
-async function queryAdminAccessById(adminUserId: string) {
-  const prisma = getInternalPrismaClient()
-  const rows = await prisma.$queryRaw<AdminAccessRow[]>(Prisma.sql`
+  async function queryAdminAccessById(adminUserId: string) {
+    const prisma = getInternalPrismaClient()
+    const rows = await prisma.$queryRaw<AdminAccessRow[]>(Prisma.sql`
     SELECT
       admin_user."id" AS "adminUserId",
       admin_user."clerkUserId" AS "clerkUserId",
@@ -111,7 +117,8 @@ async function queryAdminAccessById(adminUserId: string) {
       admin_user."role" AS "role",
       restaurant."id" AS "restaurantId",
       restaurant."slug" AS "tenantSlug",
-      restaurant."name" AS "restaurantName"
+      restaurant."name" AS "restaurantName",
+      restaurant."subscriptionStatus" AS "subscriptionStatus"
     FROM "AdminUser" AS admin_user
     INNER JOIN "Restaurant" AS restaurant
       ON restaurant."id" = admin_user."restaurantId"
@@ -119,8 +126,8 @@ async function queryAdminAccessById(adminUserId: string) {
     LIMIT 1
   `)
 
-  return mapAdminAccess(rows[0] ?? null)
-}
+    return mapAdminAccess(rows[0] ?? null)
+  }
 
   return {
     async getRestaurantById(restaurantId: string): Promise<CloudPrntRestaurant | null> {
@@ -337,7 +344,7 @@ async function queryAdminAccessById(adminUserId: string) {
       input: {
         chargesEnabled: boolean
         payoutsEnabled: boolean
-      },
+      }
     ) {
       return prisma.restaurant.update({
         where: { stripeAccountId },
@@ -345,6 +352,13 @@ async function queryAdminAccessById(adminUserId: string) {
           stripeChargesEnabled: input.chargesEnabled,
           stripePayoutsEnabled: input.payoutsEnabled,
         },
+      })
+    },
+
+    async activateRestaurantSubscription(restaurantId: string) {
+      await prisma.restaurant.update({
+        where: { id: restaurantId },
+        data: { subscriptionStatus: 'ACTIVE' },
       })
     },
 

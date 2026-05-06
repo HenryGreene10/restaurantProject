@@ -192,6 +192,19 @@ export function registerStripeWebhookRoute(app: Express) {
           }
         }
 
+        if (event.type === 'checkout.session.completed') {
+          const session = event.data.object as {
+            metadata?: Record<string, string> | null
+            client_reference_id?: string | null
+          }
+          const restaurantId = session.metadata?.restaurantId ?? session.client_reference_id ?? null
+
+          if (session.metadata?.type === 'restaurant_setup' && restaurantId) {
+            const platformDataAccess = createPlatformDataAccess()
+            await platformDataAccess.activateRestaurantSubscription(restaurantId)
+          }
+        }
+
         return res.status(200).json({ received: true })
       } catch (error) {
         logger.error('Stripe webhook handling failed', { error: String(error) })
