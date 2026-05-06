@@ -48,3 +48,13 @@ Replacing the polling worker with Redis pub/sub would eliminate the 2s polling l
 The `ORDER_CREATED` early-exit in the webhook prevents re-processing on Stripe retries (the common case). A true concurrent-delivery race is still possible: two webhook deliveries arriving within milliseconds of each other could both pass the status check before either commits. The data layer's `createdOrderId` guard in `createOrderFromCheckoutSession` provides a second layer, but it's not atomic (READ COMMITTED isolation). Fixing this properly requires either a `SELECT FOR UPDATE` on the checkout session row or a unique constraint on `CheckoutSession.createdOrderId`. A DB migration is needed for the constraint approach — deferring to a future migration task.
 
 ---
+
+---
+
+## apps/pwa: kept as placeholder, not removed
+
+The pwa app is 4 source files / 84 lines — a read-only menu viewer with no cart, checkout, or service worker registration. The audit item said "clean up or remove entirely."
+
+Decision: kept. KNOWN_WARNINGS.md explicitly says "Ship PWA first. Only start native after 5 paying PWA customers." Deleting it would erase the intended architecture signal. The dead code is trivial (84 lines). Instead: removed the double API fetch (BrandProvider and MenuPage both fetched /v1/menu), and noted the placeholder status in the component comment.
+
+---
