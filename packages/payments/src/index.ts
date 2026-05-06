@@ -26,7 +26,7 @@ export type StripeConnectionState = {
 function createStripeClient(secretKey: string) {
   const Stripe = StripeConstructor as unknown as new (
     key: string,
-    config?: Record<string, unknown>,
+    config?: Record<string, unknown>
   ) => StripeClient
 
   return new Stripe(secretKey)
@@ -100,7 +100,7 @@ export async function registerApplePayDomains(input: {
 }) {
   const stripe = createStripeClient(input.secretKey)
   const domains = Array.from(
-    new Set(input.domains.map((domain) => domain.trim().toLowerCase()).filter(Boolean)),
+    new Set(input.domains.map((domain) => domain.trim().toLowerCase()).filter(Boolean))
   )
 
   if (domains.length === 0) {
@@ -114,7 +114,7 @@ export async function registerApplePayDomains(input: {
     },
     {
       stripeAccount: input.stripeAccountId,
-    },
+    }
   )
 
   for (const domain of existing.data) {
@@ -130,7 +130,7 @@ export async function registerApplePayDomains(input: {
 
     await stripe.applePayDomains.create(
       { domain_name: domain },
-      { stripeAccount: input.stripeAccountId },
+      { stripeAccount: input.stripeAccountId }
     )
     createdDomains.push(domain)
   }
@@ -158,7 +158,7 @@ export async function createDirectChargePaymentIntent(input: {
     {
       stripeAccount: input.config.stripeAccountId,
       idempotencyKey: input.idempotencyKey,
-    },
+    }
   )
 }
 
@@ -167,13 +167,9 @@ export async function retrieveDirectChargePaymentIntent(input: {
   paymentIntentId: string
 }) {
   const stripe = createStripeClient(input.config.secretKey)
-  return stripe.paymentIntents.retrieve(
-    input.paymentIntentId,
-    undefined,
-    {
-      stripeAccount: input.config.stripeAccountId,
-    },
-  )
+  return stripe.paymentIntents.retrieve(input.paymentIntentId, undefined, {
+    stripeAccount: input.config.stripeAccountId,
+  })
 }
 
 export async function verifyStripeWebhookEvent(input: {
@@ -182,9 +178,27 @@ export async function verifyStripeWebhookEvent(input: {
   signature: string
 }) {
   const stripe = createStripeClient(input.config.secretKey)
-  return stripe.webhooks.constructEvent(
-    input.body,
-    input.signature,
-    input.config.webhookSecret,
-  )
+  return stripe.webhooks.constructEvent(input.body, input.signature, input.config.webhookSecret)
+}
+
+export async function createSetupCheckoutSession(input: {
+  secretKey: string
+  setupFeePriceId: string
+  monthlyPriceId: string
+  restaurantId: string
+  successUrl: string
+  cancelUrl: string
+}) {
+  const stripe = createStripeClient(input.secretKey)
+  return stripe.checkout.sessions.create({
+    mode: 'subscription',
+    line_items: [
+      { price: input.setupFeePriceId, quantity: 1 },
+      { price: input.monthlyPriceId, quantity: 1 },
+    ],
+    client_reference_id: input.restaurantId,
+    metadata: { restaurantId: input.restaurantId, type: 'restaurant_setup' },
+    success_url: input.successUrl,
+    cancel_url: input.cancelUrl,
+  })
 }

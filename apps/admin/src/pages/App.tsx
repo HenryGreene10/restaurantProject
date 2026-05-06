@@ -45,7 +45,8 @@ import {
   type MenuCategory,
   type MenuResponse,
 } from '../lib/menu'
-import { adminFetchJson, adminUploadFileJson } from '../lib/api'
+import { adminFetchJson, adminUploadFileJson, SubscriptionRequiredError } from '../lib/api'
+import { createSetupSession } from '../lib/onboarding'
 import { OnboardingPage } from './OnboardingPage'
 import { LoyaltyPage } from './LoyaltyPage'
 import {
@@ -1018,6 +1019,8 @@ export const App: React.FC = () => {
   const [saveMessage, setSaveMessage] = useState<string | null>(null)
   const [menuActionMessage, setMenuActionMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [subscriptionPending, setSubscriptionPending] = useState(false)
+  const [isLaunchingPayment, setIsLaunchingPayment] = useState(false)
   const [stripeStatus, setStripeStatus] = useState<StripeStatus | null>(null)
   const [stripeMessage, setStripeMessage] = useState<string | null>(null)
   const [isStripeLoading, setIsStripeLoading] = useState(true)
@@ -1245,7 +1248,11 @@ export const App: React.FC = () => {
         )
       } catch (nextError) {
         if (cancelled) return
-        setError(nextError instanceof Error ? nextError.message : 'Failed to load menu')
+        if (nextError instanceof SubscriptionRequiredError) {
+          setSubscriptionPending(true)
+        } else {
+          setError(nextError instanceof Error ? nextError.message : 'Failed to load menu')
+        }
       } finally {
         if (!cancelled) {
           setIsLoading(false)
@@ -1323,6 +1330,42 @@ export const App: React.FC = () => {
           onCompleted={handleOnboardingCompleted}
         />
       </>
+    )
+  }
+
+  if (subscriptionPending) {
+    return (
+      <main className="flex min-h-[100dvh] items-center justify-center bg-background px-6 py-10">
+        <div className="w-full max-w-sm space-y-6 text-center">
+          <div>
+            <h1 className="font-heading text-2xl font-bold text-foreground">
+              Activate your account
+            </h1>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Complete your setup payment to access the admin panel.
+            </p>
+          </div>
+          <Button
+            type="button"
+            disabled={isLaunchingPayment}
+            onClick={async () => {
+              setIsLaunchingPayment(true)
+              try {
+                const token = await getToken()
+                if (!token) throw new Error('Unable to authenticate')
+                const url = await createSetupSession(token)
+                window.location.assign(url)
+              } catch (err) {
+                setIsLaunchingPayment(false)
+                setError(err instanceof Error ? err.message : 'Failed to start payment')
+              }
+            }}
+          >
+            {isLaunchingPayment ? 'Redirecting…' : 'Complete setup payment'}
+          </Button>
+          {error && <p className="text-sm text-destructive">{error}</p>}
+        </div>
+      </main>
     )
   }
 

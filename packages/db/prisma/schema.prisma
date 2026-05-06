@@ -94,20 +94,27 @@ enum NotificationJobStatus {
   PERMANENTLY_FAILED
 }
 
+enum SubscriptionStatus {
+  PENDING
+  ACTIVE
+  CANCELLED
+}
+
 model Restaurant {
-  id                   String                 @id @default(uuid())
-  slug                 String                 @unique
+  id                   String             @id @default(uuid())
+  slug                 String             @unique
   name                 String
-  timezone             String                 @default("America/New_York")
-  status               RestaurantStatus       @default(ACTIVE)
-  stripeAccountId      String?                @unique
-  stripeChargesEnabled Boolean                @default(false)
-  stripePayoutsEnabled Boolean                @default(false)
+  timezone             String             @default("America/New_York")
+  status               RestaurantStatus   @default(ACTIVE)
+  subscriptionStatus   SubscriptionStatus @default(PENDING)
+  stripeAccountId      String?            @unique
+  stripeChargesEnabled Boolean            @default(false)
+  stripePayoutsEnabled Boolean            @default(false)
   cloudPrntMacAddress  String?
-  cloudPrntEnabled     Boolean                @default(false)
+  cloudPrntEnabled     Boolean            @default(false)
   pendingPrintJob      String?
-  createdAt            DateTime               @default(now())
-  updatedAt            DateTime               @updatedAt
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
   brandConfig          BrandConfig?
   domains              RestaurantDomain[]
   adminUsers           AdminUser[]

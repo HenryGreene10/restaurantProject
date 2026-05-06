@@ -1,11 +1,13 @@
 import type { Router } from 'express'
 import { z } from 'zod'
 import { createPlatformDataAccess } from '@repo/data-access'
+import { createSetupCheckoutSession } from '@repo/payments'
 import { getClerkPrimaryEmail, mergeClerkPublicMetadata } from '../lib/clerk.js'
 import {
   requireClerkIdentity,
   resolveAdminAccessFromClerkIdentity,
 } from '../middleware/clerk-auth.js'
+import { env } from '../config/env.js'
 
 const RESERVED_SLUGS = new Set(['www', 'admin', 'api', 'app', 'kiosk'])
 const slugPattern = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
@@ -46,46 +48,41 @@ function validateTenantSlug(value: string) {
 }
 
 export function registerOnboardingRoutes(r: Router) {
-  r.get(
-    '/v1/onboarding/me',
-    requireClerkIdentity,
-    async (req, res) => {
-      try {
-        if (!req.clerkIdentity) {
-          return res.status(401).json({ error: 'Missing Clerk identity' })
-        }
+  r.get('/v1/onboarding/me', requireClerkIdentity, async (req, res) => {
+    try {
+      if (!req.clerkIdentity) {
+        return res.status(401).json({ error: 'Missing Clerk identity' })
+      }
 
-        const adminAccess = await resolveAdminAccessFromClerkIdentity(
-          req.clerkIdentity.clerkUserId,
-        )
+      const adminAccess = await resolveAdminAccessFromClerkIdentity(req.clerkIdentity.clerkUserId)
 
-        if (!adminAccess) {
-          return res.json({
-            matched: false,
-            tenantSlug: null,
-          })
-        }
-
-        await mergeClerkPublicMetadata(req.clerkIdentity.clerkUserId, {
-          tenantSlug: adminAccess.tenantSlug,
-        })
-
+      if (!adminAccess) {
         return res.json({
-          matched: true,
-          tenantSlug: adminAccess.tenantSlug,
-          restaurant: {
-            id: adminAccess.restaurantId,
-            name: adminAccess.restaurantName,
-            slug: adminAccess.tenantSlug,
-          },
-        })
-      } catch (error) {
-        return res.status(400).json({
-          error: error instanceof Error ? error.message : 'Failed to load onboarding state',
+          matched: false,
+          tenantSlug: null,
         })
       }
-    },
-  )
+
+      await mergeClerkPublicMetadata(req.clerkIdentity.clerkUserId, {
+        tenantSlug: adminAccess.tenantSlug,
+      })
+
+      return res.json({
+        matched: true,
+        tenantSlug: adminAccess.tenantSlug,
+        subscriptionStatus: adminAccess.subscriptionStatus,
+        restaurant: {
+          id: adminAccess.restaurantId,
+          name: adminAccess.restaurantName,
+          slug: adminAccess.tenantSlug,
+        },
+      })
+    } catch (error) {
+      return res.status(400).json({
+        error: error instanceof Error ? error.message : 'Failed to load onboarding state',
+      })
+    }
+  })
 
   r.get('/v1/onboarding/check-slug/:slug', async (req, res) => {
     const validation = validateTenantSlug(req.params.slug ?? '')
@@ -106,82 +103,120 @@ export function registerOnboardingRoutes(r: Router) {
     })
   })
 
-  r.post(
-    '/v1/onboarding/register',
-    requireClerkIdentity,
-    async (req, res) => {
+  r.post('/v1/onboarding/register', requireClerkIdentity, async (req, res) => {
+    try {
+      const parsed = RegisterOnboardingSchema.safeParse(req.body)
+      if (!parsed.success) {
+        return res.status(400).json({ error: 'Invalid onboarding payload' })
+      }
+
+      if (!req.clerkIdentity || req.clerkIdentity.clerkUserId !== parsed.data.clerkUserId) {
+        return res.status(401).json({ error: 'Clerk token does not match request user' })
+      }
+
+      const primaryEmail = await getClerkPrimaryEmail(parsed.data.clerkUserId)
+      if (
+        primaryEmail &&
+        primaryEmail.trim().toLowerCase() !== parsed.data.email.trim().toLowerCase()
+      ) {
+        return res.status(400).json({ error: 'Email does not match Clerk account' })
+      }
+
+      const validation = validateTenantSlug(parsed.data.slug)
+      if (!validation.valid) {
+        return res.status(400).json({ error: validation.message })
+      }
+
+      const platformDataAccess = createPlatformDataAccess()
+      const existingAdmin = await platformDataAccess.findAdminAccessByClerkUserId(
+        parsed.data.clerkUserId
+      )
+      if (existingAdmin) {
+        return res.status(409).json({ error: 'Clerk user is already onboarded' })
+      }
+
+      const available = await platformDataAccess.isTenantSlugAvailable(validation.slug)
+      if (!available) {
+        return res.status(409).json({ error: 'Slug is already taken' })
+      }
+
+      const created = await platformDataAccess.createRestaurantOnboarding({
+        clerkUserId: parsed.data.clerkUserId,
+        email: primaryEmail ?? parsed.data.email,
+        restaurantName: parsed.data.restaurantName,
+        slug: validation.slug,
+      })
+
       try {
-        const parsed = RegisterOnboardingSchema.safeParse(req.body)
-        if (!parsed.success) {
-          return res.status(400).json({ error: 'Invalid onboarding payload' })
-        }
-
-        if (!req.clerkIdentity || req.clerkIdentity.clerkUserId !== parsed.data.clerkUserId) {
-          return res.status(401).json({ error: 'Clerk token does not match request user' })
-        }
-
-        const primaryEmail = await getClerkPrimaryEmail(parsed.data.clerkUserId)
-        if (
-          primaryEmail &&
-          primaryEmail.trim().toLowerCase() !== parsed.data.email.trim().toLowerCase()
-        ) {
-          return res.status(400).json({ error: 'Email does not match Clerk account' })
-        }
-
-        const validation = validateTenantSlug(parsed.data.slug)
-        if (!validation.valid) {
-          return res.status(400).json({ error: validation.message })
-        }
-
-        const platformDataAccess = createPlatformDataAccess()
-        const existingAdmin = await platformDataAccess.findAdminAccessByClerkUserId(
-          parsed.data.clerkUserId,
-        )
-        if (existingAdmin) {
-          return res.status(409).json({ error: 'Clerk user is already onboarded' })
-        }
-
-        const available = await platformDataAccess.isTenantSlugAvailable(validation.slug)
-        if (!available) {
-          return res.status(409).json({ error: 'Slug is already taken' })
-        }
-
-        const created = await platformDataAccess.createRestaurantOnboarding({
-          clerkUserId: parsed.data.clerkUserId,
-          email: primaryEmail ?? parsed.data.email,
-          restaurantName: parsed.data.restaurantName,
-          slug: validation.slug,
-        })
-
-        try {
-          await mergeClerkPublicMetadata(parsed.data.clerkUserId, {
-            tenantSlug: created.tenantSlug,
-          })
-        } catch (error) {
-          await platformDataAccess.deleteRestaurantOnboarding(created.restaurantId)
-          throw error
-        }
-
-        return res.status(201).json({
-          restaurant: {
-            id: created.restaurantId,
-            name: created.restaurantName,
-            slug: created.tenantSlug,
-          },
+        await mergeClerkPublicMetadata(parsed.data.clerkUserId, {
           tenantSlug: created.tenantSlug,
         })
       } catch (error) {
-        const message =
-          error instanceof Error && error.message === 'SLUG_TAKEN'
-            ? 'Slug is already taken'
-            : error instanceof Error
-              ? error.message
-              : 'Failed to register restaurant'
-
-        return res.status(message === 'Slug is already taken' ? 409 : 400).json({
-          error: message,
-        })
+        await platformDataAccess.deleteRestaurantOnboarding(created.restaurantId)
+        throw error
       }
-    },
-  )
+
+      return res.status(201).json({
+        restaurant: {
+          id: created.restaurantId,
+          name: created.restaurantName,
+          slug: created.tenantSlug,
+        },
+        tenantSlug: created.tenantSlug,
+      })
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message === 'SLUG_TAKEN'
+          ? 'Slug is already taken'
+          : error instanceof Error
+            ? error.message
+            : 'Failed to register restaurant'
+
+      return res.status(message === 'Slug is already taken' ? 409 : 400).json({
+        error: message,
+      })
+    }
+  })
+
+  r.post('/v1/onboarding/create-setup-session', requireClerkIdentity, async (req, res) => {
+    try {
+      if (!req.clerkIdentity) {
+        return res.status(401).json({ error: 'Missing Clerk identity' })
+      }
+
+      const adminAccess = await resolveAdminAccessFromClerkIdentity(req.clerkIdentity.clerkUserId)
+
+      if (!adminAccess) {
+        return res.status(404).json({ error: 'Restaurant not found for this account' })
+      }
+
+      if (adminAccess.subscriptionStatus === 'ACTIVE') {
+        return res.status(409).json({ error: 'Subscription is already active' })
+      }
+
+      const runtime = env()
+      if (
+        !runtime.STRIPE_SETUP_FEE_PRICE_ID ||
+        !runtime.STRIPE_MONTHLY_PRICE_ID ||
+        !runtime.STRIPE_SECRET_KEY
+      ) {
+        return res.status(503).json({ error: 'Setup payments are not configured' })
+      }
+
+      const session = await createSetupCheckoutSession({
+        secretKey: runtime.STRIPE_SECRET_KEY,
+        setupFeePriceId: runtime.STRIPE_SETUP_FEE_PRICE_ID,
+        monthlyPriceId: runtime.STRIPE_MONTHLY_PRICE_ID,
+        restaurantId: adminAccess.restaurantId,
+        successUrl: runtime.STRIPE_SETUP_SUCCESS_URL || `${req.headers.origin ?? ''}/`,
+        cancelUrl: runtime.STRIPE_SETUP_CANCEL_URL || `${req.headers.origin ?? ''}/signup`,
+      })
+
+      return res.status(201).json({ url: session.url })
+    } catch (error) {
+      return res.status(400).json({
+        error: error instanceof Error ? error.message : 'Failed to create setup session',
+      })
+    }
+  })
 }

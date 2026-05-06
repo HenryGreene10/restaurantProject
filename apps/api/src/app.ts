@@ -3,6 +3,7 @@ import morgan from 'morgan'
 import cors, { type CorsOptions } from 'cors'
 import * as Sentry from '@sentry/node'
 import { requireClerkAuth } from './middleware/clerk-auth.js'
+import { requireActiveSubscription } from './middleware/require-active-subscription.js'
 import { tenantMiddleware } from './middleware/tenant.js'
 import { requestIdMiddleware } from './lib/logger.js'
 import { registerHealthRoutes } from './routes/health.js'
@@ -86,13 +87,15 @@ export function createApp() {
   app.options('*', cors(corsOptions))
   app.use(express.json({ limit: '1mb' }))
   app.use(morgan('dev'))
-  app.use(requestIdMiddleware as Parameters<typeof app.use>[0])
+  app.use(requestIdMiddleware as express.RequestHandler)
 
   registerHealthRoutes(app)
   registerOnboardingRoutes(app)
   registerCloudPrntRoutes(app)
   app.use('/admin', requireClerkAuth)
+  app.use('/admin', requireActiveSubscription)
   app.use('/v1/assistant/command', requireClerkAuth)
+  app.use('/v1/assistant/command', requireActiveSubscription)
   app.use(tenantMiddleware)
   // Defense-in-depth: reject any admin request where the resolved tenant does not
   // match the authenticated admin's restaurant. tenantMiddleware already derives

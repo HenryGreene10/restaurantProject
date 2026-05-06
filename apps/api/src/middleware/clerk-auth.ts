@@ -16,6 +16,7 @@ type AdminIdentity = {
   restaurantId: string
   tenantSlug: string
   restaurantName: string
+  subscriptionStatus: 'PENDING' | 'ACTIVE' | 'CANCELLED'
 }
 
 declare module 'express-serve-static-core' {
@@ -102,6 +103,7 @@ export async function requireClerkAuth(req: Request, res: Response, next: NextFu
       restaurantId: adminAccess.restaurantId,
       tenantSlug: adminAccess.tenantSlug,
       restaurantName: adminAccess.restaurantName,
+      subscriptionStatus: adminAccess.subscriptionStatus,
     }
 
     return next()

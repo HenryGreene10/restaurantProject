@@ -32,6 +32,14 @@ services:
         sync: false
       - key: STRIPE_CONNECT_REFRESH_URL
         sync: false
+      - key: STRIPE_SETUP_FEE_PRICE_ID
+        sync: false
+      - key: STRIPE_MONTHLY_PRICE_ID
+        sync: false
+      - key: STRIPE_SETUP_SUCCESS_URL
+        sync: false
+      - key: STRIPE_SETUP_CANCEL_URL
+        sync: false
       - key: CLOUDFLARE_R2_ACCOUNT_ID
         sync: false
       - key: CLOUDFLARE_R2_ACCESS_KEY_ID
