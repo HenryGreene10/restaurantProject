@@ -48,6 +48,10 @@ function normalizeSlug(slug: string) {
   return slug.trim().toLowerCase()
 }
 
+function normalizeEmail(email: string) {
+  return email.trim().toLowerCase()
+}
+
 function mapAdminAccess(row: AdminAccessRow | null) {
   if (!row) {
     return null
@@ -96,6 +100,27 @@ async function queryAdminAccessByColumn(column: 'clerkUserId' | 'email', value: 
 
 export function createPlatformDataAccess() {
   const prisma = getInternalPrismaClient()
+
+async function queryAdminAccessById(adminUserId: string) {
+  const prisma = getInternalPrismaClient()
+  const rows = await prisma.$queryRaw<AdminAccessRow[]>(Prisma.sql`
+    SELECT
+      admin_user."id" AS "adminUserId",
+      admin_user."clerkUserId" AS "clerkUserId",
+      admin_user."email" AS "email",
+      admin_user."role" AS "role",
+      restaurant."id" AS "restaurantId",
+      restaurant."slug" AS "tenantSlug",
+      restaurant."name" AS "restaurantName"
+    FROM "AdminUser" AS admin_user
+    INNER JOIN "Restaurant" AS restaurant
+      ON restaurant."id" = admin_user."restaurantId"
+    WHERE admin_user."id" = ${adminUserId}
+    LIMIT 1
+  `)
+
+  return mapAdminAccess(rows[0] ?? null)
+}
 
   return {
     async getRestaurantById(restaurantId: string): Promise<CloudPrntRestaurant | null> {
@@ -215,7 +240,7 @@ export function createPlatformDataAccess() {
       slug: string
     }) {
       const normalizedSlug = normalizeSlug(input.slug)
-      const normalizedEmail = input.email.trim().toLowerCase()
+      const normalizedEmail = normalizeEmail(input.email)
 
       try {
         return await prisma.$transaction(async (transactionClient) => {
@@ -281,6 +306,38 @@ export function createPlatformDataAccess() {
         chargesEnabled: boolean
         payoutsEnabled: boolean
       }
+    async updateAdminAccessEmail(input: {
+      adminUserId: string
+      restaurantId: string
+      email: string
+    }): Promise<AdminAccess | null> {
+      const normalizedEmail = normalizeEmail(input.email)
+      if (!normalizedEmail) {
+        throw new Error("Admin email is required")
+      }
+
+      const adminUser = await prisma.adminUser.findFirst({
+        where: {
+          id: input.adminUserId,
+          restaurantId: input.restaurantId,
+        },
+        select: { id: true },
+      })
+
+      if (!adminUser) {
+        return null
+      }
+
+      await prisma.adminUser.update({
+        where: { id: input.adminUserId },
+        data: {
+          email: normalizedEmail,
+        },
+      })
+
+      return queryAdminAccessById(input.adminUserId)
+    },
+
     ) {
       return prisma.restaurant.update({
         where: { stripeAccountId },
