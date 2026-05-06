@@ -1,4 +1,6 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api'
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ??
+  (window.location.hostname.endsWith('easymenu.website') ? 'https://api.easymenu.website' : '/api')
 
 export type ClerkTokenGetter = () => Promise<string | null>
 
