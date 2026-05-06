@@ -12,7 +12,7 @@
 - [x] Fix /health endpoint to actually check DB connectivity
 - [x] Add idempotency key guard to order creation webhook path
 - [x] Replace console.error with structured logging and correlation IDs
-- [ ] Wire up Redis for notification worker instead of polling PostgreSQL every 2s
+- [ ] Wire up Redis for notification worker instead of polling PostgreSQL every 2s — **deferred to next phase**
 - [x] Add DB migration CI gate to GitHub Actions pipeline
 - [x] Add pagination to all list endpoints (admin orders, menu items)
 - [x] Add soft-delete for menu items to protect order history

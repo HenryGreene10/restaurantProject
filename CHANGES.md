@@ -4,6 +4,47 @@ Changes made during the audit remediation pass. Most recent first.
 
 ---
 
+## Feature: Subscription status gate
+
+**Branch:** `feature/subscription-status-gate` — merged to main
+
+New restaurants must complete a Stripe Checkout payment before accessing the admin panel.
+
+### Database
+
+Migration `20260505120000_restaurant_subscription_status`: adds `SubscriptionStatus` enum (`PENDING`, `ACTIVE`, `CANCELLED`) and `subscriptionStatus` column to `Restaurant`. All existing restaurants are backfilled to `ACTIVE`.
+
+### API middleware
+
+`apps/api/src/middleware/require-active-subscription.ts` — new middleware applied to all `/admin/*` and `/v1/assistant/command` routes. Returns 402 with `{ error: 'Subscription required', code: 'SUBSCRIPTION_PENDING' | 'SUBSCRIPTION_CANCELLED' }` if status is not `ACTIVE`.
+
+### Onboarding flow
+
+`POST /v1/onboarding/create-setup-session` — creates a Stripe Checkout session in `subscription` mode with two line items: a one-time setup fee (`STRIPE_SETUP_FEE_PRICE_ID`) and a monthly recurring price (`STRIPE_MONTHLY_PRICE_ID`). Returns `{ url }` for client redirect.
+
+### Stripe webhook
+
+`checkout.session.completed` handler in `stripe-webhook.ts` — checks `metadata.type === 'restaurant_setup'`, then calls `activateRestaurantSubscription(restaurantId)` to flip status to `ACTIVE`.
+
+### Admin frontend
+
+`apps/admin/src/lib/api.ts` — `adminFetchJson` throws `SubscriptionRequiredError` on HTTP 402. `App.tsx` catches it and shows a "Complete setup payment" screen that calls the session endpoint on demand. `OnboardingPage.tsx` redirects to Stripe Checkout dynamically after registration (replaces former static `VITE_SETUP_PAYMENT_URL` env var).
+
+### New env vars (required in Render)
+
+- `STRIPE_SETUP_FEE_PRICE_ID` — one-time setup fee price ID
+- `STRIPE_MONTHLY_PRICE_ID` — monthly recurring subscription price ID
+- `STRIPE_SETUP_SUCCESS_URL` — post-payment redirect URL
+- `STRIPE_SETUP_CANCEL_URL` — cancel/back redirect URL
+
+### TypeScript fixes (pre-existing errors resolved in this branch)
+
+- `app.ts:90` — `requestIdMiddleware` cast changed from `Parameters<typeof app.use>[0]` to `express.RequestHandler`
+- `admin-orders.ts:38` — added `NonNullable<>` wrapper on `listOrders` param index access
+- `stripe-webhook.ts` — removed `import type Stripe from 'stripe'`; replaced `Stripe.Checkout.Session` cast with an inline object type
+
+---
+
 ## Security: Order endpoint hardening + CORS fix
 
 **Branch:** `security/order-hardening` — PR open at GitHub
