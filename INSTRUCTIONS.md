@@ -19,9 +19,9 @@
 
 ## Refactoring
 
-- [ ] Break up apps/admin/src/pages/App.tsx (1000+ lines)
-- [ ] Clean up apps/pwa/ dead code or remove entirely
+- [x] Break up apps/admin/src/pages/App.tsx (1000+ lines)
+- [x] Clean up apps/pwa/ dead code or remove entirely
 
 ## Missing Features
 
-- [ ] Build loyalty points UI so customers can see and redeem points
+- [x] Build loyalty points UI so customers can see and redeem points
