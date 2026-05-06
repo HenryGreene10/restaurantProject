@@ -300,12 +300,6 @@ async function queryAdminAccessById(adminUserId: string) {
       })
     },
 
-    async updateTenantStripeCapabilities(
-      stripeAccountId: string,
-      input: {
-        chargesEnabled: boolean
-        payoutsEnabled: boolean
-      }
     async updateAdminAccessEmail(input: {
       adminUserId: string
       restaurantId: string
@@ -313,7 +307,7 @@ async function queryAdminAccessById(adminUserId: string) {
     }): Promise<AdminAccess | null> {
       const normalizedEmail = normalizeEmail(input.email)
       if (!normalizedEmail) {
-        throw new Error("Admin email is required")
+        throw new Error('Admin email is required')
       }
 
       const adminUser = await prisma.adminUser.findFirst({
@@ -338,6 +332,12 @@ async function queryAdminAccessById(adminUserId: string) {
       return queryAdminAccessById(input.adminUserId)
     },
 
+    async updateTenantStripeCapabilities(
+      stripeAccountId: string,
+      input: {
+        chargesEnabled: boolean
+        payoutsEnabled: boolean
+      },
     ) {
       return prisma.restaurant.update({
         where: { stripeAccountId },
