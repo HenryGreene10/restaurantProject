@@ -1,5 +1,5 @@
-import { z } from "zod"
-import type { AssistantTool } from "./types.js"
+import { z } from 'zod'
+import type { AssistantTool } from './types.js'
 
 const inputSchema = z
   .object({
@@ -12,27 +12,27 @@ const inputSchema = z
     (value) =>
       (Array.isArray(value.addTags) && value.addTags.length > 0) ||
       (Array.isArray(value.removeTags) && value.removeTags.length > 0),
-    { message: "At least one tag change is required" },
+    { message: 'At least one tag change is required' }
   )
 
 function normalizeTag(tag: string) {
   return tag
     .trim()
     .toLowerCase()
-    .replace(/[_\s]+/g, "-")
-    .replace(/-+/g, "-")
+    .replace(/[_\s]+/g, '-')
+    .replace(/-+/g, '-')
 }
 
 export const updateItemTagsTool: AssistantTool<z.infer<typeof inputSchema>> = {
-  name: "update_item_tags",
-  description: "Add or remove tags on an existing menu item.",
+  name: 'update_item_tags',
+  description: 'Add or remove tags on an existing menu item.',
   inputSchema,
   async execute(ctx, input) {
-    const items = await ctx.dataAccess.menu.listItems()
+    const { items } = await ctx.dataAccess.menu.listItems()
     const item = items.find((entry) => entry.id === input.itemId)
 
     if (!item) {
-      throw new Error("Item not found")
+      throw new Error('Item not found')
     }
 
     const currentTags = new Set(item.tags.map(normalizeTag))
@@ -48,20 +48,20 @@ export const updateItemTagsTool: AssistantTool<z.infer<typeof inputSchema>> = {
     })
 
     const replyParts = [
-      addTags.length ? `added ${addTags.join(", ")}` : null,
-      removeTags.size ? `removed ${[...removeTags].join(", ")}` : null,
+      addTags.length ? `added ${addTags.join(', ')}` : null,
+      removeTags.size ? `removed ${[...removeTags].join(', ')}` : null,
     ].filter(Boolean)
 
     return {
-      reply: `Updated tags for ${input.itemName}: ${replyParts.join("; ")}.`,
+      reply: `Updated tags for ${input.itemName}: ${replyParts.join('; ')}.`,
       changes: [
         {
-          resource: "item",
+          resource: 'item',
           id: input.itemId,
-          fields: ["tags"],
+          fields: ['tags'],
         },
       ],
-      refresh: ["menu"],
+      refresh: ['menu'],
     }
   },
 }

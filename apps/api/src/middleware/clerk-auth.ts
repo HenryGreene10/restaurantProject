@@ -2,7 +2,7 @@ import type { NextFunction, Request, Response } from 'express'
 import { verifyToken } from '@clerk/backend'
 import { createPlatformDataAccess } from '@repo/data-access'
 import { env } from '../config/env.js'
-import { getClerkPrimaryEmail } from '../lib/clerk.js'
+import { logger } from '../lib/logger.js'
 
 type ClerkIdentity = {
   clerkUserId: string
@@ -63,28 +63,11 @@ async function resolveClerkIdentity(req: Request) {
 
 export async function resolveAdminAccessFromClerkIdentity(clerkUserId: string) {
   const platformDataAccess = createPlatformDataAccess()
-  let adminAccess = await platformDataAccess.findAdminAccessByClerkUserId(clerkUserId)
-
-  // TODO(auth-migration): Remove this legacy email bridge after existing admins have been
-  // backfilled with real clerkUserId links and tenantSlug metadata in Clerk.
-  if (!adminAccess) {
-    const primaryEmailAddress = await getClerkPrimaryEmail(clerkUserId)
-    if (primaryEmailAddress) {
-      adminAccess = await platformDataAccess.claimLegacyAdminAccessByEmail({
-        clerkUserId,
-        email: primaryEmailAddress,
-      })
-    }
-  }
-
+  const adminAccess = await platformDataAccess.findAdminAccessByClerkUserId(clerkUserId)
   return adminAccess
 }
 
-export async function requireClerkIdentity(
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) {
+export async function requireClerkIdentity(req: Request, res: Response, next: NextFunction) {
   try {
     const result = await resolveClerkIdentity(req)
     if ('error' in result) {
@@ -93,7 +76,7 @@ export async function requireClerkIdentity(
 
     return next()
   } catch (error) {
-    console.error('Clerk token verification failed', error)
+    logger.error('Clerk token verification failed', { error: String(error) })
     return res.status(401).json({ error: 'Invalid Clerk token' })
   }
 }
@@ -105,9 +88,7 @@ export async function requireClerkAuth(req: Request, res: Response, next: NextFu
       return res.status(401).json({ error: result.error })
     }
 
-    const adminAccess = await resolveAdminAccessFromClerkIdentity(
-      result.identity.clerkUserId,
-    )
+    const adminAccess = await resolveAdminAccessFromClerkIdentity(result.identity.clerkUserId)
 
     if (!adminAccess) {
       return res.status(403).json({ error: 'Admin user is not onboarded' })
@@ -125,7 +106,7 @@ export async function requireClerkAuth(req: Request, res: Response, next: NextFu
 
     return next()
   } catch (error) {
-    console.error('Clerk token verification failed', error)
+    logger.error('Clerk token verification failed', { error: String(error) })
     return res.status(401).json({ error: 'Invalid Clerk token' })
   }
 }

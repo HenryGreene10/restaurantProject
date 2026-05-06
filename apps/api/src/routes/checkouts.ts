@@ -6,6 +6,8 @@ import { checkoutRateLimit } from '../middleware/rate-limit.js'
 import { normalizeCustomerPhone, readBearerToken, verifyCustomer } from '../lib/customer-order.js'
 import { env } from '../config/env.js'
 
+const MAX_ORDER_ITEMS = 50
+
 async function resolveNewMemberDiscount(
   tenantDataAccess: ReturnType<typeof createTenantDataAccess>,
   phone: string,
@@ -63,6 +65,9 @@ export function registerCheckoutRoutes(r: Router) {
 
         if (!Array.isArray(items) || items.length === 0) {
           return res.status(400).json({ error: 'No items' })
+        }
+        if (items.length > MAX_ORDER_ITEMS) {
+          return res.status(400).json({ error: `Order cannot exceed ${MAX_ORDER_ITEMS} items` })
         }
 
         const customerAuth = readBearerToken(req) ? verifyCustomer(req) : null

@@ -4,6 +4,7 @@ import cors, { type CorsOptions } from 'cors'
 import * as Sentry from '@sentry/node'
 import { requireClerkAuth } from './middleware/clerk-auth.js'
 import { tenantMiddleware } from './middleware/tenant.js'
+import { requestIdMiddleware } from './lib/logger.js'
 import { registerHealthRoutes } from './routes/health.js'
 import { registerMenuRoutes } from './routes/menu.js'
 import { registerAdminBrandRoutes } from './routes/admin-brand.js'
@@ -21,6 +22,7 @@ import { registerAdminOrderRoutes } from './routes/admin-orders.js'
 import { registerCloudPrntRoutes } from './routes/cloudprnt.js'
 import { registerAdminPrintingRoutes } from './routes/admin-printing.js'
 import { registerAdminLoyaltyRoutes } from './routes/admin-loyalty.js'
+import { registerAdminAccessRoutes } from './routes/admin-access.js'
 import { registerLoyaltyRoutes } from './routes/loyalty.js'
 import { env } from './config/env.js'
 
@@ -48,8 +50,10 @@ function isAllowedCorsOrigin(origin: string) {
     return true
   }
 
-  // Allow Vercel preview/kiosk deployments
-  if (hostname.endsWith('.vercel.app')) {
+  // Allow Vercel preview/production deployments scoped to our own project prefix.
+  // CORS_VERCEL_PROJECT must be set (e.g. "easymenu"); without it no *.vercel.app origin passes.
+  const vercelProject = (env().CORS_VERCEL_PROJECT ?? '').toLowerCase()
+  if (vercelProject && hostname.endsWith('.vercel.app') && hostname.startsWith(vercelProject)) {
     return true
   }
 
@@ -82,6 +86,7 @@ export function createApp() {
   app.options('*', cors(corsOptions))
   app.use(express.json({ limit: '1mb' }))
   app.use(morgan('dev'))
+  app.use(requestIdMiddleware as Parameters<typeof app.use>[0])
 
   registerHealthRoutes(app)
   registerOnboardingRoutes(app)
@@ -106,6 +111,7 @@ export function createApp() {
   registerAdminInsightsRoutes(app)
   registerAdminPaymentsRoutes(app)
   registerAdminPrintingRoutes(app)
+  registerAdminAccessRoutes(app)
   registerAdminLoyaltyRoutes(app)
   registerLoyaltyRoutes(app)
   registerAdminMenuRoutes(app)

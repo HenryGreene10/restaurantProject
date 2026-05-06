@@ -4,7 +4,6 @@ import request from 'supertest'
 const mockFindTenantByHost = vi.fn()
 const mockFindTenantBySlug = vi.fn()
 const mockFindAdminAccessByClerkUserId = vi.fn()
-const mockClaimLegacyAdminAccessByEmail = vi.fn()
 const mockListCategories = vi.fn()
 const mockCreateCategory = vi.fn()
 const mockUpdateCategory = vi.fn()
@@ -46,12 +45,11 @@ vi.mock('@repo/data-access', () => ({
     findTenantByHost: mockFindTenantByHost,
     findTenantBySlug: mockFindTenantBySlug,
     findAdminAccessByClerkUserId: mockFindAdminAccessByClerkUserId,
-    claimLegacyAdminAccessByEmail: mockClaimLegacyAdminAccessByEmail,
   }),
   createTenantDataAccess: () => ({
     brand: {
       getConfig: mockGetBrandConfig,
-      updateConfig: mockUpdateBrandConfig
+      updateConfig: mockUpdateBrandConfig,
     },
     menu: {
       getPublicMenu: vi.fn(),
@@ -81,11 +79,11 @@ vi.mock('@repo/data-access', () => ({
       listItemModifierGroups: mockListItemModifierGroups,
       attachModifierGroup: mockAttachModifierGroup,
       updateItemModifierGroup: mockUpdateItemModifierGroup,
-      deleteItemModifierGroup: mockDeleteItemModifierGroup
+      deleteItemModifierGroup: mockDeleteItemModifierGroup,
     },
     customers: {},
-    orders: {}
-  })
+    orders: {},
+  }),
 }))
 
 describe('admin menu integration', () => {
@@ -94,11 +92,11 @@ describe('admin menu integration', () => {
     mockVerifyToken.mockResolvedValue({ sub: 'user_1' })
     mockFindTenantByHost.mockResolvedValue({
       id: 'rest_1',
-      slug: 'demo'
+      slug: 'demo',
     })
     mockFindTenantBySlug.mockResolvedValue({
       id: 'rest_1',
-      slug: 'demo'
+      slug: 'demo',
     })
     mockFindAdminAccessByClerkUserId.mockResolvedValue({
       adminUserId: 'admin_1',
@@ -109,7 +107,6 @@ describe('admin menu integration', () => {
       tenantSlug: 'demo',
       restaurantName: 'Demo Restaurant',
     })
-    mockClaimLegacyAdminAccessByEmail.mockResolvedValue(null)
   })
 
   it('creates a tenant-scoped category', async () => {
@@ -119,7 +116,7 @@ describe('admin menu integration', () => {
     mockCreateCategory.mockResolvedValue({
       id: 'cat_1',
       name: 'Pizza',
-      menuId: 'menu_1'
+      menuId: 'menu_1',
     })
 
     const response = await request(createApp())
@@ -146,7 +143,7 @@ describe('admin menu integration', () => {
 
     mockSetItemVisibility.mockResolvedValue({
       id: 'item_1',
-      visibility: 'SOLD_OUT'
+      visibility: 'SOLD_OUT',
     })
 
     const response = await request(createApp())
@@ -166,7 +163,7 @@ describe('admin menu integration', () => {
     mockCreateModifierOption.mockResolvedValue({
       id: 'opt_1',
       groupId: 'group_1',
-      name: 'Mushrooms'
+      name: 'Mushrooms',
     })
 
     const response = await request(createApp())
@@ -180,7 +177,7 @@ describe('admin menu integration', () => {
       groupId: 'group_1',
       name: 'Mushrooms',
       priceDeltaCents: 200,
-      position: 1
+      position: 1,
     })
   })
 
@@ -191,7 +188,7 @@ describe('admin menu integration', () => {
     mockAttachModifierGroup.mockResolvedValue({
       id: 'img_1',
       itemId: 'item_1',
-      groupId: 'group_1'
+      groupId: 'group_1',
     })
 
     const response = await request(createApp())
@@ -203,7 +200,7 @@ describe('admin menu integration', () => {
         isRequired: true,
         minSelections: 1,
         maxSelections: 2,
-        allowOptionQuantity: false
+        allowOptionQuantity: false,
       })
 
     expect(response.status).toBe(201)
@@ -213,7 +210,7 @@ describe('admin menu integration', () => {
       isRequired: true,
       minSelections: 1,
       maxSelections: 2,
-      allowOptionQuantity: false
+      allowOptionQuantity: false,
     })
   })
 
@@ -227,8 +224,8 @@ describe('admin menu integration', () => {
       config: {
         appTitle: "Joe's Pizza",
         primaryColor: '#b42318',
-        radius: 24
-      }
+        radius: 24,
+      },
     })
 
     const response = await request(createApp())
@@ -238,7 +235,7 @@ describe('admin menu integration', () => {
       .send({
         appTitle: "Joe's Pizza",
         primaryColor: '#b42318',
-        radius: 24
+        radius: 24,
       })
 
     expect(response.status).toBe(200)
@@ -265,7 +262,7 @@ describe('admin menu integration', () => {
       menuCardLayout: undefined,
       heroImageUrl: undefined,
       showFeaturedBadges: undefined,
-      showCategoryChips: undefined
+      showCategoryChips: undefined,
     })
   })
 
@@ -277,8 +274,8 @@ describe('admin menu integration', () => {
       id: 'cat_1',
       categoryItems: [
         { itemId: 'item_2', sortOrder: 0 },
-        { itemId: 'item_1', sortOrder: 1 }
-      ]
+        { itemId: 'item_1', sortOrder: 1 },
+      ],
     })
 
     const response = await request(createApp())
@@ -290,7 +287,7 @@ describe('admin menu integration', () => {
     expect(response.status).toBe(200)
     expect(mockReorderCategoryItems).toHaveBeenCalledWith({
       categoryId: 'cat_1',
-      itemIds: ['item_2', 'item_1']
+      itemIds: ['item_2', 'item_1'],
     })
   })
 })

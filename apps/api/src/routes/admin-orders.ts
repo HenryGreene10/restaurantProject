@@ -7,7 +7,40 @@ function routeParam(req: TenantRequest, key: string): string {
   return Array.isArray(value) ? value[0] : value
 }
 
+const ORDER_STATUSES = new Set([
+  'PENDING',
+  'CONFIRMED',
+  'PREPARING',
+  'READY',
+  'COMPLETED',
+  'CANCELLED',
+])
+
 export function registerAdminOrderRoutes(r: Router) {
+  r.get('/admin/orders', async (req: TenantRequest, res) => {
+    if (!req.tenant) return res.status(500).json({ error: 'No tenant in request' })
+
+    const rawLimit = parseInt(String(req.query.limit ?? '50'), 10)
+    const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? Math.min(rawLimit, 100) : 50
+    const cursor = typeof req.query.cursor === 'string' ? req.query.cursor : undefined
+
+    const rawStatus = req.query.status
+    const statusFilter = Array.isArray(rawStatus)
+      ? (rawStatus as string[]).filter((s) => ORDER_STATUSES.has(s))
+      : typeof rawStatus === 'string' && ORDER_STATUSES.has(rawStatus)
+        ? [rawStatus]
+        : undefined
+
+    const tenantDataAccess = createTenantDataAccess(createTenantScope(req.tenant.id))
+    const result = await tenantDataAccess.orders.listOrders({
+      limit,
+      cursor,
+      status: statusFilter as Parameters<typeof tenantDataAccess.orders.listOrders>[0]['status'],
+    })
+
+    return res.json(result)
+  })
+
   r.post('/admin/orders/:orderId/delivery-eta', async (req: TenantRequest, res) => {
     if (!req.tenant) return res.status(500).json({ error: 'No tenant in request' })
 

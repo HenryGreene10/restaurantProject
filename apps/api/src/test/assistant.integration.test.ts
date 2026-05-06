@@ -5,7 +5,6 @@ const mockVerifyToken = vi.fn()
 const mockFindTenantByHost = vi.fn()
 const mockFindTenantBySlug = vi.fn()
 const mockFindAdminAccessByClerkUserId = vi.fn()
-const mockClaimLegacyAdminAccessByEmail = vi.fn()
 const mockGetPublicMenu = vi.fn()
 const mockListFeaturedItems = vi.fn()
 const mockListCategories = vi.fn()
@@ -31,7 +30,6 @@ vi.mock('@repo/data-access', () => ({
     findTenantByHost: mockFindTenantByHost,
     findTenantBySlug: mockFindTenantBySlug,
     findAdminAccessByClerkUserId: mockFindAdminAccessByClerkUserId,
-    claimLegacyAdminAccessByEmail: mockClaimLegacyAdminAccessByEmail,
   }),
   createTenantDataAccess: () => ({
     brand: {
@@ -90,7 +88,6 @@ describe.sequential('assistant integration', () => {
       tenantSlug: 'demo',
       restaurantName: 'Demo Restaurant',
     })
-    mockClaimLegacyAdminAccessByEmail.mockResolvedValue(null)
 
     const categories = [
       {
@@ -193,8 +190,8 @@ describe.sequential('assistant integration', () => {
             },
           ],
         }),
-        { status: 200, headers: { 'content-type': 'application/json' } },
-      ),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      )
     )
     mockSetItemVisibility.mockResolvedValue({
       id: 'item_1',
@@ -248,8 +245,8 @@ describe.sequential('assistant integration', () => {
             },
           ],
         }),
-        { status: 200, headers: { 'content-type': 'application/json' } },
-      ),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      )
     )
 
     const response = await request(createApp())
@@ -297,8 +294,8 @@ describe.sequential('assistant integration', () => {
             },
           ],
         }),
-        { status: 200, headers: { 'content-type': 'application/json' } },
-      ),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      )
     )
     mockUpdateItem.mockResolvedValue({
       id: 'item_3',
@@ -352,8 +349,8 @@ describe.sequential('assistant integration', () => {
             },
           ],
         }),
-        { status: 200, headers: { 'content-type': 'application/json' } },
-      ),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      )
     )
     mockSetCategoryVisibility.mockResolvedValue({
       id: 'cat_2',
@@ -410,8 +407,8 @@ describe.sequential('assistant integration', () => {
             },
           ],
         }),
-        { status: 200, headers: { 'content-type': 'application/json' } },
-      ),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      )
     )
 
     mockListCategories.mockResolvedValue([
@@ -495,8 +492,8 @@ describe.sequential('assistant integration', () => {
             },
           ],
         }),
-        { status: 200, headers: { 'content-type': 'application/json' } },
-      ),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      )
     )
 
     mockCreateCategory.mockResolvedValue({
@@ -549,8 +546,8 @@ describe.sequential('assistant integration', () => {
             },
           ],
         }),
-        { status: 200, headers: { 'content-type': 'application/json' } },
-      ),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      )
     )
 
     const response = await request(createApp())
@@ -651,8 +648,8 @@ describe.sequential('assistant integration', () => {
               },
             ],
           }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        ),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
       )
       .mockResolvedValueOnce(
         new Response(
@@ -664,8 +661,8 @@ describe.sequential('assistant integration', () => {
               },
             ],
           }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        ),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
       )
 
     mockCreateItem
@@ -760,9 +757,7 @@ describe.sequential('assistant integration', () => {
       ],
     }
 
-    mockGetPublicMenu
-      .mockResolvedValueOnce(initialMenu)
-      .mockResolvedValueOnce(updatedMenu)
+    mockGetPublicMenu.mockResolvedValueOnce(initialMenu).mockResolvedValueOnce(updatedMenu)
 
     mockListCategories
       .mockResolvedValueOnce(initialMenu.categories)
@@ -796,8 +791,8 @@ describe.sequential('assistant integration', () => {
               },
             ],
           }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        ),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
       )
       .mockResolvedValueOnce(
         new Response(
@@ -809,8 +804,8 @@ describe.sequential('assistant integration', () => {
               },
             ],
           }),
-          { status: 200, headers: { 'content-type': 'application/json' } },
-        ),
+          { status: 200, headers: { 'content-type': 'application/json' } }
+        )
       )
 
     mockCreateCategory.mockResolvedValue({
@@ -826,7 +821,9 @@ describe.sequential('assistant integration', () => {
     const response = await request(createApp())
       .post('/v1/assistant/command')
       .set('x-tenant-slug', 'demo')
-      .send({ message: 'add a new section called salads and add caesar salad to salads for $12.99' })
+      .send({
+        message: 'add a new section called salads and add caesar salad to salads for $12.99',
+      })
 
     expect(response.status).toBe(200)
     expect(mockCreateCategory).toHaveBeenCalledWith({
@@ -903,7 +900,7 @@ describe.sequential('assistant integration', () => {
             },
           ],
         }),
-        { status: 200, headers: { 'content-type': 'application/json' } },
+        { status: 200, headers: { 'content-type': 'application/json' } }
       )
     })
 
@@ -987,8 +984,8 @@ describe.sequential('assistant integration', () => {
             },
           ],
         }),
-        { status: 200, headers: { 'content-type': 'application/json' } },
-      ),
+        { status: 200, headers: { 'content-type': 'application/json' } }
+      )
     )
 
     const response = await request(createApp())

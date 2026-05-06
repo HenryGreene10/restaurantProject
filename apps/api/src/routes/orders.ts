@@ -3,6 +3,10 @@ import type { TenantRequest } from '../middleware/tenant.js'
 import { createTenantDataAccess, createTenantScope } from '@repo/data-access'
 import { transitionOrderStatus } from '../services/order-status.js'
 import { normalizeCustomerPhone, readBearerToken, verifyCustomer } from '../lib/customer-order.js'
+import { orderRateLimit } from '../middleware/rate-limit.js'
+import { logger } from '../lib/logger.js'
+
+const MAX_ORDER_ITEMS = 50
 
 type OrderStatus = 'PENDING' | 'CONFIRMED' | 'PREPARING' | 'READY' | 'COMPLETED' | 'CANCELLED'
 
@@ -127,7 +131,7 @@ function serializePublicOrderStatus(
 }
 
 export function registerOrderRoutes(r: Router) {
-  r.post('/v1/orders', async (req: TenantRequest, res) => {
+  r.post('/v1/orders', orderRateLimit, async (req: TenantRequest, res) => {
     try {
       if (!req.tenant) return res.status(500).json({ error: 'No tenant in request' })
       const {
@@ -142,6 +146,8 @@ export function registerOrderRoutes(r: Router) {
       } = req.body ?? {}
       if (!Array.isArray(items) || items.length === 0)
         return res.status(400).json({ error: 'No items' })
+      if (items.length > MAX_ORDER_ITEMS)
+        return res.status(400).json({ error: `Order cannot exceed ${MAX_ORDER_ITEMS} items` })
       const customerAuth = readBearerToken(req) ? verifyCustomer(req) : null
       const normalizedCustomerPhone =
         customerAuth?.phone ??
@@ -256,7 +262,7 @@ export function registerOrderRoutes(r: Router) {
       } catch (error) {
         const message =
           error instanceof Error ? error.message : 'Failed to enqueue order status SMS notification'
-        console.error(message)
+        logger.error('Failed to enqueue order status SMS notification', { message })
       }
     }
 

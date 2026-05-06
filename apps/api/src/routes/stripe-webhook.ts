@@ -7,11 +7,11 @@ import {
 } from '@repo/data-access'
 import { retrieveDirectChargePaymentIntent, verifyStripeWebhookEvent } from '@repo/payments'
 import { env } from '../config/env.js'
+import { logger } from '../lib/logger.js'
 
 async function awardLoyaltyPoints(
   tenantDataAccess: ReturnType<typeof createTenantDataAccess>,
-  order: { id: string; customerId: string | null; totalCents: number },
-  checkoutSession: { customerPhoneSnapshot: string | null; discountCents: number }
+  order: { id: string; customerId: string | null; totalCents: number }
 ) {
   if (!order.customerId) return
   try {
@@ -51,11 +51,10 @@ async function awardLoyaltyPoints(
     }
   } catch (error) {
     // Loyalty is non-critical — don't fail the webhook
-    console.error('Failed to award loyalty points after payment success', {
-      error,
+    logger.error('Failed to award loyalty points after payment success', {
+      error: String(error),
       orderId: order.id,
       customerId: order.customerId,
-      customerPhone: checkoutSession.customerPhoneSnapshot,
     })
   }
 }
@@ -122,6 +121,12 @@ export function registerStripeWebhookRoute(app: Express) {
             return res.status(200).json({ received: true })
           }
 
+          // Idempotency guard: Stripe may re-deliver on timeout/error; skip if
+          // the order was already created from this checkout session.
+          if (checkoutSession.status === 'ORDER_CREATED') {
+            return res.status(200).json({ received: true })
+          }
+
           const freshPaymentIntent = await retrieveDirectChargePaymentIntent({
             config: {
               secretKey: runtime.STRIPE_SECRET_KEY,
@@ -144,7 +149,7 @@ export function registerStripeWebhookRoute(app: Express) {
           )
 
           if (orderResult.kind === 'created') {
-            await awardLoyaltyPoints(tenantDataAccess, orderResult.order, checkoutSession)
+            await awardLoyaltyPoints(tenantDataAccess, orderResult.order)
           }
         }
 
@@ -189,7 +194,7 @@ export function registerStripeWebhookRoute(app: Express) {
 
         return res.status(200).json({ received: true })
       } catch (error) {
-        console.error('Stripe webhook handling failed', error)
+        logger.error('Stripe webhook handling failed', { error: String(error) })
         return res.status(400).json({ error: 'Invalid Stripe webhook' })
       }
     }

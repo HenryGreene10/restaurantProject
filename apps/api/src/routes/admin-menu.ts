@@ -188,8 +188,13 @@ export function registerAdminMenuRoutes(r: Router) {
   r.get('/admin/menu/items', async (req: TenantRequest, res) => {
     try {
       const tenantDataAccess = tenantDataAccessFor(req)
-      const items = await tenantDataAccess.menu.listItems()
-      res.json({ items })
+      const limitParam = req.query.limit ? parseInt(String(req.query.limit), 10) : undefined
+      const cursor = typeof req.query.cursor === 'string' ? req.query.cursor : undefined
+      const limit = limitParam && limitParam > 0 && limitParam <= 200 ? limitParam : undefined
+      const result = await tenantDataAccess.menu.listItems(
+        limit || cursor ? { limit, cursor } : undefined
+      )
+      res.json(result)
     } catch (error) {
       handleRouteError(res, error)
     }
@@ -235,19 +240,31 @@ export function registerAdminMenuRoutes(r: Router) {
               ? req.body.nameLocalized
               : undefined,
         description:
-          req.body?.description === null ? null : typeof req.body?.description === 'string' ? req.body.description : undefined,
+          req.body?.description === null
+            ? null
+            : typeof req.body?.description === 'string'
+              ? req.body.description
+              : undefined,
         photoUrl:
-          req.body?.photoUrl === null ? null : typeof req.body?.photoUrl === 'string' ? req.body.photoUrl : undefined,
-        basePriceCents: typeof req.body?.basePriceCents === 'number' ? req.body.basePriceCents : undefined,
+          req.body?.photoUrl === null
+            ? null
+            : typeof req.body?.photoUrl === 'string'
+              ? req.body.photoUrl
+              : undefined,
+        basePriceCents:
+          typeof req.body?.basePriceCents === 'number' ? req.body.basePriceCents : undefined,
         tags: Array.isArray(req.body?.tags) ? req.body.tags.map(String) : undefined,
-        prepTimeMinutes: typeof req.body?.prepTimeMinutes === 'number' ? req.body.prepTimeMinutes : undefined,
+        prepTimeMinutes:
+          typeof req.body?.prepTimeMinutes === 'number' ? req.body.prepTimeMinutes : undefined,
         specialInstructionsEnabled:
           typeof req.body?.specialInstructionsEnabled === 'boolean'
             ? req.body.specialInstructionsEnabled
             : undefined,
         isFeatured: typeof req.body?.isFeatured === 'boolean' ? req.body.isFeatured : undefined,
         visibility: parseVisibility(req.body?.visibility),
-        categoryIds: Array.isArray(req.body?.categoryIds) ? req.body.categoryIds.map(String) : undefined,
+        categoryIds: Array.isArray(req.body?.categoryIds)
+          ? req.body.categoryIds.map(String)
+          : undefined,
       })
 
       if (!item) {
@@ -406,7 +423,9 @@ export function registerAdminMenuRoutes(r: Router) {
   r.delete('/admin/menu/modifier-groups/:modifierGroupId', async (req: TenantRequest, res) => {
     try {
       const tenantDataAccess = tenantDataAccessFor(req)
-      const deleted = await tenantDataAccess.menu.deleteModifierGroup(routeParam(req, 'modifierGroupId'))
+      const deleted = await tenantDataAccess.menu.deleteModifierGroup(
+        routeParam(req, 'modifierGroupId')
+      )
       if (!deleted) {
         return res.status(404).json({ error: 'Modifier group not found' })
       }
@@ -417,21 +436,24 @@ export function registerAdminMenuRoutes(r: Router) {
     }
   })
 
-  r.post('/admin/menu/modifier-groups/:modifierGroupId/options', async (req: TenantRequest, res) => {
-    try {
-      const tenantDataAccess = tenantDataAccessFor(req)
-      const modifierGroupId = routeParam(req, 'modifierGroupId')
-      const modifierOption = await tenantDataAccess.menu.createModifierOption({
-        groupId: modifierGroupId,
-        name: String(req.body?.name ?? ''),
-        priceDeltaCents: Number(req.body?.priceDeltaCents ?? 0),
-        position: Number(req.body?.position ?? 0),
-      })
-      res.status(201).json(modifierOption)
-    } catch (error) {
-      handleRouteError(res, error)
+  r.post(
+    '/admin/menu/modifier-groups/:modifierGroupId/options',
+    async (req: TenantRequest, res) => {
+      try {
+        const tenantDataAccess = tenantDataAccessFor(req)
+        const modifierGroupId = routeParam(req, 'modifierGroupId')
+        const modifierOption = await tenantDataAccess.menu.createModifierOption({
+          groupId: modifierGroupId,
+          name: String(req.body?.name ?? ''),
+          priceDeltaCents: Number(req.body?.priceDeltaCents ?? 0),
+          position: Number(req.body?.position ?? 0),
+        })
+        res.status(201).json(modifierOption)
+      } catch (error) {
+        handleRouteError(res, error)
+      }
     }
-  })
+  )
 
   r.patch('/admin/menu/modifier-options/:modifierOptionId', async (req: TenantRequest, res) => {
     try {
@@ -458,7 +480,9 @@ export function registerAdminMenuRoutes(r: Router) {
   r.delete('/admin/menu/modifier-options/:modifierOptionId', async (req: TenantRequest, res) => {
     try {
       const tenantDataAccess = tenantDataAccessFor(req)
-      const deleted = await tenantDataAccess.menu.deleteModifierOption(routeParam(req, 'modifierOptionId'))
+      const deleted = await tenantDataAccess.menu.deleteModifierOption(
+        routeParam(req, 'modifierOptionId')
+      )
       if (!deleted) {
         return res.status(404).json({ error: 'Modifier option not found' })
       }
@@ -472,7 +496,9 @@ export function registerAdminMenuRoutes(r: Router) {
   r.get('/admin/menu/items/:itemId/modifier-groups', async (req: TenantRequest, res) => {
     try {
       const tenantDataAccess = tenantDataAccessFor(req)
-      const itemModifierGroups = await tenantDataAccess.menu.listItemModifierGroups(routeParam(req, 'itemId'))
+      const itemModifierGroups = await tenantDataAccess.menu.listItemModifierGroups(
+        routeParam(req, 'itemId')
+      )
       res.json({ itemModifierGroups })
     } catch (error) {
       handleRouteError(res, error)
@@ -500,63 +526,73 @@ export function registerAdminMenuRoutes(r: Router) {
     }
   })
 
-  r.patch('/admin/menu/item-modifier-groups/:itemModifierGroupId', async (req: TenantRequest, res) => {
-    try {
-      const tenantDataAccess = tenantDataAccessFor(req)
-      const itemModifierGroupId = routeParam(req, 'itemModifierGroupId')
-      const itemModifierGroup = await tenantDataAccess.menu.updateItemModifierGroup(
-        itemModifierGroupId,
-        {
-          itemId: typeof req.body?.itemId === 'string' ? req.body.itemId : undefined,
-          groupId: typeof req.body?.groupId === 'string' ? req.body.groupId : undefined,
-          isRequired: typeof req.body?.isRequired === 'boolean' ? req.body.isRequired : undefined,
-          minSelections: typeof req.body?.minSelections === 'number' ? req.body.minSelections : undefined,
-          maxSelections:
-            req.body?.maxSelections === null || typeof req.body?.maxSelections === 'number'
-              ? req.body.maxSelections
-              : undefined,
-          allowOptionQuantity:
-            typeof req.body?.allowOptionQuantity === 'boolean'
-              ? req.body.allowOptionQuantity
-              : undefined,
+  r.patch(
+    '/admin/menu/item-modifier-groups/:itemModifierGroupId',
+    async (req: TenantRequest, res) => {
+      try {
+        const tenantDataAccess = tenantDataAccessFor(req)
+        const itemModifierGroupId = routeParam(req, 'itemModifierGroupId')
+        const itemModifierGroup = await tenantDataAccess.menu.updateItemModifierGroup(
+          itemModifierGroupId,
+          {
+            itemId: typeof req.body?.itemId === 'string' ? req.body.itemId : undefined,
+            groupId: typeof req.body?.groupId === 'string' ? req.body.groupId : undefined,
+            isRequired: typeof req.body?.isRequired === 'boolean' ? req.body.isRequired : undefined,
+            minSelections:
+              typeof req.body?.minSelections === 'number' ? req.body.minSelections : undefined,
+            maxSelections:
+              req.body?.maxSelections === null || typeof req.body?.maxSelections === 'number'
+                ? req.body.maxSelections
+                : undefined,
+            allowOptionQuantity:
+              typeof req.body?.allowOptionQuantity === 'boolean'
+                ? req.body.allowOptionQuantity
+                : undefined,
+          }
+        )
+
+        if (!itemModifierGroup) {
+          return res.status(404).json({ error: 'Item modifier group not found' })
         }
-      )
 
-      if (!itemModifierGroup) {
-        return res.status(404).json({ error: 'Item modifier group not found' })
+        res.json(itemModifierGroup)
+      } catch (error) {
+        handleRouteError(res, error)
       }
-
-      res.json(itemModifierGroup)
-    } catch (error) {
-      handleRouteError(res, error)
     }
-  })
+  )
 
-  r.delete('/admin/menu/item-modifier-groups/:itemModifierGroupId', async (req: TenantRequest, res) => {
-    try {
-      const tenantDataAccess = tenantDataAccessFor(req)
-      const deleted = await tenantDataAccess.menu.deleteItemModifierGroup(routeParam(req, 'itemModifierGroupId'))
-      if (!deleted) {
-        return res.status(404).json({ error: 'Item modifier group not found' })
+  r.delete(
+    '/admin/menu/item-modifier-groups/:itemModifierGroupId',
+    async (req: TenantRequest, res) => {
+      try {
+        const tenantDataAccess = tenantDataAccessFor(req)
+        const deleted = await tenantDataAccess.menu.deleteItemModifierGroup(
+          routeParam(req, 'itemModifierGroupId')
+        )
+        if (!deleted) {
+          return res.status(404).json({ error: 'Item modifier group not found' })
+        }
+
+        res.status(204).send()
+      } catch (error) {
+        handleRouteError(res, error)
       }
-
-      res.status(204).send()
-    } catch (error) {
-      handleRouteError(res, error)
     }
-  })
+  )
 
   r.post('/admin/menu/batch-translate', async (req: TenantRequest, res) => {
     try {
       const anthropicApiKey = env().ANTHROPIC_API_KEY
       if (!anthropicApiKey) {
         return res.status(503).json({
-          error: 'Translation service not configured. Add ANTHROPIC_API_KEY to the API environment.',
+          error:
+            'Translation service not configured. Add ANTHROPIC_API_KEY to the API environment.',
         })
       }
 
       const tenantDataAccess = tenantDataAccessFor(req)
-      const items = await tenantDataAccess.menu.listItems()
+      const { items } = await tenantDataAccess.menu.listItems()
       const toTranslate = items.filter((item) => !item.nameLocalized?.trim())
 
       if (toTranslate.length === 0) {
@@ -590,7 +626,7 @@ export function registerAdminMenuRoutes(r: Router) {
       if (!aiResponse.ok) {
         const errorBody = await aiResponse.text().catch(() => '')
         throw new Error(
-          `Anthropic request failed (${aiResponse.status}): ${errorBody || 'unknown error'}`,
+          `Anthropic request failed (${aiResponse.status}): ${errorBody || 'unknown error'}`
         )
       }
 
