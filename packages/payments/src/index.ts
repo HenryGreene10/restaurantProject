@@ -202,3 +202,31 @@ export async function createSetupCheckoutSession(input: {
     cancel_url: input.cancelUrl,
   })
 }
+
+export async function createPreSignupSetupCheckoutSession(input: {
+  secretKey: string
+  setupFeePriceId: string
+  monthlyPriceId: string
+  successUrl: string
+  cancelUrl: string
+}) {
+  const stripe = createStripeClient(input.secretKey)
+  return stripe.checkout.sessions.create({
+    mode: 'subscription',
+    line_items: [
+      { price: input.setupFeePriceId, quantity: 1 },
+      { price: input.monthlyPriceId, quantity: 1 },
+    ],
+    metadata: { type: 'pre_signup_restaurant_setup' },
+    success_url: input.successUrl,
+    cancel_url: input.cancelUrl,
+  })
+}
+
+export async function retrieveSetupCheckoutSession(input: {
+  secretKey: string
+  sessionId: string
+}) {
+  const stripe = createStripeClient(input.secretKey)
+  return stripe.checkout.sessions.retrieve(input.sessionId)
+}

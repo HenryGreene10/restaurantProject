@@ -22,6 +22,8 @@ Migration `20260505120000_restaurant_subscription_status`: adds `SubscriptionSta
 
 `POST /v1/onboarding/create-setup-session` — creates a Stripe Checkout session in `subscription` mode with two line items: a one-time setup fee (`STRIPE_SETUP_FEE_PRICE_ID`) and a monthly recurring price (`STRIPE_MONTHLY_PRICE_ID`). Returns `{ url }` for client redirect.
 
+`POST /v1/onboarding/create-signup-payment-session` — creates the setup Stripe Checkout session before Clerk signup. The admin `/signup` page now shows the Clerk signup form only after Stripe redirects back with `setup_session_id`. Restaurant registration verifies that paid session, stores it on the restaurant, activates the subscription immediately, and rejects reused setup sessions.
+
 ### Stripe webhook
 
 `checkout.session.completed` handler in `stripe-webhook.ts` — checks `metadata.type === 'restaurant_setup'`, then calls `activateRestaurantSubscription(restaurantId)` to flip status to `ACTIVE`.

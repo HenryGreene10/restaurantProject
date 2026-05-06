@@ -1,7 +1,11 @@
 import type { Router } from 'express'
 import { z } from 'zod'
 import { createPlatformDataAccess } from '@repo/data-access'
-import { createSetupCheckoutSession } from '@repo/payments'
+import {
+  createPreSignupSetupCheckoutSession,
+  createSetupCheckoutSession,
+  retrieveSetupCheckoutSession,
+} from '@repo/payments'
 import { getClerkPrimaryEmail, mergeClerkPublicMetadata } from '../lib/clerk.js'
 import {
   requireClerkIdentity,
@@ -17,6 +21,7 @@ const RegisterOnboardingSchema = z.object({
   email: z.string().trim().email(),
   restaurantName: z.string().trim().min(1).max(120),
   slug: z.string().trim().min(3).max(63),
+  setupSessionId: z.string().trim().min(1),
 })
 
 function normalizeSlug(value: string) {
@@ -45,6 +50,65 @@ function validateTenantSlug(value: string) {
     valid: true,
     slug,
   } as const
+}
+
+function appendCheckoutSessionPlaceholder(url: string) {
+  const separator = url.includes('?') ? '&' : '?'
+  return `${url}${separator}setup_session_id={CHECKOUT_SESSION_ID}`
+}
+
+function setupPaymentSuccessUrl(origin: string | undefined, configuredUrl: string) {
+  if (configuredUrl.trim()) {
+    return configuredUrl.includes('{CHECKOUT_SESSION_ID}')
+      ? configuredUrl
+      : appendCheckoutSessionPlaceholder(configuredUrl)
+  }
+
+  if (!origin) {
+    throw new Error('Missing request origin for setup payment redirect')
+  }
+
+  return appendCheckoutSessionPlaceholder(`${origin}/signup`)
+}
+
+function setupPaymentCancelUrl(origin: string | undefined, configuredUrl: string) {
+  if (configuredUrl.trim()) {
+    return configuredUrl
+  }
+
+  if (!origin) {
+    throw new Error('Missing request origin for setup payment redirect')
+  }
+
+  return `${origin}/signup`
+}
+
+async function validatePaidPreSignupSetupSession(sessionId: string) {
+  const runtime = env()
+  if (
+    !runtime.STRIPE_SETUP_FEE_PRICE_ID ||
+    !runtime.STRIPE_MONTHLY_PRICE_ID ||
+    !runtime.STRIPE_SECRET_KEY
+  ) {
+    throw new Error('Setup payments are not configured')
+  }
+
+  const session = await retrieveSetupCheckoutSession({
+    secretKey: runtime.STRIPE_SECRET_KEY,
+    sessionId,
+  })
+
+  if (session.mode !== 'subscription') {
+    throw new Error('Invalid setup payment session')
+  }
+
+  if (session.metadata?.type !== 'pre_signup_restaurant_setup') {
+    throw new Error('Invalid setup payment session')
+  }
+
+  if (session.status !== 'complete' || session.payment_status !== 'paid') {
+    throw new Error('Setup payment is not complete')
+  }
 }
 
 export function registerOnboardingRoutes(r: Router) {
@@ -103,6 +167,33 @@ export function registerOnboardingRoutes(r: Router) {
     })
   })
 
+  r.post('/v1/onboarding/create-signup-payment-session', async (req, res) => {
+    try {
+      const runtime = env()
+      if (
+        !runtime.STRIPE_SETUP_FEE_PRICE_ID ||
+        !runtime.STRIPE_MONTHLY_PRICE_ID ||
+        !runtime.STRIPE_SECRET_KEY
+      ) {
+        return res.status(503).json({ error: 'Setup payments are not configured' })
+      }
+
+      const session = await createPreSignupSetupCheckoutSession({
+        secretKey: runtime.STRIPE_SECRET_KEY,
+        setupFeePriceId: runtime.STRIPE_SETUP_FEE_PRICE_ID,
+        monthlyPriceId: runtime.STRIPE_MONTHLY_PRICE_ID,
+        successUrl: setupPaymentSuccessUrl(req.headers.origin, runtime.STRIPE_SETUP_SUCCESS_URL),
+        cancelUrl: setupPaymentCancelUrl(req.headers.origin, runtime.STRIPE_SETUP_CANCEL_URL),
+      })
+
+      return res.status(201).json({ url: session.url })
+    } catch (error) {
+      return res.status(400).json({
+        error: error instanceof Error ? error.message : 'Failed to create setup payment session',
+      })
+    }
+  })
+
   r.post('/v1/onboarding/register', requireClerkIdentity, async (req, res) => {
     try {
       const parsed = RegisterOnboardingSchema.safeParse(req.body)
@@ -140,11 +231,21 @@ export function registerOnboardingRoutes(r: Router) {
         return res.status(409).json({ error: 'Slug is already taken' })
       }
 
+      await validatePaidPreSignupSetupSession(parsed.data.setupSessionId)
+
+      const existingSetupSession = await platformDataAccess.findRestaurantBySetupCheckoutSessionId(
+        parsed.data.setupSessionId
+      )
+      if (existingSetupSession) {
+        return res.status(409).json({ error: 'Setup payment session has already been used' })
+      }
+
       const created = await platformDataAccess.createRestaurantOnboarding({
         clerkUserId: parsed.data.clerkUserId,
         email: primaryEmail ?? parsed.data.email,
         restaurantName: parsed.data.restaurantName,
         slug: validation.slug,
+        setupCheckoutSessionId: parsed.data.setupSessionId,
       })
 
       try {
@@ -168,13 +269,19 @@ export function registerOnboardingRoutes(r: Router) {
       const message =
         error instanceof Error && error.message === 'SLUG_TAKEN'
           ? 'Slug is already taken'
-          : error instanceof Error
-            ? error.message
-            : 'Failed to register restaurant'
+          : error instanceof Error && error.message === 'SETUP_SESSION_USED'
+            ? 'Setup payment session has already been used'
+            : error instanceof Error
+              ? error.message
+              : 'Failed to register restaurant'
 
-      return res.status(message === 'Slug is already taken' ? 409 : 400).json({
-        error: message,
-      })
+      return res
+        .status(
+          message === 'Slug is already taken' || message.includes('already been used') ? 409 : 400
+        )
+        .json({
+          error: message,
+        })
     }
   })
 

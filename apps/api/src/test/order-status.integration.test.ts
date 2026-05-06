@@ -63,6 +63,7 @@ describe('order status integration', () => {
       restaurantId: 'rest_1',
       tenantSlug: 'demo',
       restaurantName: 'Demo Restaurant',
+      subscriptionStatus: 'ACTIVE',
     })
     mockVerifyCustomerAccessToken.mockReturnValue({
       sub: 'cust_1',

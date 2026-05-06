@@ -101,46 +101,47 @@ enum SubscriptionStatus {
 }
 
 model Restaurant {
-  id                   String             @id @default(uuid())
-  slug                 String             @unique
-  name                 String
-  timezone             String             @default("America/New_York")
-  status               RestaurantStatus   @default(ACTIVE)
-  subscriptionStatus   SubscriptionStatus @default(PENDING)
-  stripeAccountId      String?            @unique
-  stripeChargesEnabled Boolean            @default(false)
-  stripePayoutsEnabled Boolean            @default(false)
-  cloudPrntMacAddress  String?
-  cloudPrntEnabled     Boolean            @default(false)
-  pendingPrintJob      String?
-  createdAt            DateTime           @default(now())
-  updatedAt            DateTime           @updatedAt
-  brandConfig          BrandConfig?
-  domains              RestaurantDomain[]
-  adminUsers           AdminUser[]
-  customers            Customer[]
-  smsSubscriptions     SmsSubscription[]
-  webPushSubscriptions WebPushSubscription[]
-  menus                Menu[]
-  menuCategories       MenuCategory[]
-  menuItems            MenuItem[]
-  menuCategoryItems    MenuCategoryItem[]
-  menuItemVariants     MenuItemVariant[]
-  modifierGroups       ModifierGroup[]
-  modifierOptions      ModifierOption[]
-  menuItemModifierGroups MenuItemModifierGroup[]
-  orders               Order[]
-  checkoutSessions     CheckoutSession[]
-  orderItems           OrderItem[]
+  id                          String                       @id @default(uuid())
+  slug                        String                       @unique
+  name                        String
+  timezone                    String                       @default("America/New_York")
+  status                      RestaurantStatus             @default(ACTIVE)
+  subscriptionStatus          SubscriptionStatus           @default(PENDING)
+  setupCheckoutSessionId      String?                      @unique
+  stripeAccountId             String?                      @unique
+  stripeChargesEnabled        Boolean                      @default(false)
+  stripePayoutsEnabled        Boolean                      @default(false)
+  cloudPrntMacAddress         String?
+  cloudPrntEnabled            Boolean                      @default(false)
+  pendingPrintJob             String?
+  createdAt                   DateTime                     @default(now())
+  updatedAt                   DateTime                     @updatedAt
+  brandConfig                 BrandConfig?
+  domains                     RestaurantDomain[]
+  adminUsers                  AdminUser[]
+  customers                   Customer[]
+  smsSubscriptions            SmsSubscription[]
+  webPushSubscriptions        WebPushSubscription[]
+  menus                       Menu[]
+  menuCategories              MenuCategory[]
+  menuItems                   MenuItem[]
+  menuCategoryItems           MenuCategoryItem[]
+  menuItemVariants            MenuItemVariant[]
+  modifierGroups              ModifierGroup[]
+  modifierOptions             ModifierOption[]
+  menuItemModifierGroups      MenuItemModifierGroup[]
+  orders                      Order[]
+  checkoutSessions            CheckoutSession[]
+  orderItems                  OrderItem[]
   orderItemModifierSelections OrderItemModifierSelection[]
-  orderStatusEvents    OrderStatusEvent[]
-  orderSequence        RestaurantOrderSequence?
-  loyaltyPrograms      LoyaltyProgram[]
-  loyaltyAccounts      LoyaltyAccount[]
-  loyaltyEvents        LoyaltyEvent[]
-  promotions           Promotion[]
-  promotionRedemptions PromotionRedemption[]
-  notificationJobs     NotificationJob[]
+  orderStatusEvents           OrderStatusEvent[]
+  orderSequence               RestaurantOrderSequence?
+  loyaltyPrograms             LoyaltyProgram[]
+  loyaltyAccounts             LoyaltyAccount[]
+  loyaltyEvents               LoyaltyEvent[]
+  promotions                  Promotion[]
+  promotionRedemptions        PromotionRedemption[]
+  notificationJobs            NotificationJob[]
 }
 
 model BrandConfig {
@@ -162,37 +163,37 @@ model RestaurantDomain {
 }
 
 model AdminUser {
-  id           String     @id @default(uuid())
-  restaurantId String
-  clerkUserId  String     @unique
-  email        String
-  role         String     @default("owner")
-  createdAt    DateTime   @default(now())
-  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  id                String             @id @default(uuid())
+  restaurantId      String
+  clerkUserId       String             @unique
+  email             String
+  role              String             @default("owner")
+  createdAt         DateTime           @default(now())
+  restaurant        Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   orderStatusEvents OrderStatusEvent[]
 
   @@unique([restaurantId, email])
 }
 
 model Customer {
-  id                  String              @id @default(uuid())
-  restaurantId        String
-  phone               String
-  email               String?
-  name                String?
-  marketingSmsOptIn   Boolean             @default(false)
-  marketingEmailOptIn Boolean             @default(false)
-  totalSpendCents     Int                 @default(0)
-  createdAt           DateTime            @default(now())
-  updatedAt           DateTime            @updatedAt
-  restaurant          Restaurant          @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  smsSubscriptions    SmsSubscription[]
+  id                   String                @id @default(uuid())
+  restaurantId         String
+  phone                String
+  email                String?
+  name                 String?
+  marketingSmsOptIn    Boolean               @default(false)
+  marketingEmailOptIn  Boolean               @default(false)
+  totalSpendCents      Int                   @default(0)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  restaurant           Restaurant            @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  smsSubscriptions     SmsSubscription[]
   webPushSubscriptions WebPushSubscription[]
-  orders              Order[]
-  checkoutSessions    CheckoutSession[]
-  loyaltyAccounts     LoyaltyAccount[]
+  orders               Order[]
+  checkoutSessions     CheckoutSession[]
+  loyaltyAccounts      LoyaltyAccount[]
   promotionRedemptions PromotionRedemption[]
-  notificationJobs    NotificationJob[]
+  notificationJobs     NotificationJob[]
 
   @@unique([restaurantId, phone])
   @@index([restaurantId, email])
@@ -312,14 +313,14 @@ model MenuItemVariant {
 }
 
 model ModifierGroup {
-  id           String                @id @default(uuid())
-  restaurantId String
-  name         String
-  selection    ModifierSelectionType
-  createdAt    DateTime              @default(now())
-  updatedAt    DateTime              @updatedAt
-  restaurant   Restaurant            @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  options      ModifierOption[]
+  id                 String                  @id @default(uuid())
+  restaurantId       String
+  name               String
+  selection          ModifierSelectionType
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+  restaurant         Restaurant              @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  options            ModifierOption[]
   itemModifierGroups MenuItemModifierGroup[]
 
   @@unique([restaurantId, name])
@@ -393,55 +394,55 @@ model CheckoutSession {
 }
 
 model Order {
-  id                     String           @id @default(uuid())
-  restaurantId           String
-  customerId             String?
-  orderNumber            Int
-  status                 OrderStatus      @default(PENDING)
-  paymentStatus          PaymentStatus    @default(PENDING)
-  fulfillmentType        FulfillmentType  @default(PICKUP)
-  subtotalCents          Int
-  taxCents               Int              @default(0)
-  tipCents               Int              @default(0)
-  discountCents          Int              @default(0)
-  totalCents             Int
-  promoCode              String?
-  notes                  String?
-  pickupTime             DateTime?
+  id                          String                @id @default(uuid())
+  restaurantId                String
+  customerId                  String?
+  orderNumber                 Int
+  status                      OrderStatus           @default(PENDING)
+  paymentStatus               PaymentStatus         @default(PENDING)
+  fulfillmentType             FulfillmentType       @default(PICKUP)
+  subtotalCents               Int
+  taxCents                    Int                   @default(0)
+  tipCents                    Int                   @default(0)
+  discountCents               Int                   @default(0)
+  totalCents                  Int
+  promoCode                   String?
+  notes                       String?
+  pickupTime                  DateTime?
   estimatedFulfillmentMinutes Int?
-  deliveryAddressSnapshot Json?
-  customerNameSnapshot   String?
-  customerPhoneSnapshot  String?
-  stripePaymentIntentId  String?
-  createdAt              DateTime         @default(now())
-  updatedAt              DateTime         @updatedAt
-  restaurant             Restaurant       @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  customer               Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  items                  OrderItem[]
-  statusEvents           OrderStatusEvent[]
-  promotionRedemptions   PromotionRedemption[]
-  notificationJobs       NotificationJob[]
-  checkoutSessions       CheckoutSession[] @relation("CheckoutCreatedOrder")
+  deliveryAddressSnapshot     Json?
+  customerNameSnapshot        String?
+  customerPhoneSnapshot       String?
+  stripePaymentIntentId       String?
+  createdAt                   DateTime              @default(now())
+  updatedAt                   DateTime              @updatedAt
+  restaurant                  Restaurant            @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  customer                    Customer?             @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  items                       OrderItem[]
+  statusEvents                OrderStatusEvent[]
+  promotionRedemptions        PromotionRedemption[]
+  notificationJobs            NotificationJob[]
+  checkoutSessions            CheckoutSession[]     @relation("CheckoutCreatedOrder")
 
   @@unique([restaurantId, orderNumber])
   @@index([restaurantId, createdAt])
 }
 
 model OrderItem {
-  id             String                       @id @default(uuid())
-  orderId        String
-  restaurantId   String
-  itemId         String?
-  name           String
-  nameLocalized  String?
-  variantName    String?
-  quantity       Int
-  unitPriceCents Int
-  linePriceCents Int
-  notes          String?
-  order          Order                        @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  restaurant     Restaurant                   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  item           MenuItem?                    @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  id                 String                       @id @default(uuid())
+  orderId            String
+  restaurantId       String
+  itemId             String?
+  name               String
+  nameLocalized      String?
+  variantName        String?
+  quantity           Int
+  unitPriceCents     Int
+  linePriceCents     Int
+  notes              String?
+  order              Order                        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  restaurant         Restaurant                   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  item               MenuItem?                    @relation(fields: [itemId], references: [id], onDelete: SetNull)
   modifierSelections OrderItemModifierSelection[]
 }
 
@@ -458,17 +459,17 @@ model OrderItemModifierSelection {
 }
 
 model OrderStatusEvent {
-  id           String      @id @default(uuid())
+  id           String       @id @default(uuid())
   orderId      String
   restaurantId String
   fromStatus   OrderStatus?
   toStatus     OrderStatus
   actorAdminId String?
   source       String
-  createdAt    DateTime    @default(now())
-  order        Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  restaurant   Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  actorAdmin   AdminUser?  @relation(fields: [actorAdminId], references: [id], onDelete: SetNull)
+  createdAt    DateTime     @default(now())
+  order        Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  restaurant   Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  actorAdmin   AdminUser?   @relation(fields: [actorAdminId], references: [id], onDelete: SetNull)
 }
 
 model LoyaltyProgram {
@@ -487,19 +488,19 @@ model LoyaltyProgram {
 }
 
 model LoyaltyAccount {
-  id            String         @id @default(uuid())
-  restaurantId  String
-  programId     String
-  customerId    String
-  points        Int            @default(0)
-  lifetimePts   Int            @default(0)
-  isNew         Boolean        @default(true)
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  restaurant    Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  program       LoyaltyProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
-  customer      Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  events        LoyaltyEvent[]
+  id           String         @id @default(uuid())
+  restaurantId String
+  programId    String
+  customerId   String
+  points       Int            @default(0)
+  lifetimePts  Int            @default(0)
+  isNew        Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  restaurant   Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  program      LoyaltyProgram @relation(fields: [programId], references: [id], onDelete: Cascade)
+  customer     Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  events       LoyaltyEvent[]
 
   @@unique([programId, customerId])
 }
@@ -519,7 +520,7 @@ model LoyaltyEvent {
 }
 
 model Promotion {
-  id               String         @id @default(uuid())
+  id               String                @id @default(uuid())
   restaurantId     String
   code             String
   description      String?
@@ -529,27 +530,27 @@ model Promotion {
   perCustomerLimit Int?
   startsAt         DateTime?
   endsAt           DateTime?
-  active           Boolean        @default(true)
+  active           Boolean               @default(true)
   config           Json?
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
-  restaurant       Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  createdAt        DateTime              @default(now())
+  updatedAt        DateTime              @updatedAt
+  restaurant       Restaurant            @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
   redemptions      PromotionRedemption[]
 
   @@unique([restaurantId, code])
 }
 
 model PromotionRedemption {
-  id           String      @id @default(uuid())
+  id           String     @id @default(uuid())
   promotionId  String
   restaurantId String
   customerId   String?
   orderId      String?
-  createdAt    DateTime    @default(now())
-  promotion    Promotion   @relation(fields: [promotionId], references: [id], onDelete: Cascade)
-  restaurant   Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  customer     Customer?   @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  order        Order?      @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  createdAt    DateTime   @default(now())
+  promotion    Promotion  @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  customer     Customer?  @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  order        Order?     @relation(fields: [orderId], references: [id], onDelete: SetNull)
 }
 
 model NotificationJob {

@@ -106,6 +106,7 @@ describe('admin menu integration', () => {
       restaurantId: 'rest_1',
       tenantSlug: 'demo',
       restaurantName: 'Demo Restaurant',
+      subscriptionStatus: 'ACTIVE',
     })
   })
 

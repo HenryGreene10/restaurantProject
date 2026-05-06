@@ -245,6 +245,7 @@ export function createPlatformDataAccess() {
       email: string
       restaurantName: string
       slug: string
+      setupCheckoutSessionId: string
     }) {
       const normalizedSlug = normalizeSlug(input.slug)
       const normalizedEmail = normalizeEmail(input.email)
@@ -256,6 +257,8 @@ export function createPlatformDataAccess() {
               id: randomUUID(),
               slug: normalizedSlug,
               name: input.restaurantName.trim(),
+              subscriptionStatus: 'ACTIVE',
+              setupCheckoutSessionId: input.setupCheckoutSessionId,
             },
           })
 
@@ -287,11 +290,27 @@ export function createPlatformDataAccess() {
         })
       } catch (error) {
         if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+          const target = Array.isArray(error.meta?.target) ? error.meta.target : []
+          if (target.includes('setupCheckoutSessionId')) {
+            throw new Error('SETUP_SESSION_USED')
+          }
+
           throw new Error('SLUG_TAKEN')
         }
 
         throw error
       }
+    },
+
+    async findRestaurantBySetupCheckoutSessionId(setupCheckoutSessionId: string) {
+      return prisma.restaurant.findUnique({
+        where: { setupCheckoutSessionId },
+        select: {
+          id: true,
+          slug: true,
+          name: true,
+        },
+      })
     },
 
     async deleteRestaurantOnboarding(restaurantId: string) {

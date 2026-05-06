@@ -46,7 +46,7 @@ import {
   type MenuResponse,
 } from '../lib/menu'
 import { adminFetchJson, adminUploadFileJson, SubscriptionRequiredError } from '../lib/api'
-import { createSetupSession } from '../lib/onboarding'
+import { createSetupSession, readSetupSessionId } from '../lib/onboarding'
 import { OnboardingPage } from './OnboardingPage'
 import { LoyaltyPage } from './LoyaltyPage'
 import {
@@ -1327,6 +1327,7 @@ export const App: React.FC = () => {
           clerkUserId={user?.id ?? ''}
           email={primaryEmail}
           getToken={getToken}
+          setupSessionId={readSetupSessionId()}
           onCompleted={handleOnboardingCompleted}
         />
       </>

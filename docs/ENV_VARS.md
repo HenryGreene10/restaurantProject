@@ -150,7 +150,7 @@ Notes:
 
 - Vercel frontend env vars must use `VITE_` to be exposed to the browser bundle.
 - Frontend projects should not receive backend secrets like Stripe secret keys, JWT secrets, Twilio auth tokens, or Clerk secret keys.
-- The current setup fee flow uses a Stripe Payment Link redirect. It does not write payment status back to the app. If you need strict in-app access control based on paid setup status, add a backend Stripe Checkout session route, webhook handling, and a tenant payment status field.
+- The setup fee flow uses a backend Stripe Checkout session before Clerk signup. Stripe redirects back to `/signup?setup_session_id={CHECKOUT_SESSION_ID}`; registration verifies that paid session and stores it on the restaurant so it cannot be reused.
 
 ## Local Example Split
 

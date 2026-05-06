@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react'
 import type { ClerkTokenGetter } from '@/lib/api'
 import {
   checkSlugAvailability,
+  clearSetupSessionId,
+  createSignupPaymentSession,
   createSetupSession,
   fetchOnboardingMe,
   registerRestaurantOnboarding,
@@ -48,8 +50,9 @@ export const OnboardingPage: React.FC<{
   clerkUserId: string
   email: string
   getToken: ClerkTokenGetter
+  setupSessionId: string | null
   onCompleted: () => Promise<void> | void
-}> = ({ clerkUserId, email, getToken, onCompleted }) => {
+}> = ({ clerkUserId, email, getToken, setupSessionId, onCompleted }) => {
   const [isResolvingExistingAccess, setIsResolvingExistingAccess] = useState(true)
   const [restaurantName, setRestaurantName] = useState('')
   const [slug, setSlug] = useState('')
@@ -59,6 +62,8 @@ export const OnboardingPage: React.FC<{
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
   const [isCheckingSlug, setIsCheckingSlug] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isLaunchingPayment, setIsLaunchingPayment] = useState(false)
+  const [hasExistingAccess, setHasExistingAccess] = useState(false)
 
   const normalizedSlug = useMemo(() => normalizeSlug(slug), [slug])
 
@@ -79,7 +84,20 @@ export const OnboardingPage: React.FC<{
           return
         }
 
+        if (
+          onboardingState.matched &&
+          onboardingState.tenantSlug &&
+          onboardingState.subscriptionStatus !== 'ACTIVE'
+        ) {
+          setHasExistingAccess(true)
+          setSuccessMessage('Found your restaurant setup. Redirecting to setup payment...')
+          const setupUrl = await createSetupSession(token)
+          window.location.assign(setupUrl)
+          return
+        }
+
         if (onboardingState.matched && onboardingState.tenantSlug) {
+          setHasExistingAccess(true)
           setSuccessMessage('Found your restaurant setup. Redirecting to the dashboard…')
           await onCompleted()
           return
@@ -169,12 +187,13 @@ export const OnboardingPage: React.FC<{
         email,
         restaurantName: trimmedName,
         slug: nextSlug,
+        setupSessionId: setupSessionId ?? '',
         token,
       })
 
-      setSuccessMessage('Restaurant created. Redirecting to setup payment…')
-      const setupUrl = await createSetupSession(token)
-      window.location.assign(setupUrl)
+      setSuccessMessage('Restaurant created. Redirecting to the dashboard...')
+      clearSetupSessionId()
+      await onCompleted()
     } catch (error) {
       setFormError(error instanceof Error ? error.message : 'Failed to create restaurant')
     } finally {
@@ -215,6 +234,32 @@ export const OnboardingPage: React.FC<{
               <p className="text-sm text-muted-foreground">
                 Checking whether this Clerk account already belongs to an existing restaurant…
               </p>
+            </div>
+          ) : !setupSessionId && !hasExistingAccess ? (
+            <div className="grid gap-4">
+              <p className="text-sm leading-6 text-muted-foreground">
+                Complete setup payment before creating the owner login for a new restaurant.
+              </p>
+              <Button
+                type="button"
+                disabled={isLaunchingPayment}
+                onClick={async () => {
+                  setFormError(null)
+                  setIsLaunchingPayment(true)
+                  try {
+                    const url = await createSignupPaymentSession()
+                    window.location.assign(url)
+                  } catch (error) {
+                    setIsLaunchingPayment(false)
+                    setFormError(
+                      error instanceof Error ? error.message : 'Failed to start setup payment'
+                    )
+                  }
+                }}
+              >
+                {isLaunchingPayment ? 'Redirecting...' : 'Continue to setup payment'}
+              </Button>
+              {formError ? <p className="text-sm text-destructive">{formError}</p> : null}
             </div>
           ) : (
             <form className="grid gap-5" onSubmit={handleSubmit}>

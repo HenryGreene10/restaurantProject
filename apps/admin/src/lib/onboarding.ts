@@ -1,9 +1,10 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '/api'
+export const SETUP_SESSION_STORAGE_KEY = 'easymenu.setupSessionId'
 
 export type OnboardingMeResponse = {
   matched: boolean
   tenantSlug: string | null
-  subscriptionStatus?: 'PENDING' | 'ACTIVE'
+  subscriptionStatus?: 'PENDING' | 'ACTIVE' | 'CANCELLED'
   restaurant?: { id: string; name: string; slug: string }
 }
 
@@ -59,11 +60,26 @@ export async function createSetupSession(token: string) {
   return body.url
 }
 
+export async function createSignupPaymentSession() {
+  const response = await fetch(`${API_BASE_URL}/v1/onboarding/create-signup-payment-session`, {
+    method: 'POST',
+  })
+
+  const body = (await response.json().catch(() => null)) as { url?: string; error?: string } | null
+
+  if (!response.ok || !body?.url) {
+    throw new Error(body?.error ?? `Failed to create setup payment session (${response.status})`)
+  }
+
+  return body.url
+}
+
 export async function registerRestaurantOnboarding(input: {
   clerkUserId: string
   email: string
   restaurantName: string
   slug: string
+  setupSessionId: string
   token: string
 }) {
   const response = await fetch(`${API_BASE_URL}/v1/onboarding/register`, {
@@ -77,6 +93,7 @@ export async function registerRestaurantOnboarding(input: {
       email: input.email,
       restaurantName: input.restaurantName,
       slug: input.slug,
+      setupSessionId: input.setupSessionId,
     }),
   })
 
@@ -91,4 +108,18 @@ export async function registerRestaurantOnboarding(input: {
   }
 
   return body
+}
+
+export function readSetupSessionId() {
+  const fromUrl = new URLSearchParams(window.location.search).get('setup_session_id')
+  if (fromUrl) {
+    window.localStorage.setItem(SETUP_SESSION_STORAGE_KEY, fromUrl)
+    return fromUrl
+  }
+
+  return window.localStorage.getItem(SETUP_SESSION_STORAGE_KEY)
+}
+
+export function clearSetupSessionId() {
+  window.localStorage.removeItem(SETUP_SESSION_STORAGE_KEY)
 }
