@@ -1,11 +1,10 @@
 import express, { type NextFunction, type Request, type Response } from 'express'
-import morgan from 'morgan'
 import cors, { type CorsOptions } from 'cors'
 import * as Sentry from '@sentry/node'
 import { requireClerkAuth } from './middleware/clerk-auth.js'
 import { requireActiveSubscription } from './middleware/require-active-subscription.js'
 import { tenantMiddleware } from './middleware/tenant.js'
-import { requestIdMiddleware } from './lib/logger.js'
+import { httpLogger, requestIdMiddleware } from './lib/logger.js'
 import { registerHealthRoutes } from './routes/health.js'
 import { registerMenuRoutes } from './routes/menu.js'
 import { registerAdminBrandRoutes } from './routes/admin-brand.js'
@@ -86,7 +85,7 @@ export function createApp() {
   app.use(cors(corsOptions))
   app.options('*', cors(corsOptions))
   app.use(express.json({ limit: '1mb' }))
-  app.use(morgan('dev'))
+  app.use(httpLogger)
   app.use(requestIdMiddleware as express.RequestHandler)
 
   registerHealthRoutes(app)

@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import request from 'supertest'
+import type { Express } from 'express'
 
 const mockFindTenantByHost = vi.fn()
 const mockFindTenantBySlug = vi.fn()
@@ -87,6 +88,13 @@ vi.mock('@repo/data-access', () => ({
 }))
 
 describe('admin menu integration', () => {
+  let createApp!: () => Express
+
+  beforeAll(async () => {
+    await import('./setup')
+    ;({ createApp } = await import('../app'))
+  })
+
   beforeEach(() => {
     vi.resetAllMocks()
     mockVerifyToken.mockResolvedValue({ sub: 'user_1' })
@@ -111,9 +119,6 @@ describe('admin menu integration', () => {
   })
 
   it('creates a tenant-scoped category', async () => {
-    await import('./setup')
-    const { createApp } = await import('../app')
-
     mockCreateCategory.mockResolvedValue({
       id: 'cat_1',
       name: 'Pizza',
@@ -139,9 +144,6 @@ describe('admin menu integration', () => {
   })
 
   it('updates item availability', async () => {
-    await import('./setup')
-    const { createApp } = await import('../app')
-
     mockSetItemVisibility.mockResolvedValue({
       id: 'item_1',
       visibility: 'SOLD_OUT',
@@ -158,9 +160,6 @@ describe('admin menu integration', () => {
   })
 
   it('creates modifier options under a specific group', async () => {
-    await import('./setup')
-    const { createApp } = await import('../app')
-
     mockCreateModifierOption.mockResolvedValue({
       id: 'opt_1',
       groupId: 'group_1',
@@ -183,9 +182,6 @@ describe('admin menu integration', () => {
   })
 
   it('attaches a modifier group to an item', async () => {
-    await import('./setup')
-    const { createApp } = await import('../app')
-
     mockAttachModifierGroup.mockResolvedValue({
       id: 'img_1',
       itemId: 'item_1',
@@ -216,9 +212,6 @@ describe('admin menu integration', () => {
   })
 
   it('updates tenant brand config', async () => {
-    await import('./setup')
-    const { createApp } = await import('../app')
-
     mockUpdateBrandConfig.mockResolvedValue({
       id: 'brand_1',
       restaurantId: 'rest_1',
@@ -268,9 +261,6 @@ describe('admin menu integration', () => {
   })
 
   it('reorders items within a category', async () => {
-    await import('./setup')
-    const { createApp } = await import('../app')
-
     mockReorderCategoryItems.mockResolvedValue({
       id: 'cat_1',
       categoryItems: [

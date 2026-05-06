@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import request from 'supertest'
+import type { Express } from 'express'
 
 const mockFindTenantByHost = vi.fn()
 const mockRequestCustomerOtp = vi.fn()
@@ -22,38 +23,42 @@ vi.mock('@repo/auth', async () => {
     requestCustomerOtp: mockRequestCustomerOtp,
     verifyCustomerOtp: mockVerifyCustomerOtp,
     issueCustomerTokens: mockIssueCustomerTokens,
-    verifyCustomerRefreshToken: mockVerifyCustomerRefreshToken
+    verifyCustomerRefreshToken: mockVerifyCustomerRefreshToken,
   }
 })
 
 vi.mock('@repo/data-access', () => ({
   createTenantScope: (restaurantId: string) => ({ restaurantId }),
   createPlatformDataAccess: () => ({
-    findTenantByHost: mockFindTenantByHost
+    findTenantByHost: mockFindTenantByHost,
   }),
   createTenantDataAccess: () => ({
     customers: {
       upsertByPhone: mockUpsertByPhone,
-      findById: mockFindCustomerById
+      findById: mockFindCustomerById,
     },
     menu: {},
-    orders: {}
-  })
+    orders: {},
+  }),
 }))
 
 describe('customer auth integration', () => {
+  let createApp!: () => Express
+
+  beforeAll(async () => {
+    await import('./setup')
+    ;({ createApp } = await import('../app'))
+  })
+
   beforeEach(() => {
     vi.resetAllMocks()
     mockFindTenantByHost.mockResolvedValue({
       id: 'rest_1',
-      slug: 'demo'
+      slug: 'demo',
     })
   })
 
   it('requests an OTP for the tenant', async () => {
-    await import('./setup')
-    const { createApp } = await import('../app')
-
     mockRequestCustomerOtp.mockResolvedValue(undefined)
 
     const response = await request(createApp())
@@ -66,17 +71,14 @@ describe('customer auth integration', () => {
   })
 
   it('verifies an OTP, persists the customer, and returns tokens', async () => {
-    await import('./setup')
-    const { createApp } = await import('../app')
-
     mockVerifyCustomerOtp.mockResolvedValue(true)
     mockUpsertByPhone.mockResolvedValue({
       id: 'cust_1',
-      phone: '+15555550123'
+      phone: '+15555550123',
     })
     mockIssueCustomerTokens.mockReturnValue({
       accessToken: 'access_123',
-      refreshToken: 'refresh_123'
+      refreshToken: 'refresh_123',
     })
 
     const response = await request(createApp())
@@ -86,38 +88,32 @@ describe('customer auth integration', () => {
 
     expect(response.status).toBe(200)
     expect(mockUpsertByPhone).toHaveBeenCalledWith({
-      phone: '+15555550123'
+      phone: '+15555550123',
     })
-    expect(mockIssueCustomerTokens).toHaveBeenCalledWith(
-      expect.any(Object),
-      {
-        customerId: 'cust_1',
-        restaurantId: 'rest_1',
-        phone: '+15555550123'
-      }
-    )
+    expect(mockIssueCustomerTokens).toHaveBeenCalledWith(expect.any(Object), {
+      customerId: 'cust_1',
+      restaurantId: 'rest_1',
+      phone: '+15555550123',
+    })
     expect(response.body.accessToken).toBe('access_123')
     expect(response.headers['set-cookie']).toBeDefined()
   })
 
   it('refreshes only when the tenant-scoped customer still exists', async () => {
-    await import('./setup')
-    const { createApp } = await import('../app')
-
     mockVerifyCustomerRefreshToken.mockReturnValue({
       sub: 'cust_1',
       customerId: 'cust_1',
       restaurantId: 'rest_1',
       phone: '+15555550123',
-      type: 'customer-refresh'
+      type: 'customer-refresh',
     })
     mockFindCustomerById.mockResolvedValue({
       id: 'cust_1',
-      phone: '+15555550123'
+      phone: '+15555550123',
     })
     mockIssueCustomerTokens.mockReturnValue({
       accessToken: 'access_456',
-      refreshToken: 'refresh_456'
+      refreshToken: 'refresh_456',
     })
 
     const response = await request(createApp())

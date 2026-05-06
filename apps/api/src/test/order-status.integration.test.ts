@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import request from 'supertest'
+import type { Express } from 'express'
 
 const mockVerifyToken = vi.fn()
 const mockFindTenantByHost = vi.fn()
@@ -44,6 +45,13 @@ vi.mock('@repo/data-access', () => ({
 }))
 
 describe('order status integration', () => {
+  let createApp!: () => Express
+
+  beforeAll(async () => {
+    await import('./setup')
+    ;({ createApp } = await import('../app'))
+  })
+
   beforeEach(() => {
     vi.resetAllMocks()
     mockVerifyToken.mockResolvedValue({ sub: 'user_1' })
@@ -75,9 +83,6 @@ describe('order status integration', () => {
   })
 
   it('returns 400 for an invalid transition', async () => {
-    await import('./setup')
-    const { createApp } = await import('../app')
-
     mockFindOrderById.mockResolvedValue({
       id: 'order_1',
       status: 'READY',
@@ -99,9 +104,6 @@ describe('order status integration', () => {
   })
 
   it('updates status for a valid transition', async () => {
-    await import('./setup')
-    const { createApp } = await import('../app')
-
     mockFindOrderById.mockResolvedValue({
       id: 'order_1',
       status: 'CONFIRMED',
@@ -122,9 +124,6 @@ describe('order status integration', () => {
   })
 
   it('returns the customer order when the access token matches the order owner', async () => {
-    await import('./setup')
-    const { createApp } = await import('../app')
-
     mockFindOrderById.mockResolvedValue({
       id: 'order_1',
       customerId: 'cust_1',
@@ -181,9 +180,6 @@ describe('order status integration', () => {
   })
 
   it('rejects customer order lookup when the order belongs to another customer', async () => {
-    await import('./setup')
-    const { createApp } = await import('../app')
-
     mockFindOrderById.mockResolvedValue({
       id: 'order_1',
       customerId: 'cust_other',
@@ -217,9 +213,6 @@ describe('order status integration', () => {
   })
 
   it('returns public order status without customer auth', async () => {
-    await import('./setup')
-    const { createApp } = await import('../app')
-
     mockFindOrderById.mockResolvedValue({
       id: 'order_1',
       customerId: 'cust_1',
@@ -275,9 +268,6 @@ describe('order status integration', () => {
   })
 
   it('returns 404 for public order status when the order is not found for the tenant', async () => {
-    await import('./setup')
-    const { createApp } = await import('../app')
-
     mockFindOrderById.mockResolvedValue(null)
 
     const response = await request(createApp())

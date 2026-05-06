@@ -1,5 +1,6 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import request from 'supertest'
+import type { Express } from 'express'
 
 const mockVerifyToken = vi.fn()
 const mockFindTenantByHost = vi.fn()
@@ -74,6 +75,13 @@ vi.mock('@repo/data-access', () => ({
 const anthropicFetch = vi.fn()
 
 describe.sequential('assistant integration', () => {
+  let createApp!: () => Express
+
+  beforeAll(async () => {
+    await import('./setup')
+    ;({ createApp } = await import('../app'))
+  })
+
   beforeEach(() => {
     vi.resetAllMocks()
     vi.stubGlobal('fetch', anthropicFetch)
@@ -166,9 +174,6 @@ describe.sequential('assistant integration', () => {
   })
 
   it('executes item visibility changes from assistant commands', async () => {
-    await import('./setup')
-    const { createApp } = await import('../app')
-
     anthropicFetch.mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -202,6 +207,7 @@ describe.sequential('assistant integration', () => {
 
     const response = await request(createApp())
       .post('/v1/assistant/command')
+      .set('Authorization', 'Bearer clerk_token')
       .set('x-tenant-slug', 'demo')
       .send({ message: 'mark Margherita Pizza as sold out' })
 
@@ -221,9 +227,6 @@ describe.sequential('assistant integration', () => {
   }, 30000)
 
   it('returns clarification for ambiguous item matches without mutating', async () => {
-    await import('./setup')
-    const { createApp } = await import('../app')
-
     anthropicFetch.mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -252,6 +255,7 @@ describe.sequential('assistant integration', () => {
 
     const response = await request(createApp())
       .post('/v1/assistant/command')
+      .set('Authorization', 'Bearer clerk_token')
       .set('x-tenant-slug', 'demo')
       .send({ message: 'hide pizza' })
 
@@ -270,9 +274,6 @@ describe.sequential('assistant integration', () => {
   }, 30000)
 
   it('executes item featured changes from assistant commands', async () => {
-    await import('./setup')
-    const { createApp } = await import('../app')
-
     anthropicFetch.mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -306,6 +307,7 @@ describe.sequential('assistant integration', () => {
 
     const response = await request(createApp())
       .post('/v1/assistant/command')
+      .set('Authorization', 'Bearer clerk_token')
       .set('x-tenant-slug', 'demo')
       .send({ message: 'feature Garlic Knots' })
 
@@ -325,9 +327,6 @@ describe.sequential('assistant integration', () => {
   }, 30000)
 
   it('executes category visibility changes from assistant commands', async () => {
-    await import('./setup')
-    const { createApp } = await import('../app')
-
     anthropicFetch.mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -361,6 +360,7 @@ describe.sequential('assistant integration', () => {
 
     const response = await request(createApp())
       .post('/v1/assistant/command')
+      .set('Authorization', 'Bearer clerk_token')
       .set('x-tenant-slug', 'demo')
       .send({ message: 'hide the apps category' })
 
@@ -380,9 +380,6 @@ describe.sequential('assistant integration', () => {
   }, 30000)
 
   it('executes add_item commands for a resolved category', async () => {
-    await import('./setup')
-    const { createApp } = await import('../app')
-
     anthropicFetch.mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -436,6 +433,7 @@ describe.sequential('assistant integration', () => {
 
     const response = await request(createApp())
       .post('/v1/assistant/command')
+      .set('Authorization', 'Bearer clerk_token')
       .set('x-tenant-slug', 'demo')
       .send({ message: 'add a caesar salad to Apps for $12.99' })
 
@@ -470,9 +468,6 @@ describe.sequential('assistant integration', () => {
   }, 30000)
 
   it('executes add_category commands', async () => {
-    await import('./setup')
-    const { createApp } = await import('../app')
-
     anthropicFetch.mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -505,6 +500,7 @@ describe.sequential('assistant integration', () => {
 
     const response = await request(createApp())
       .post('/v1/assistant/command')
+      .set('Authorization', 'Bearer clerk_token')
       .set('x-tenant-slug', 'demo')
       .send({ message: 'add a new section called salads' })
 
@@ -529,9 +525,6 @@ describe.sequential('assistant integration', () => {
   }, 30000)
 
   it('asks for clarification when add_item is missing a price', async () => {
-    await import('./setup')
-    const { createApp } = await import('../app')
-
     anthropicFetch.mockResolvedValue(
       new Response(
         JSON.stringify({
@@ -553,6 +546,7 @@ describe.sequential('assistant integration', () => {
 
     const response = await request(createApp())
       .post('/v1/assistant/command')
+      .set('Authorization', 'Bearer clerk_token')
       .set('x-tenant-slug', 'demo')
       .send({ message: 'add caesar salad' })
 
@@ -567,9 +561,6 @@ describe.sequential('assistant integration', () => {
   }, 30000)
 
   it('executes multiple add_item actions and summarizes them naturally', async () => {
-    await import('./setup')
-    const { createApp } = await import('../app')
-
     const saladsMenu = {
       categories: [
         {
@@ -678,6 +669,7 @@ describe.sequential('assistant integration', () => {
 
     const response = await request(createApp())
       .post('/v1/assistant/command')
+      .set('Authorization', 'Bearer clerk_token')
       .set('x-tenant-slug', 'demo')
       .send({ message: 'add caesar salad for $10 and house salad for $6' })
 
@@ -725,9 +717,6 @@ describe.sequential('assistant integration', () => {
   }, 30000)
 
   it('refreshes tenant context between sequential actions', async () => {
-    await import('./setup')
-    const { createApp } = await import('../app')
-
     const initialMenu = {
       categories: [
         {
@@ -821,6 +810,7 @@ describe.sequential('assistant integration', () => {
 
     const response = await request(createApp())
       .post('/v1/assistant/command')
+      .set('Authorization', 'Bearer clerk_token')
       .set('x-tenant-slug', 'demo')
       .send({
         message: 'add a new section called salads and add caesar salad to salads for $12.99',
@@ -863,9 +853,6 @@ describe.sequential('assistant integration', () => {
   }, 30000)
 
   it('passes conversation history so follow-up confirmations like yes can execute', async () => {
-    await import('./setup')
-    const { createApp } = await import('../app')
-
     anthropicFetch.mockImplementationOnce(async (_url, init) => {
       const body = JSON.parse(String(init?.body ?? '{}'))
 
@@ -913,6 +900,7 @@ describe.sequential('assistant integration', () => {
 
     const response = await request(createApp())
       .post('/v1/assistant/command')
+      .set('Authorization', 'Bearer clerk_token')
       .set('x-tenant-slug', 'demo')
       .send({
         message: 'yes',
@@ -940,9 +928,6 @@ describe.sequential('assistant integration', () => {
   }, 30000)
 
   it('executes add_item after a clarification follow-up that supplies category and price', async () => {
-    await import('./setup')
-    const { createApp } = await import('../app')
-
     mockListCategories.mockResolvedValue([
       {
         id: 'cat_1',
@@ -991,6 +976,7 @@ describe.sequential('assistant integration', () => {
 
     const response = await request(createApp())
       .post('/v1/assistant/command')
+      .set('Authorization', 'Bearer clerk_token')
       .set('x-tenant-slug', 'demo')
       .send({
         message: 'yes add to apps, calzone $7',

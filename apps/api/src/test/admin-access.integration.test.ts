@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import request from 'supertest'
+import type { Express } from 'express'
 
 const mockFindTenantByHost = vi.fn()
 const mockFindTenantBySlug = vi.fn()
@@ -38,6 +39,13 @@ vi.mock('@repo/data-access', () => ({
 }))
 
 describe('admin access integration', () => {
+  let createApp!: () => Express
+
+  beforeAll(async () => {
+    await import('./setup')
+    ;({ createApp } = await import('../app'))
+  })
+
   beforeEach(() => {
     vi.resetAllMocks()
     mockVerifyToken.mockResolvedValue({ sub: 'user_1' })
@@ -74,9 +82,6 @@ describe('admin access integration', () => {
   })
 
   it('returns the current owner access record', async () => {
-    await import('./setup')
-    const { createApp } = await import('../app')
-
     const response = await request(createApp())
       .get('/admin/restaurant/access')
       .set('Authorization', 'Bearer clerk_token')
@@ -91,9 +96,6 @@ describe('admin access integration', () => {
   })
 
   it('updates the owner email for a handoff', async () => {
-    await import('./setup')
-    const { createApp } = await import('../app')
-
     const response = await request(createApp())
       .patch('/admin/restaurant/access')
       .set('Authorization', 'Bearer clerk_token')
@@ -111,9 +113,6 @@ describe('admin access integration', () => {
   })
 
   it('rejects handoff updates from non-owner admins', async () => {
-    await import('./setup')
-    const { createApp } = await import('../app')
-
     mockFindAdminAccessByClerkUserId.mockResolvedValueOnce({
       adminUserId: 'admin_2',
       clerkUserId: 'user_1',
@@ -136,9 +135,6 @@ describe('admin access integration', () => {
   })
 
   it('blocks admin access when the subscription is pending', async () => {
-    await import('./setup')
-    const { createApp } = await import('../app')
-
     mockFindAdminAccessByClerkUserId.mockResolvedValueOnce({
       adminUserId: 'admin_1',
       clerkUserId: 'user_1',

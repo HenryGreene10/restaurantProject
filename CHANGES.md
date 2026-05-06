@@ -1,5 +1,36 @@
 # Change Log
 
+---
+
+## Sprint 2: Observability & Testing
+
+**Branch:** `main` (direct)
+
+### Structured logging: Morgan → pino
+
+Replaced `morgan('dev')` with `pino` + `pino-http` in `apps/api/src/app.ts`. HTTP request logs now emit structured JSON with level, requestId, method, url, statusCode, and response time. Silent in test environments (`NODE_ENV=test`). The existing `logger.ts` custom logger was updated to use pino as its engine, keeping the AsyncLocalStorage requestId propagation to all `logger.info/warn/error` calls.
+
+Packages added: `pino`, `pino-http` (to `apps/api`).
+
+### Checkout integration tests
+
+New `apps/api/src/test/checkout.integration.test.ts` — 22 tests covering:
+
+- `POST /v1/checkouts/create-payment-intent`: happy path (returns checkoutSessionId + clientSecret), no-items 400, bad-phone 400, Stripe-not-active 409, item-cap 400
+- `GET /v1/checkouts/:checkoutSessionId`: returns status + orderId, surfaces payment-failed error, 404 for unknown session
+- `POST /webhooks/stripe (payment_intent.succeeded)`: creates order, idempotency guard (skips if ORDER_CREATED)
+- `POST /webhooks/stripe (payment_intent.payment_failed)`: marks checkout failed
+- `POST /webhooks/stripe (charge.refunded)`: marks order refunded
+- Missing signature header → 400
+
+### Test suite hardening
+
+- Fixed pre-existing assistant test failures: all 11 tests were sending to `/v1/assistant/command` without an `Authorization: Bearer` header, causing 401 before Clerk mock was reached. Added the header to all requests.
+- Moved `await import('./setup')` and `await import('../app')` from inside every `it()` body into a `beforeAll` in each describe block, across all 7 test files. This eliminates first-test-per-suite timeouts caused by paying the module transform cost inside a test. Tests now pay it once in the hook before any test runs.
+- Updated vitest config: `hookTimeout` raised to 35000ms (covers beforeAll transform cost), `testTimeout` lowered to 10000ms (individual tests now run fast after warm cache).
+
+**Result:** 47/47 tests passing. Zero failures. No pre-existing issues remaining in the test suite.
+
 Changes made during the audit remediation pass. Most recent first.
 
 ---
