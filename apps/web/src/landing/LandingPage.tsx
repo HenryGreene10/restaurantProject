@@ -194,11 +194,11 @@ export function LandingPage() {
               <div className="ss-dot" style={{ background: '#ff5f57' }} />
               <div className="ss-dot" style={{ background: '#febc2e' }} />
               <div className="ss-dot" style={{ background: '#28c840' }} />
-              <div className="ss-url">admin.easymenu.website — Loyalty Program</div>
+              <div className="ss-url">your-restaurant.easymenu.website</div>
             </div>
             <img
-              src="/landing/hero-admin.png"
-              alt="EasyMenu admin dashboard showing loyalty analytics and live storefront preview"
+              src="/landing/feat-storefront.png"
+              alt="Customer-facing EasyMenu storefront with branded ordering page and menu"
             />
           </div>
           <div className="hero-glow" />
@@ -467,10 +467,16 @@ export function LandingPage() {
               </div>
             </div>
             <div className="feat-ss">
-              <div className="ss-mobile r rd2">
+              <div className="ss-frame r rd2">
+                <div className="ss-chrome">
+                  <div className="ss-dot" style={{ background: '#ff5f57' }} />
+                  <div className="ss-dot" style={{ background: '#febc2e' }} />
+                  <div className="ss-dot" style={{ background: '#28c840' }} />
+                  <div className="ss-url">admin.easymenu.website — Loyalty Program</div>
+                </div>
                 <img
-                  src="/landing/feat-loyalty.png"
-                  alt="Customer rewards wallet showing points balance and redemption tiers"
+                  src="/landing/hero-admin.png"
+                  alt="EasyMenu admin dashboard showing loyalty analytics and rewards configuration"
                 />
               </div>
             </div>
