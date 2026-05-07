@@ -95,6 +95,8 @@ export function createApp() {
   app.use('/admin', requireActiveSubscription)
   app.use('/v1/assistant/command', requireClerkAuth)
   app.use('/v1/assistant/command', requireActiveSubscription)
+  app.use('/v1/kitchen', requireClerkAuth)
+  app.use('/v1/kitchen', requireActiveSubscription)
   app.use(tenantMiddleware)
   // Defense-in-depth: reject any admin request where the resolved tenant does not
   // match the authenticated admin's restaurant. tenantMiddleware already derives

@@ -4,13 +4,11 @@ Tracked gaps from audit on 2026-05-07. Work through these before or alongside ne
 
 ---
 
-## P0 — Security (fix before next feature work)
+## P0 — Security ✅ DONE
 
-### 1. Kitchen route has no auth
+### 1. Kitchen route auth ✅
 
-**File:** `apps/api/src/routes/kitchen.ts:6`
-**Problem:** `GET /v1/kitchen/orders` has no authentication guard. Anyone who knows a tenant slug can pull all active orders, including customer names and phone numbers.
-**Fix:** Add `requireClerkAuth` (the kitchen screen already uses Clerk — see `apps/kiosk/src/main.tsx`) before the route, or gate behind a dedicated kitchen-session token.
+Added `requireClerkAuth` + `requireActiveSubscription` to `/v1/kitchen` prefix in `app.ts`. Tenant now derives from the authenticated admin's record, not an arbitrary header. 5 tests in `kitchen.integration.test.ts`.
 
 ---
 
