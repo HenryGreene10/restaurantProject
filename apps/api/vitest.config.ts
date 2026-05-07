@@ -7,6 +7,6 @@ export default defineConfig({
     // Individual tests run fast after the cache is warm.
     testTimeout: 10000,
     hookTimeout: 35000,
-    pool: 'forks',
+    pool: 'threads',
   },
 })
