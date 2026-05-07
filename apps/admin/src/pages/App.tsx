@@ -1622,6 +1622,9 @@ export const App: React.FC = () => {
                   ...(Object.prototype.hasOwnProperty.call(body, 'photoUrl')
                     ? { photoUrl: (body.photoUrl as string | null | undefined) ?? null }
                     : {}),
+                  ...(typeof body.basePriceCents === 'number'
+                    ? { basePriceCents: body.basePriceCents }
+                    : {}),
                 },
               }
             : entry
@@ -1648,6 +1651,10 @@ export const App: React.FC = () => {
       },
       nameLocalized.trim() ? 'Localized item name updated.' : 'Localized item name removed.'
     )
+  }
+
+  const updateItemPrice = async (itemId: string, basePriceCents: number) => {
+    await updateItemPresentation(itemId, { basePriceCents }, 'Item price updated.')
   }
 
   const batchTranslateItems = async () => {
@@ -2058,6 +2065,9 @@ export const App: React.FC = () => {
           }
           onItemLocalizedNameChange={(itemId, nameLocalized) =>
             void updateItemLocalizedName(itemId, nameLocalized)
+          }
+          onItemPriceChange={(itemId, basePriceCents) =>
+            void updateItemPrice(itemId, basePriceCents)
           }
           onItemReorder={reorderCategoryItem}
           onItemVisibilityChange={updateItemVisibility}
@@ -2698,6 +2708,7 @@ function MenuTab({
   onItemFeaturedChange,
   onItemImageChange,
   onItemLocalizedNameChange,
+  onItemPriceChange,
   onItemReorder,
   onItemVisibilityChange,
 }: {
@@ -2724,6 +2735,7 @@ function MenuTab({
   onItemFeaturedChange: (itemId: string, isFeatured: boolean) => void
   onItemImageChange: (itemId: string, photoUrl: string | null) => void | Promise<void>
   onItemLocalizedNameChange: (itemId: string, nameLocalized: string) => void | Promise<void>
+  onItemPriceChange: (itemId: string, basePriceCents: number) => void | Promise<void>
   onItemReorder: (categoryId: string, nextItemIds: string[]) => void
   onItemVisibilityChange: (
     itemId: string,
@@ -2870,6 +2882,7 @@ function MenuTab({
                 onItemFeaturedChange={onItemFeaturedChange}
                 onItemImageChange={onItemImageChange}
                 onItemLocalizedNameChange={onItemLocalizedNameChange}
+                onItemPriceChange={onItemPriceChange}
                 onItemVisibilityChange={onItemVisibilityChange}
                 overDragId={overDragId}
               />
@@ -2895,6 +2908,7 @@ function SortableCategoryCard({
   onItemFeaturedChange,
   onItemImageChange,
   onItemLocalizedNameChange,
+  onItemPriceChange,
   onItemVisibilityChange,
   overDragId,
 }: {
@@ -2922,6 +2936,7 @@ function SortableCategoryCard({
   onItemFeaturedChange: (itemId: string, isFeatured: boolean) => void
   onItemImageChange: (itemId: string, photoUrl: string | null) => void | Promise<void>
   onItemLocalizedNameChange: (itemId: string, nameLocalized: string) => void | Promise<void>
+  onItemPriceChange: (itemId: string, basePriceCents: number) => void | Promise<void>
   onItemVisibilityChange: (
     itemId: string,
     visibility: CategoryItemEntry['item']['visibility']
@@ -3194,6 +3209,7 @@ function SortableCategoryCard({
                     onFeaturedChange={onItemFeaturedChange}
                     onImageChange={onItemImageChange}
                     onLocalizedNameChange={onItemLocalizedNameChange}
+                    onPriceChange={onItemPriceChange}
                     onVisibilityChange={onItemVisibilityChange}
                     overDragId={overDragId}
                   />
@@ -3223,6 +3239,7 @@ function SortableItemRow({
   onFeaturedChange,
   onImageChange,
   onLocalizedNameChange,
+  onPriceChange,
   onVisibilityChange,
   overDragId,
 }: {
@@ -3236,6 +3253,7 @@ function SortableItemRow({
   onFeaturedChange: (itemId: string, isFeatured: boolean) => void
   onImageChange: (itemId: string, photoUrl: string | null) => void | Promise<void>
   onLocalizedNameChange: (itemId: string, nameLocalized: string) => void | Promise<void>
+  onPriceChange: (itemId: string, basePriceCents: number) => void | Promise<void>
   onVisibilityChange: (itemId: string, visibility: CategoryItemEntry['item']['visibility']) => void
   overDragId: string | null
 }) {
@@ -3258,10 +3276,16 @@ function SortableItemRow({
     activeItemIndex < itemIndex
   const [localizedNameDraft, setLocalizedNameDraft] = useState(entry.item.nameLocalized ?? '')
   const [isSavingLocalizedName, setIsSavingLocalizedName] = useState(false)
+  const [priceDraft, setPriceDraft] = useState(() => (entry.item.basePriceCents / 100).toFixed(2))
+  const [isSavingPrice, setIsSavingPrice] = useState(false)
 
   useEffect(() => {
     setLocalizedNameDraft(entry.item.nameLocalized ?? '')
   }, [entry.item.nameLocalized])
+
+  useEffect(() => {
+    setPriceDraft((entry.item.basePriceCents / 100).toFixed(2))
+  }, [entry.item.basePriceCents])
 
   const saveLocalizedName = async () => {
     if ((entry.item.nameLocalized ?? '') === localizedNameDraft) {
@@ -3273,6 +3297,19 @@ function SortableItemRow({
       await onLocalizedNameChange(entry.item.id, localizedNameDraft)
     } finally {
       setIsSavingLocalizedName(false)
+    }
+  }
+
+  const savePrice = async () => {
+    const parsed = Number(priceDraft)
+    const newCents = Math.round(parsed * 100)
+    if (Number.isNaN(parsed) || parsed < 0 || newCents === entry.item.basePriceCents) return
+
+    setIsSavingPrice(true)
+    try {
+      await onPriceChange(entry.item.id, newCents)
+    } finally {
+      setIsSavingPrice(false)
     }
   }
 
@@ -3325,29 +3362,57 @@ function SortableItemRow({
             </div>
           </div>
 
-          <div className="grid gap-2 sm:pl-[84px]">
-            <Label htmlFor={`item-localized-name-${entry.item.id}`}>
-              Local language name (optional)
-            </Label>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Input
-                id={`item-localized-name-${entry.item.id}`}
-                value={localizedNameDraft}
-                placeholder="e.g. 蒜蓉结"
-                onChange={(event) => setLocalizedNameDraft(event.target.value)}
-                onBlur={() => void saveLocalizedName()}
-              />
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={
-                  isSavingLocalizedName || localizedNameDraft === (entry.item.nameLocalized ?? '')
-                }
-                onClick={() => void saveLocalizedName()}
-              >
-                {isSavingLocalizedName ? 'Saving…' : 'Save'}
-              </Button>
+          <div className="grid gap-3 sm:pl-[84px] sm:grid-cols-2">
+            <div className="grid gap-2">
+              <Label htmlFor={`item-price-${entry.item.id}`}>Price</Label>
+              <div className="flex gap-2">
+                <Input
+                  id={`item-price-${entry.item.id}`}
+                  value={priceDraft}
+                  inputMode="decimal"
+                  onChange={(event) => setPriceDraft(event.target.value)}
+                  onBlur={() => void savePrice()}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={
+                    isSavingPrice ||
+                    Number.isNaN(Number(priceDraft)) ||
+                    Number(priceDraft) < 0 ||
+                    Math.round(Number(priceDraft) * 100) === entry.item.basePriceCents
+                  }
+                  onClick={() => void savePrice()}
+                >
+                  {isSavingPrice ? 'Saving…' : 'Save'}
+                </Button>
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor={`item-localized-name-${entry.item.id}`}>
+                Local language name (optional)
+              </Label>
+              <div className="flex gap-2">
+                <Input
+                  id={`item-localized-name-${entry.item.id}`}
+                  value={localizedNameDraft}
+                  placeholder="e.g. 蒜蓉结"
+                  onChange={(event) => setLocalizedNameDraft(event.target.value)}
+                  onBlur={() => void saveLocalizedName()}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={
+                    isSavingLocalizedName || localizedNameDraft === (entry.item.nameLocalized ?? '')
+                  }
+                  onClick={() => void saveLocalizedName()}
+                >
+                  {isSavingLocalizedName ? 'Saving…' : 'Save'}
+                </Button>
+              </div>
             </div>
           </div>
 
