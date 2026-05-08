@@ -12,19 +12,16 @@ Added `requireClerkAuth` + `requireActiveSubscription` to `/v1/kitchen` prefix i
 
 ---
 
-## P1 — Operational gaps (high value, low complexity)
+## P1 — Operational gaps ✅ DONE
 
-### 2. No HTTP security headers (helmet)
+### 2. HTTP security headers ✅
 
-**File:** `apps/api/src/app.ts`
-**Problem:** No `helmet` middleware. Missing X-Frame-Options, CSP, HSTS, etc.
-**Fix:** `npm install helmet` in `apps/api`, add `app.use(helmet())` near the top of `createApp()`.
+Added `helmet` to `apps/api`. `app.use(helmet())` runs before all routes in `createApp()`.
 
-### 3. No platform-admin loyalty endpoint
+### 3. Platform-admin loyalty endpoint ✅
 
-**Context:** There is no way to adjust a restaurant's loyalty economics (earnRate, redeemRate, minRedeem, tiers, etc.) without access to their admin console.
-**Workaround today:** One-off script — `createTenantDataAccess(createTenantScope(restaurantId)).loyalty.updateConfig(patch)`.
-**Fix:** Add a small internal platform-admin route (e.g. `POST /internal/restaurants/:slug/loyalty`, gated by a `INTERNAL_ADMIN_SECRET` header env var) so adjustments can be made without shell/DB access.
+Added `GET/PATCH /internal/restaurants/:slug/loyalty` in `apps/api/src/routes/internal-loyalty.ts`.
+Gated by `x-internal-secret` header matching `INTERNAL_ADMIN_SECRET` env var. Returns 403 if the env var is not configured. Supports all loyalty config fields: `earnRate`, `redeemRate`, `minRedeem`, `expiryMonths`, `welcomeBonus`, `newMemberDiscountEnabled/Type/Value`, `active`.
 
 ---
 

@@ -1,5 +1,6 @@
 import express, { type NextFunction, type Request, type Response } from 'express'
 import cors, { type CorsOptions } from 'cors'
+import helmet from 'helmet'
 import * as Sentry from '@sentry/node'
 import { requireClerkAuth } from './middleware/clerk-auth.js'
 import { requireActiveSubscription } from './middleware/require-active-subscription.js'
@@ -24,6 +25,7 @@ import { registerAdminPrintingRoutes } from './routes/admin-printing.js'
 import { registerAdminLoyaltyRoutes } from './routes/admin-loyalty.js'
 import { registerAdminAccessRoutes } from './routes/admin-access.js'
 import { registerLoyaltyRoutes } from './routes/loyalty.js'
+import { registerInternalLoyaltyRoutes } from './routes/internal-loyalty.js'
 import { env } from './config/env.js'
 
 function isAllowedCorsOrigin(origin: string) {
@@ -82,6 +84,7 @@ export function createApp() {
   const corsOptions = createCorsOptions()
 
   registerStripeWebhookRoute(app)
+  app.use(helmet())
   app.use(cors(corsOptions))
   app.options('*', cors(corsOptions))
   app.use(express.json({ limit: '1mb' }))
@@ -91,6 +94,7 @@ export function createApp() {
   registerHealthRoutes(app)
   registerOnboardingRoutes(app)
   registerCloudPrntRoutes(app)
+  registerInternalLoyaltyRoutes(app)
   app.use('/admin', requireClerkAuth)
   app.use('/admin', requireActiveSubscription)
   app.use('/v1/assistant/command', requireClerkAuth)

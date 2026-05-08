@@ -31,6 +31,7 @@ const EnvSchema = z
     CLOUDFLARE_R2_BUCKET_NAME: z.string().default(''),
     CLOUDFLARE_R2_PUBLIC_URL: z.string().default(''),
     CORS_VERCEL_PROJECT: z.string().optional(),
+    INTERNAL_ADMIN_SECRET: z.string().optional(),
     STRIPE_SETUP_FEE_PRICE_ID: z.string().default(''),
     STRIPE_MONTHLY_PRICE_ID: z.string().default(''),
     STRIPE_SETUP_SUCCESS_URL: z.string().default(''),
