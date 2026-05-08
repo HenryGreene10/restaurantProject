@@ -25,18 +25,17 @@ Gated by `x-internal-secret` header matching `INTERNAL_ADMIN_SECRET` env var. Re
 
 ---
 
-## P2 — Test coverage gaps
+## P2 — Test coverage ✅ DONE
 
-No integration tests exist for these routes. Refactors are unguarded:
+All previously uncovered routes now have integration tests (107 total across 15 test files):
 
-- `apps/api/src/routes/kitchen.ts`
-- `apps/api/src/routes/loyalty.ts`
-- `apps/api/src/routes/admin-loyalty.ts`
-- `apps/api/src/routes/admin-insights.ts`
-- `apps/api/src/routes/admin-brand.ts`
-- `apps/api/src/routes/admin-orders.ts`
-- `apps/api/src/routes/admin-payments.ts`
-- `apps/api/src/routes/admin-printing.ts`
+- `loyalty.integration.test.ts` — customer loyalty account + redeem
+- `admin-loyalty.integration.test.ts` — config, tiers CRUD, analytics
+- `admin-insights.integration.test.ts` — all 7 analytics endpoints
+- `admin-brand.integration.test.ts` — brand config GET/PATCH, image upload
+- `admin-orders.integration.test.ts` — order list with filters, delivery ETA
+- `admin-payments.integration.test.ts` — Stripe status, onboarding link
+- `admin-printing.integration.test.ts` — settings GET, validation (PATCH is intentionally 409-paused)
 
 ---
 
