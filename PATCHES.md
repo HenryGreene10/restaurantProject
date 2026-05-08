@@ -42,11 +42,9 @@ No integration tests exist for these routes. Refactors are unguarded:
 
 ## P3 — Product decision needed
 
-### 5. PWA app is a skeleton
+### 5. PWA app marked as deferred ✅
 
-**File:** `apps/pwa/src/pages/MenuPage.tsx`
-**Problem:** The PWA is 30 lines of bare HTML — no cart, no ordering, no checkout. The real customer ordering flow lives in `apps/web/src/storefront/`.
-**Decision needed:** Is the PWA being built out (mobile-installable storefront), or is it deferred/abandoned? If deferred, remove or mark clearly so it doesn't create confusion.
+Added a prominent comment to `apps/pwa/src/App.tsx` explaining the app is a skeleton and pointing developers to `apps/web/src/storefront/` as the real ordering flow. Build out when demand for an installable PWA justifies the work.
 
 ---
 
