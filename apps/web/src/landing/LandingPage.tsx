@@ -129,7 +129,7 @@ export function LandingPage() {
               Sign in
             </a>
             <a href="https://admin.easymenu.website/signup" className="btn-sm">
-              Start for $279
+              Start for $358
               <svg
                 width="12"
                 height="12"
@@ -161,12 +161,12 @@ export function LandingPage() {
           </h1>
           <p className="hero-sub r rd2">
             EasyMenu gives independent restaurants a fully branded direct-ordering system. We help
-            you get live with menu setup, Stripe connection, and website linking. $279 to launch,
+            you get live with menu setup, Stripe connection, and website linking. $358 to launch,
             then $79/month flat.
           </p>
           <div className="hero-actions r rd3">
             <a href="https://admin.easymenu.website/signup" className="btn-primary">
-              Let&apos;s get started for $279
+              Let&apos;s get started for $358
               <svg
                 width="14"
                 height="14"
@@ -599,7 +599,7 @@ export function LandingPage() {
               </div>
               <div className="pricing-label">Initial setup</div>
               <div className="pricing-price">
-                <div className="pricing-dollar">$279</div>
+                <div className="pricing-dollar">$358</div>
                 <div className="pricing-period">&thinsp;one time</div>
               </div>
               <div className="pricing-subprice">$79/month after launch</div>
@@ -635,7 +635,7 @@ export function LandingPage() {
             </div>
             <div className="pricing-cta">
               <a href="https://admin.easymenu.website/signup" className="btn-full">
-                Let&apos;s get started for $279
+                Let&apos;s get started for $358
                 <svg
                   width="13"
                   height="13"
@@ -665,7 +665,7 @@ export function LandingPage() {
             <h2>Flat direct ordering beats percentage fees.</h2>
             <p>
               On $8,000/month in repeat orders, a 20% marketplace fee is $1,600 before delivery
-              add-ons, promos, or processing. EasyMenu is $279 to launch, then $79/month.
+              add-ons, promos, or processing. EasyMenu is $358 to launch, then $79/month.
             </p>
           </div>
           <div className="comp-table r">
@@ -680,7 +680,7 @@ export function LandingPage() {
             {[
               {
                 label: 'Direct-order software cost',
-                us: <span className="hl">$279 setup, then $79/mo</span>,
+                us: <span className="hl">$358 setup, then $79/mo</span>,
                 a: <span className="sm">Commission-free Online Ordering available</span>,
                 b: <span className="sm">Grubhub Direct says $0 setup / hosting</span>,
                 d: <span className="sm">Hardware and implementation vary</span>,
@@ -776,7 +776,7 @@ export function LandingPage() {
             </h2>
             <p className="cta-sub">
               We&apos;ll help you connect your site, set up your menu, and get your direct ordering
-              flow live for $279 upfront, then $79/month.
+              flow live for $358 upfront, then $79/month.
             </p>
             <div className="cta-actions">
               <a
@@ -784,7 +784,7 @@ export function LandingPage() {
                 className="btn-primary"
                 style={{ fontSize: 15, padding: '14px 24px' }}
               >
-                Let&apos;s get started for $279
+                Let&apos;s get started for $358
                 <svg
                   width="14"
                   height="14"
@@ -824,7 +824,7 @@ export function LandingPage() {
               <div className="contact-points">
                 <span>No hello@ inbox required</span>
                 <span>Best for pre-signup questions</span>
-                <span>Signup still starts with the $279 setup flow</span>
+                <span>Signup still starts with the $358 setup flow</span>
               </div>
             </div>
             <form className="contact-form" onSubmit={handleContactSubmit}>
@@ -922,7 +922,7 @@ export function LandingPage() {
               </div>
               <div className="footer-col">
                 <h4>Restaurant</h4>
-                <a href="https://admin.easymenu.website/signup">Get started for $279</a>
+                <a href="https://admin.easymenu.website/signup">Get started for $358</a>
                 <a href="https://admin.easymenu.website">Admin login</a>
                 <a href="#contact">Contact us</a>
               </div>
