@@ -972,13 +972,14 @@ function MenuItemCard({
       <article
         className={cn(
           'group flex h-full flex-col overflow-hidden rounded-[24px] border',
-          item.visibility === 'SOLD_OUT' && 'opacity-70'
+          item.visibility === 'SOLD_OUT' ? 'opacity-70' : 'cursor-pointer'
         )}
         style={{
           backgroundColor: theme.palette.surface,
           borderColor: hexToRgba(theme.palette.border, 0.55),
           boxShadow: `0 8px 24px ${hexToRgba(theme.palette.text, 0.06)}`,
         }}
+        onClick={item.visibility !== 'SOLD_OUT' ? onCustomize : undefined}
       >
         {item.photoUrl ? (
           <div className="relative h-48 overflow-hidden p-4 pb-0 sm:h-56 sm:p-6 sm:pb-0">
@@ -1087,19 +1088,16 @@ function MenuItemCard({
             {item.visibility === 'SOLD_OUT' ? (
               <span className="text-sm font-medium text-muted-foreground">Unavailable</span>
             ) : (
-              <button
-                type="button"
-                className="inline-flex h-11 w-11 items-center justify-center rounded-full shadow-lg transition-transform hover:-translate-y-0.5"
+              <div
+                className="inline-flex h-11 w-11 items-center justify-center rounded-full shadow-lg"
                 style={{
                   background: `linear-gradient(135deg, ${theme.palette.primary}, ${theme.palette.accent})`,
                   color: theme.palette.primaryForeground,
                   boxShadow: `0 12px 24px ${hexToRgba(theme.palette.primary, 0.26)}`,
                 }}
-                onClick={onCustomize}
-                aria-label={`Add ${item.name}`}
               >
                 <ArrowRight className="h-4 w-4" />
-              </button>
+              </div>
             )}
           </div>
         </div>

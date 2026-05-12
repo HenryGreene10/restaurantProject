@@ -260,6 +260,70 @@ describe('admin menu integration', () => {
     })
   })
 
+  it('creates a menu item with category assignment', async () => {
+    mockCreateItem.mockResolvedValue({
+      id: 'item_1',
+      name: 'Margherita Pizza',
+      basePriceCents: 1299,
+      visibility: 'AVAILABLE',
+      categoryItems: [],
+      variants: [],
+      itemModifierGroups: [],
+    })
+
+    const response = await request(createApp())
+      .post('/admin/menu/items')
+      .set('Authorization', 'Bearer clerk_token')
+      .set('Host', 'demo.example.com')
+      .send({
+        name: 'Margherita Pizza',
+        basePriceCents: 1299,
+        categoryIds: ['cat_1'],
+        visibility: 'AVAILABLE',
+      })
+
+    expect(response.status).toBe(201)
+    expect(mockCreateItem).toHaveBeenCalledWith({
+      name: 'Margherita Pizza',
+      nameLocalized: null,
+      description: null,
+      photoUrl: null,
+      basePriceCents: 1299,
+      tags: [],
+      prepTimeMinutes: 0,
+      specialInstructionsEnabled: false,
+      isFeatured: false,
+      visibility: 'AVAILABLE',
+      categoryIds: ['cat_1'],
+    })
+    expect(response.body.id).toBe('item_1')
+  })
+
+  it('lists items and the created item appears in the response', async () => {
+    mockListItems.mockResolvedValue({
+      items: [
+        {
+          id: 'item_1',
+          name: 'Margherita Pizza',
+          basePriceCents: 1299,
+          visibility: 'AVAILABLE',
+        },
+      ],
+      nextCursor: null,
+    })
+
+    const response = await request(createApp())
+      .get('/admin/menu/items')
+      .set('Authorization', 'Bearer clerk_token')
+      .set('x-tenant-slug', 'demo')
+
+    expect(response.status).toBe(200)
+    expect(mockListItems).toHaveBeenCalledTimes(1)
+    expect(response.body.items).toHaveLength(1)
+    expect(response.body.items[0]).toMatchObject({ id: 'item_1', name: 'Margherita Pizza' })
+    expect(response.body.nextCursor).toBeNull()
+  })
+
   it('reorders items within a category', async () => {
     mockReorderCategoryItems.mockResolvedValue({
       id: 'cat_1',
