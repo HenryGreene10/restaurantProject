@@ -35,6 +35,7 @@ const BrandCtx = createContext<BrandCtxValue>({ theme: {}, categories: [] })
 export const BrandProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [theme, setTheme] = useState<Theme>({})
   const [categories, setCategories] = useState<Category[]>([])
+  const [ready, setReady] = useState(false)
 
   useEffect(() => {
     fetch('/v1/menu')
@@ -48,7 +49,10 @@ export const BrandProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         if (meta) meta.setAttribute('content', color)
       })
       .catch(() => {})
+      .finally(() => setReady(true))
   }, [])
+
+  if (!ready) return null
 
   return <BrandCtx.Provider value={{ theme, categories }}>{children}</BrandCtx.Provider>
 }
