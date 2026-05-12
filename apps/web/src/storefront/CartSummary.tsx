@@ -10,7 +10,7 @@ import {
   UtensilsCrossed,
   X,
 } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 import { Badge } from '@/components/ui/badge'
@@ -206,6 +206,7 @@ export function CartSummary({
   const showNameError = (nameTouched || submitAttempted) && !!nameError
   const showPhoneError = (phoneTouched || submitAttempted) && !!phoneError
   const showAddressError = (addressTouched || submitAttempted) && !!addressError
+  const hasContactDetails = trimmedName.length > 0 && trimmedPhone.length > 0
   const parsedCustomTipCents = parseCustomTipDollars(customTipDollars)
   const tipInputError =
     selectedTipPercent === 'custom' && parsedCustomTipCents == null
@@ -215,7 +216,7 @@ export function CartSummary({
     fulfillmentType !== 'DELIVERY'
       ? 0
       : selectedTipPercent === 'custom'
-        ? parsedCustomTipCents ?? 0
+        ? (parsedCustomTipCents ?? 0)
         : selectedTipPercent
           ? tipFromPercentage(subtotal, selectedTipPercent)
           : 0
@@ -231,7 +232,7 @@ export function CartSummary({
     !isVerifyingOtp &&
     !isRedeeming
 
-  const taxEstimate = useMemo(() => Math.round(subtotal * 0.08), [subtotal])
+  const taxEstimate = Math.round(subtotal * 0.08)
 
   // loyalty banner: show for unauthenticated users (new) or authenticated new members
   const loyaltyActive = !loyaltyAccount || loyaltyAccount.active !== false
@@ -1132,9 +1133,7 @@ export function CartSummary({
                   {checkoutMode && fulfillmentType === 'DELIVERY' && tipCents > 0 ? (
                     <div className="flex items-center justify-between text-sm text-muted-foreground">
                       <span>Tip</span>
-                      <span className="font-semibold text-foreground">
-                        {formatPrice(tipCents)}
-                      </span>
+                      <span className="font-semibold text-foreground">{formatPrice(tipCents)}</span>
                     </div>
                   ) : null}
                   {previewDiscountCents > 0 ? (
@@ -1196,7 +1195,7 @@ export function CartSummary({
                           <Button
                             className="min-h-11 w-full justify-center"
                             disabled={
-                              !hasDraftDetails ||
+                              !hasContactDetails ||
                               Boolean(tipInputError) ||
                               submitting ||
                               isPreparingPayment ||
@@ -1206,7 +1205,7 @@ export function CartSummary({
                               Boolean(otpPhone)
                             }
                             style={
-                              brandColors && hasDraftDetails
+                              brandColors && hasContactDetails
                                 ? {
                                     background: `linear-gradient(135deg, ${brandColors.primary}, ${brandColors.accent})`,
                                     color: brandColors.primaryForeground,
