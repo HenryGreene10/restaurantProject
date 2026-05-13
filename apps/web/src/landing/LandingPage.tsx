@@ -122,14 +122,13 @@ export function LandingPage() {
           <div className="nav-center">
             <a href="#product">Product</a>
             <a href="#pricing">Pricing</a>
-            <a href="#comparison">Compare</a>
           </div>
           <div className="nav-right">
             <a href="https://admin.easymenu.website" className="btn-ghost">
               Sign in
             </a>
             <a href="https://admin.easymenu.website/signup" className="btn-sm">
-              Start for \$279
+              Start for $279
               <svg
                 width="12"
                 height="12"
@@ -161,12 +160,12 @@ export function LandingPage() {
           </h1>
           <p className="hero-sub r rd2">
             EasyMenu gives independent restaurants a fully branded direct-ordering system. We help
-            you get live with menu setup, Stripe connection, and website linking. \$279 to launch,
+            you get live with menu setup, Stripe connection, and website linking. $279 to launch,
             then $79/month flat.
           </p>
           <div className="hero-actions r rd3">
             <a href="https://admin.easymenu.website/signup" className="btn-primary">
-              Let&apos;s get started for \$279
+              Let&apos;s get started for $279
               <svg
                 width="14"
                 height="14"
@@ -599,7 +598,7 @@ export function LandingPage() {
               </div>
               <div className="pricing-label">Initial setup</div>
               <div className="pricing-price">
-                <div className="pricing-dollar">\$279</div>
+                <div className="pricing-dollar">$279</div>
                 <div className="pricing-period">&thinsp;one time</div>
               </div>
               <div className="pricing-subprice">$79/month after launch</div>
@@ -635,7 +634,7 @@ export function LandingPage() {
             </div>
             <div className="pricing-cta">
               <a href="https://admin.easymenu.website/signup" className="btn-full">
-                Let&apos;s get started for \$279
+                Let&apos;s get started for $279
                 <svg
                   width="13"
                   height="13"
@@ -657,114 +656,6 @@ export function LandingPage() {
         </div>
       </section>
 
-      {/* ── COMPARISON ── */}
-      <section id="comparison">
-        <div className="wrap">
-          <div className="sh r">
-            <div className="eyebrow">Compare</div>
-            <h2>Flat direct ordering beats percentage fees.</h2>
-            <p>
-              On $8,000/month in repeat orders, a 20% marketplace fee is $1,600 before delivery
-              add-ons, promos, or processing. EasyMenu is \$279 to launch, then $79/month.
-            </p>
-          </div>
-          <div className="comp-table r">
-            <div className="comp-head">
-              <div className="ch" />
-              <div className="ch ours">EasyMenu</div>
-              <div className="ch">DoorDash</div>
-              <div className="ch">Grubhub</div>
-              <div className="ch">Toast</div>
-              <div className="ch">Square</div>
-            </div>
-            {[
-              {
-                label: 'Direct-order software cost',
-                us: <span className="hl">\$279 setup, then $79/mo</span>,
-                a: <span className="sm">Commission-free Online Ordering available</span>,
-                b: <span className="sm">Grubhub Direct says $0 setup / hosting</span>,
-                d: <span className="sm">Hardware and implementation vary</span>,
-                c: <span className="sm">$0 / $49 / $149 per location</span>,
-              },
-              {
-                label: 'Marketplace delivery commission',
-                us: <span className="yes">0%</span>,
-                a: <span className="bad">15% / 25% / 30%</span>,
-                b: <span className="bad">5% / 15% / 20% marketing + delivery from 10%</span>,
-                d: <span className="sm">Not a marketplace fee model</span>,
-                c: <span className="sm">Not a marketplace fee model</span>,
-              },
-              {
-                label: 'Pickup marketplace commission',
-                us: <span className="yes">0%</span>,
-                a: <span className="bad">6%</span>,
-                b: <span className="sm">Marketing commission applies on app orders</span>,
-                d: <span className="sm">N/A</span>,
-                c: <span className="sm">N/A</span>,
-              },
-              {
-                label: 'Card processing on direct online orders',
-                us: <span className="sm">Stripe processing, typically 2.9% + 30¢</span>,
-                a: <span className="sm">Processing fees for Online Ordering orders</span>,
-                b: <span className="sm">Order processing fees apply</span>,
-                d: <span className="sm">Toast payment facilitator; rates vary</span>,
-                c: <span className="sm">2.9% + 30¢ API, online 2.9%-3.3% + 30¢</span>,
-              },
-              {
-                label: 'Kitchen display cost',
-                us: <span className="yes">Included</span>,
-                a: (
-                  <span className="sm">
-                    DoorDash tablet may carry weekly fee after intro period
-                  </span>
-                ),
-                b: <span className="sm">Marketplace tablet / workflow</span>,
-                d: <span className="sm">Quote / hardware dependent</span>,
-                c: <span className="sm">$20-$30/mo per KDS device</span>,
-              },
-              {
-                label: 'Hardware lock-in',
-                us: <span className="yes">Use browser/tablet</span>,
-                a: <span className="sm">Tablet, POS integration, email, or fax</span>,
-                b: <span className="sm">Marketplace workflow</span>,
-                d: <span className="bad">Toast-approved hardware only</span>,
-                c: <span className="yes">Hardware optional for payments</span>,
-              },
-              {
-                label: 'Initial menu and website setup',
-                us: <span className="yes">Included in launch</span>,
-                a: <span className="sm">Merchant signup flow</span>,
-                b: <span className="sm">Free photoshoot on marketplace plans</span>,
-                d: <span className="sm">Implementation varies</span>,
-                c: <span className="sm">Self-serve or paid ecosystem support</span>,
-              },
-              {
-                label: 'Customer relationship',
-                us: <span className="yes">Direct ordering and loyalty</span>,
-                a: <span className="sm">Marketplace plus direct tools</span>,
-                b: <span className="sm">Marketplace plus Grubhub Direct</span>,
-                d: <span className="sm">POS customer tools</span>,
-                c: <span className="sm">POS customer tools</span>,
-              },
-            ].map((row) => (
-              <div className="comp-row" key={row.label}>
-                <div className="cc">{row.label}</div>
-                <div className="cc ours">{row.us}</div>
-                <div className="cc">{row.a}</div>
-                <div className="cc">{row.b}</div>
-                <div className="cc">{row.d}</div>
-                <div className="cc">{row.c}</div>
-              </div>
-            ))}
-          </div>
-          <p className="comp-source r">
-            Competitor figures are based on public pricing pages checked May 2026. DoorDash and
-            Grubhub rates vary by plan, market, introductory offer, and selected services; Toast
-            pricing varies by hardware and implementation; Square varies by plan and device count.
-          </p>
-        </div>
-      </section>
-
       {/* ── CTA ── */}
       <section id="cta" className="cta-section">
         <div className="wrap">
@@ -776,7 +667,7 @@ export function LandingPage() {
             </h2>
             <p className="cta-sub">
               We&apos;ll help you connect your site, set up your menu, and get your direct ordering
-              flow live for \$279 upfront, then $79/month.
+              flow live for $279 upfront, then $79/month.
             </p>
             <div className="cta-actions">
               <a
@@ -784,7 +675,7 @@ export function LandingPage() {
                 className="btn-primary"
                 style={{ fontSize: 15, padding: '14px 24px' }}
               >
-                Let&apos;s get started for \$279
+                Let&apos;s get started for $279
                 <svg
                   width="14"
                   height="14"
@@ -824,7 +715,7 @@ export function LandingPage() {
               <div className="contact-points">
                 <span>No hello@ inbox required</span>
                 <span>Best for pre-signup questions</span>
-                <span>Signup still starts with the \$279 setup flow</span>
+                <span>Signup still starts with the $279 setup flow</span>
               </div>
             </div>
             <form className="contact-form" onSubmit={handleContactSubmit}>
@@ -918,11 +809,10 @@ export function LandingPage() {
                 <a href="#product">Storefront</a>
                 <a href="#features">Features</a>
                 <a href="#pricing">Pricing</a>
-                <a href="#comparison">Compare</a>
               </div>
               <div className="footer-col">
                 <h4>Restaurant</h4>
-                <a href="https://admin.easymenu.website/signup">Get started for \$279</a>
+                <a href="https://admin.easymenu.website/signup">Get started for $279</a>
                 <a href="https://admin.easymenu.website">Admin login</a>
                 <a href="#contact">Contact us</a>
               </div>
